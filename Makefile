@@ -6,19 +6,26 @@ LD_FLAGS = -nostdlib -nostartfiles -nodefaultlibs -lgcc
 # -m32, -m64 (compiler) -melf_i386, -melf_x86_64 (linker) -32, -64 (assembler)
 # -nostdinc -fno-builtin -fno-stack-protector
 
-.PHONY: multibootCheck
+.PHONY: multibootCheck clean test
 
+CC = i686-elf-gcc
+AS = i686-elf-as
+
+VPATH = ../
+DIR_INC = ../include
+DIR_LIB = ../lib
+DIR_OBJ = ../build
 
 myos.bin: boot.o kernel.o
-	i686-elf-gcc -T linker.ld -o myos.bin -ffreestanding -O2 -nostdlib boot.o kernel.o -lgcc
+	$(CC) -T linker.ld -o myos.bin -ffreestanding -O2 -nostdlib boot.o kernel.o -lgcc
 	./multibootCheck.sh
 
 boot.o: boot.s
-	i686-elf-as boot.s -o boot.o
+	$(AS) boot.s -o boot.o
 
 kernel.o: kernel.c
-	i686-elf-gcc -c kernel.c -o kernel.o -std=gnu11 -ffreestanding -O2 -Wall -Wextra
+	$(CC) -c kernel.c -o kernel.o -std=gnu11 -ffreestanding -O2 -Wall -Wextra -I ../include
 
 clean:
-	-rm boot.o kernel.o myos.bin
+	-rm *.o myos.bin
 
