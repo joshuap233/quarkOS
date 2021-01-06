@@ -1,51 +1,36 @@
-#include "qstring.h"
 #include <assert.h>
 #include <stdlib.h>
 #include <stdio.h>
-#include <time.h>
 #include <string.h>
-
-#define MAX_STR_LENGTH 40
-#define CHAR_MIN 'a'
-#define CHAR_MAX 'z'
+#include "tool.h"
+#include "qstring.h"
 
 //  g 开头函数用于生成数据,调用测试代码
 //  t 开头函数为实际测试代码
-char *random_string();
-
-int random_int();
 
 void g_strlen(int num);
 
+void g_strcat(int num, void (t_test)(char *, char *, char *));
+
+void g_strcmp();
+
 void t_strlen(char *str);
 
-void g_strcat(int num);
 
 void t_strcat(char *dest1, char *dest2, char *tail);
 
 void t_strncat(char *dest1, char *dest2, char *tail);
 
+void t_strcmp(char *s1, char *s2, bool equal);
+
 int main() {
     g_strlen(10);
-    g_strcat_strncat(10);
+    g_strcat(10, t_strcat);
+    g_strcat(10, t_strncat);
+    g_strcmp();
     return 0;
 }
 
-char *random_string() {
-    int len = random_int();
-    char *string = malloc(sizeof(char) * (len + 1));
-    assert(string != NULL);
-    for (int i = 0; i < len; ++i) {
-        string[i] = rand() % (CHAR_MAX - CHAR_MIN + 1) + CHAR_MIN;
-    }
-    string[len] = '\0';
-    return string;
-}
-
-int random_int() {
-    int len = rand() % MAX_STR_LENGTH;
-    return len;
-}
 
 void g_strlen(int num) {
     int i = 0;
@@ -62,7 +47,7 @@ void t_strlen(char *str) {
     printf("t_strlen|str: %s\n", str);
 }
 
-void g_strcat(int num) {
+void g_strcat(int num, void (t_test)(char *, char *, char *)) {
     int i = 0;
     srand(i);
     char *tail = "tail";
@@ -80,7 +65,7 @@ void g_strcat(int num) {
         strcpy(s1, string);
         strcpy(s2, string);
 
-        t_strcat(s1, s2, tail);
+        t_test(s1, s2, tail);
 
         free(s1);
         free(s2);
@@ -91,7 +76,7 @@ void g_strcat(int num) {
 void t_strcat(char *dest1, char *dest2, char *tail) {
     strcat(dest1, tail);
     q_strcat(dest2, tail);
-//    printf("strcat| str1: %s,str2: %s\n", dest1, dest2);
+    printf("strcat| str1: %s,str2: %s\n", dest1, dest2);
     assert(strcmp(dest1, dest2) == 0);
 }
 
@@ -99,6 +84,18 @@ void t_strncat(char *dest1, char *dest2, char *tail) {
     size_t n = strlen(tail) - 1;
     strncat(dest1, tail, n);
     q_strncat(dest2, tail, n);
-//    printf("strncat| str1: %s,str2: %s\n", dest1, dest2);
+    printf("strncat| str1: %s,str2: %s\n", dest1, dest2);
     assert(strcmp(dest1, dest2) == 0);
+}
+
+void g_strcmp() {
+    t_strcmp("test", "test", true);
+    t_strcmp("", "", true);
+    t_strcmp("test123", "test123", true);
+    t_strcmp("test12", "tdet123", false);
+    t_strcmp("testd12", "est123", false);
+}
+
+void t_strcmp(char *s1, char *s2, bool equal) {
+    assert(q_strcmp(s1, s2) == equal);
 }

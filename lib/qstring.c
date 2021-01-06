@@ -4,7 +4,6 @@
 #include <stddef.h>
 #include <stdbool.h>
 #include "qstring.h"
-#include <stdio.h>
 
 size_t q_strlen(const char *str) {
     size_t len = 0;
