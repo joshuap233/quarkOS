@@ -19,7 +19,7 @@ void g_strlen(int num);
 
 void t_strlen(char *str);
 
-void g_strcat_strncat(int num);
+void g_strcat(int num);
 
 void t_strcat(char *dest1, char *dest2, char *tail);
 
@@ -34,6 +34,7 @@ int main() {
 char *random_string() {
     int len = random_int();
     char *string = malloc(sizeof(char) * (len + 1));
+    assert(string != NULL);
     for (int i = 0; i < len; ++i) {
         string[i] = rand() % (CHAR_MAX - CHAR_MIN + 1) + CHAR_MIN;
     }
@@ -61,39 +62,43 @@ void t_strlen(char *str) {
     printf("t_strlen|str: %s\n", str);
 }
 
-void g_strcat_strncat(int num) {
+void g_strcat(int num) {
     int i = 0;
     srand(i);
     char *tail = "tail";
+    char *s1, *s2, *string;
 
     for (; i < num; i++) {
-        char *s1, *s2;
-        s1 = random_string();
-        size_t size = sizeof(char) * (strlen(tail) + strlen(s1) + 1);
+        string = random_string();
+        size_t size = sizeof(char) * (strlen(tail) + strlen(string) + 1);
 
-        s1 = realloc(s1, size);
+        s1 = malloc(size);
+        assert(s1 != NULL);
         s2 = malloc(size);
-        strcpy(s2, s1);
+        assert(s2 != NULL);
+
+        strcpy(s1, string);
+        strcpy(s2, string);
 
         t_strcat(s1, s2, tail);
-        t_strncat(s1, s2, tail);
 
         free(s1);
         free(s2);
+        free(string);
     }
 }
 
 void t_strcat(char *dest1, char *dest2, char *tail) {
     strcat(dest1, tail);
     q_strcat(dest2, tail);
-    printf("strcat| str1: %s,str2: %s\n", dest1, dest2);
+//    printf("strcat| str1: %s,str2: %s\n", dest1, dest2);
     assert(strcmp(dest1, dest2) == 0);
 }
 
 void t_strncat(char *dest1, char *dest2, char *tail) {
-    int n = strlen(tail) - 1;
+    size_t n = strlen(tail) - 1;
     strncat(dest1, tail, n);
     q_strncat(dest2, tail, n);
-    printf("strncat| str1: %s,str2: %s\n", dest1, dest2);
+//    printf("strncat| str1: %s,str2: %s\n", dest1, dest2);
     assert(strcmp(dest1, dest2) == 0);
 }

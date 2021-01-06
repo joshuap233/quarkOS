@@ -1,4 +1,10 @@
 .idea
 .vscode
-boot.o
 myos.bin
+note.md
+isodir
+cmake-build-debug
+CMakeLists.txt
+*.o
+*.a
+*.so

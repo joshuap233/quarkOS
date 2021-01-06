@@ -1,4 +1,3 @@
-#include <stdbool.h> // bool datatype
 #include <stddef.h> // size_t and NULL
 #include "qstdint.h" // ntx_t and uintx_t
 #include "qstring.h"
@@ -72,6 +71,7 @@ void terminal_initialize(void) {
     }
 }
 
+
 void terminal_setcolor(uint8_t color) {
     terminal_color = color;
 }
@@ -104,7 +104,7 @@ void terminal_write(const char *data, size_t size) {
 }
 
 void terminal_writestring(const char *data) {
-    terminal_write(data, strlen(data));
+    terminal_write(data, q_strlen(data));
 }
 
 void kernel_main(void) {

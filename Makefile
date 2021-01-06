@@ -6,25 +6,25 @@ LD_FLAGS = -nostdlib -nostartfiles -nodefaultlibs -lgcc
 # -m32, -m64 (compiler) -melf_i386, -melf_x86_64 (linker) -32, -64 (assembler)
 # -nostdinc -fno-builtin -fno-stack-protector
 
-.PHONY: multibootCheck clean test
+.PHONY: multibootCheck clean
 
 CC = i686-elf-gcc
 AS = i686-elf-as
+DIR_INC = ./include
+VPATH = ./lib
+CFLAGS = -std=gnu11 -ffreestanding -O2 -Wall -Wextra -I $(DIR_INC)
+LD_SCRIPT = linker.ld
+LDFLAGS = -T $(LD_SCRIPT) -ffreestanding -O2 -nostdlib -lgcc
 
-VPATH = ../
-DIR_INC = ../include
-DIR_LIB = ../lib
-DIR_OBJ = ../build
-
-myos.bin: boot.o kernel.o
-	$(CC) -T linker.ld -o myos.bin -ffreestanding -O2 -nostdlib boot.o kernel.o -lgcc
+myos.bin: boot.o kernel.o qstring.o
+	$(CC) -o myos.bin boot.o kernel.o ./lib/qstring.o $(LDFLAGS)
 	./multibootCheck.sh
 
 boot.o: boot.s
 	$(AS) boot.s -o boot.o
 
 kernel.o: kernel.c
-	$(CC) -c kernel.c -o kernel.o -std=gnu11 -ffreestanding -O2 -Wall -Wextra -I ../include
+	$(CC) -c kernel.c -o kernel.o $(CFLAGS)
 
 clean:
 	-rm *.o myos.bin
