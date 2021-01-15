@@ -15,6 +15,7 @@ char *q_strcat(char *dest, const char *src);
 
 char *q_strncat(char *dest, const char *src, size_t n);
 
+// 与 c标准库用法不一样
 bool q_strcmp(const char *s1, const char *s2);
 
 //TODO:
