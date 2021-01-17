@@ -4,11 +4,20 @@
 #include <assert.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 #include "tool.h"
 
 #define MAX_STR_LENGTH 40
 #define CHAR_MIN 'a'
 #define CHAR_MAX 'z'
+
+void test_init() {
+    random_init();
+}
+
+void random_init() {
+    srand(time(NULL));
+}
 
 char *random_string() {
     int len = random_int();
@@ -25,3 +34,5 @@ int random_int() {
     int len = rand() % MAX_STR_LENGTH;
     return len;
 }
+
+

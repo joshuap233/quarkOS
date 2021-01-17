@@ -1,6 +1,7 @@
 #include <stddef.h> // size_t and NULL
 #include "qstdint.h" // ntx_t and uintx_t
 #include "qstring.h"
+#include "qlib.h"
 
 #if defined(__linux__)
 #warning "你没有使用跨平台编译器进行编译"
@@ -11,106 +12,43 @@
 #endif
 
 #if !defined(__STDC_HOSTED__)
-#error "你没有使用 freestanding模式"
+#error "你没有使用 freestanding 模式"
 #endif
 
 
-/* Hardware text mode color constants. */
-enum vga_color {
-    VGA_COLOR_BLACK = 0,
-    VGA_COLOR_BLUE = 1,
-    VGA_COLOR_GREEN = 2,
-    VGA_COLOR_CYAN = 3,
-    VGA_COLOR_RED = 4,
-    VGA_COLOR_MAGENTA = 5,
-    VGA_COLOR_BROWN = 6,
-    VGA_COLOR_LIGHT_GREY = 7,
-    VGA_COLOR_DARK_GREY = 8,
-    VGA_COLOR_LIGHT_BLUE = 9,
-    VGA_COLOR_LIGHT_GREEN = 10,
-    VGA_COLOR_LIGHT_CYAN = 11,
-    VGA_COLOR_LIGHT_RED = 12,
-    VGA_COLOR_LIGHT_MAGENTA = 13,
-    VGA_COLOR_LIGHT_BROWN = 14,
-    VGA_COLOR_WHITE = 15,
-};
+void get_multiboot_info_struct() {
+    register uint32_t ebx asm("ebx");
+    // Boot information address
+    uint32_t *bia = (uint32_t *) ebx;
 
-// fg，bg 为前景色与背景色,屏幕上的每个字符对应着显存中的连续两个字节,
-// 前一个是字符的 ASCII 码,后一个显示属性,
-// 而显示属性的字节,高四位定义背景色,低四位定义前景色
-static inline uint8_t vga_entry_color(enum vga_color fg, enum vga_color bg) {
-    return fg | (bg << 4);
-}
+    printfk("P: %p\n", bia);
 
-// 拼接 ascii 字符与显示属性
-static inline uint16_t vga_entry(unsigned char uc, uint8_t color) {
-    return (uint16_t) uc | (uint16_t) color << 8;
-}
+    uint32_t *max_addr = bia + *bia / sizeof(uint32_t);
 
-// VGA模式 3 提供 80 * 25的字符窗口显示
-// 0xB8000 ~ 0xBFFFF 内存地址映射到显存,直接对该内存读写可以修改显存来显示字符
-static const size_t VGA_WIDTH = 80;
-static const size_t VGA_HEIGHT = 25;
+    // reserved 字段恒为 0
+    assertk(*(bia + 1) == 0);
 
-size_t terminal_row;
-size_t terminal_column;
-uint8_t terminal_color;
-uint16_t *terminal_buffer;
+    // 标签首地址
+    uint32_t *tag = bia + 2;
+    // bia 总长度
+    uint32_t tag_total, tag_type = *tag;
 
-void terminal_initialize(void) {
-    terminal_row = 0;
-    terminal_column = 0;
-    terminal_color = vga_entry_color(VGA_COLOR_LIGHT_GREY, VGA_COLOR_BLACK);
-    terminal_buffer = (uint16_t *) 0xB8000;
-    // 清屏为空格
-    for (size_t y = 0; y < VGA_HEIGHT; y++) {
-        for (size_t x = 0; x < VGA_WIDTH; x++) {
-            const size_t index = y * VGA_WIDTH + x;
-            terminal_buffer[index] = vga_entry(' ', terminal_color);
-        }
+
+    while (tag_type != 6 && tag < max_addr) {
+        printfk("type: %u\n", tag_type);
+
+        tag_total = *(tag + 1);
+        //Boot information 的 tags以 8 字节对齐
+        tag_total = tag_total + (8 - tag_total % 8);
+        // 下一个标签地址
+        tag = tag + tag_total / sizeof(uint32_t);
+        tag_type = *tag;
     }
 }
 
-
-void terminal_setcolor(uint8_t color) {
-    terminal_color = color;
-}
-
-void terminal_putentryat(char c, uint8_t color, size_t x, size_t y) {
-    const size_t index = y * VGA_WIDTH + x;
-    terminal_buffer[index] = vga_entry(c, color);
-}
-
-void terminal_putchar(char c) {
-    if (c != '\n') {
-        terminal_putentryat(c, terminal_color, terminal_column, terminal_row);
-        if (++terminal_column == VGA_WIDTH) {
-            terminal_column = 0;
-            if (++terminal_row == VGA_HEIGHT)
-                terminal_row = 0;
-        }
-
-    } else {
-        if (++terminal_row == VGA_HEIGHT)
-            terminal_row = 0;
-        terminal_column = 0;
-    }
-
-}
-
-void terminal_write(const char *data, size_t size) {
-    for (size_t i = 0; i < size; i++)
-        terminal_putchar(data[i]);
-}
-
-void terminal_writestring(const char *data) {
-    terminal_write(data, q_strlen(data));
-}
 
 void kernel_main(void) {
-    /* Initialize terminal interface */
     terminal_initialize();
-
-    /* Newline support is left as an exercise. */
-    terminal_writestring("Hello, kernel World!\n1");
+//    print_str("Hello, kernel World!\n");
+    get_multiboot_info_struct();
 }

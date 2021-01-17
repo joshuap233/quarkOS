@@ -5,8 +5,6 @@
 #include "tool.h"
 #include "qstring.h"
 
-//  g 开头函数用于生成数据,调用测试代码
-//  t 开头函数为实际测试代码
 
 void g_strlen(int num);
 
@@ -24,6 +22,7 @@ void t_strncat(char *dest1, char *dest2, char *tail);
 void t_strcmp(char *s1, char *s2, bool equal);
 
 int main() {
+    test_init();
     g_strlen(10);
     g_strcat(10, t_strcat);
     g_strcat(10, t_strncat);

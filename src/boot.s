@@ -1,8 +1,12 @@
+.extern kernel_main
+
 /* multiboot 头常量 */
 .set MAGIC,         0xE85250D6
 .set ARCHITECTURE,  0
 .set HEADER_LENGTH, headerEnd - headerStart
 .set CHECKSUM,      -(HEADER_LENGTH + MAGIC + ARCHITECTURE)
+
+/* multiboot2 头需要 8 字节对齐,且必须在 OS image 的前 1K */
 
 .section .multiboot2
 .align 8
@@ -15,8 +19,8 @@ headerStart:
 /*一系列 tag*/
 
 /* 请求信息 */
-.word 1
-.word 0
+.short 1
+.short 0
 .long 8+reqinfoEnd-reqinfoStart
 
 reqinfoStart:
@@ -26,13 +30,13 @@ reqinfoEnd:
 
 
 /*页对齐*/
-.word 6
-.word 1
+.short 6
+.short 1
 .long 8
 
 /*终结 tag,需要按照 multiboot2 规范填充*/
-.word 0
-.word 0
+.short 0
+.short 0
 .long 8
 
 headerEnd:

@@ -1,10 +1,6 @@
 .idea
 .vscode
-myos.bin
-note.md
 cmake-build-debug
 CMakeLists.txt
-*.o
-*.a
-*.so
-*.iso
+build/*
+note/
