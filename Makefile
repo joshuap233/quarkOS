@@ -8,9 +8,9 @@
 CC := i686-elf-gcc
 AS := i686-elf-as
 DIR_INC   := ./src/include
-C_FLAGS   := -std=gnu11 -ffreestanding -O2 -Wall -Wextra -I $(DIR_INC)
+C_FLAGS   := -std=gnu11 -ffreestanding -O0 -Wall -Wextra -I $(DIR_INC)
 LD_SCRIPT := linker.ld
-LD_FLAGS  := -T $(LD_SCRIPT) -ffreestanding -O2 -nostdlib -lgcc
+LD_FLAGS  := -T $(LD_SCRIPT) -ffreestanding -O0 -nostdlib -lgcc
 
 C_SOURCES := $(shell find ./src -type f -name "*.c")
 S_SOURCES := $(shell find ./src -type f -name "*.s")
