@@ -2,5 +2,6 @@
 .vscode
 cmake-build-debug
 CMakeLists.txt
-build/*
+build/
+test/build/
 note/

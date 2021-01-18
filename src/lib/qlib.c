@@ -117,8 +117,9 @@ void hex(uint32_t n, char *str) {
     while (n != 0) {
         rem = n % 16;
         n /= 16;
-        str[i] = base[rem];
+        str[i++] = base[rem];
     }
+    str[i] = '\0';
 }
 
 __attribute__ ((format (printf, 1, 2))) void printfk(char *str, ...) {

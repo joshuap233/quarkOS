@@ -1,10 +1,17 @@
-INCLUDE    = ../src/include
-CC         = gcc
-CLIB_FLAGS = -std=gnu11 -ffreestanding -O0 -Wall -Wextra -g -I $(INCLUDE)
-C_FLAGS    = -std=gnu11 -O0 -Wall -Wextra -g -I $(INCLUDE)
+INCLUDE      = $(shell pwd)/../src/include
+CC           = gcc
+CYTHON       = cython
+PYTHON       = python3
 
-TEST_SOURCES := $(notdir $(shell find . -type f -name "*_test.c"))
-TEST_TARGET  := $(addprefix build/,$(patsubst %.c,%,$(TEST_SOURCES)))
+LIB_SETUP    = setup.py
+LIB 	     = build/tool
+
+CYTHON_FLAGS = -3  --embed
+CLIB_FLAGS   = -std=gnu11 -ffreestanding -O0 -Wall -Wextra -g -I $(INCLUDE)
+CTEST_FLAGS  = -I $(INCLUDE) -I /usr/include/python3.8 -L$(LIB) -lpython3.8
+
+TEST_SOURCES := $(notdir $(shell find . -type f -name "test_*.pyx"))
+TEST_TARGET  := $(addprefix build/,$(patsubst %.pyx,%,$(TEST_SOURCES)))
 
 LIB_SOURCES  := $(shell find ../src/lib -type f -name "*.c")
 LIB_OBJECTS  := $(addprefix build/,$(notdir $(patsubst %.c,%.o,$(LIB_SOURCES))))
@@ -15,17 +22,22 @@ VPATH = ./build:../src/lib/
 
 all: $(TEST_TARGET)
 
-$(TEST_TARGET): build/%: %.c $(LIB_OBJECTS) tool.o
-	$(CC) $(C_FLAGS) ./build/tool.o $(LIB_OBJECTS) $< -o $@
+$(TEST_TARGET): build/%: %.pyx $(LIB_OBJECTS) build/*.so
+	$(CYTHON) $(CYTHON_FLAGS) $< -o $@.c
+	$(CC) build/*.so $(LIB_OBJECTS) $(patsubst %.pyx,build/%.c,$<) $(CTEST_FLAGS) -o $@
 
 $(LIB_OBJECTS): build/%.o: %.c
-	$(CC) $(C_FLAGS) -c $(filter %$<,$(LIB_SOURCES)) -o $@
+	$(CC) $(CLIB_FLAGS) -c $(filter %$<,$(LIB_SOURCES)) -o $@
+#
 
-tool.o: tool.h tool.c
-	$(CC) $(C_FLAGS) tool.c -c -o build/tool.o
+build/*.so: tool.pyx $(LIB_SETUP)
+	$(PYTHON) $(LIB_SETUP) build_ext --inplace
+	mv *.so build/
 
 test: $(TEST_TARGET)
-	./$<
+	for i in build/test_qlib build/test_qstring; do $${i};done;
+
+
 
 clean:
-	rm build/*
+	rm -rf build/*

@@ -47,6 +47,7 @@ void hex(uint32_t n, char *str);
 
 void printfk(char *str, ...);
 
+// 整数转字符,结果放在 str中
 void q_itoa(uint32_t value, char *str);
 
 
