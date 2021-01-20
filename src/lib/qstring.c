@@ -37,3 +37,13 @@ bool q_strcmp(const char *s1, const char *s2) {
     }
     return true;
 }
+
+void *q_memcpy(void *dest, const void *src, size_t n) {
+    char *cd = dest;
+    const char *cs = src;
+
+    for (size_t i = 0; i < n; ++i) {
+        cd[i] = cs[i];
+    }
+    return cd;
+}

@@ -5,7 +5,6 @@
 #include "qlib.h"
 #include "qstdint.h"
 
-
 // fg，bg 为前景色与背景色,屏幕上的每个字符对应着显存中的连续两个字节,
 // 前一个是字符的 ASCII 码,后一个显示属性,
 // 而显示属性的字节,高四位定义背景色,低四位定义前景色
@@ -54,7 +53,7 @@ static void terminal_putentryat(char c, uint8_t color, size_t x, size_t y) {
 
 
 void q_itoa(uint32_t value, char *str) {
-    uint32_t i = 0, mod_op = 1000000000, temp;
+    uint32_t i = 0, mod_op = 1000000000;
 
     while (mod_op > value) {
         mod_op /= 10;
@@ -64,8 +63,7 @@ void q_itoa(uint32_t value, char *str) {
         str[i++] = 48;
     } else {
         while (mod_op != 0) {
-            temp = value / mod_op;
-            str[i++] = temp + 48;
+            str[i++] = value / mod_op + 48;
             value = value % mod_op;
             mod_op = mod_op / 10;
         }
@@ -105,7 +103,13 @@ void print_ui32(uint32_t num) {
 
 void print_pointer(void *p) {
     char str[sizeof(uint32_t) + 1 + 2] = "0x";
-    hex((uint32_t) (&p), str + 2);
+    hex((uint32_t) p, str + 2);
+    print_str(str);
+}
+
+void print_hex(uint32_t x) {
+    char str[sizeof(uint32_t) + 1 + 2] = "0x";
+    hex(x, str + 2);
     print_str(str);
 }
 
@@ -119,10 +123,23 @@ void hex(uint32_t n, char *str) {
         n /= 16;
         str[i++] = base[rem];
     }
+    if (i == 0) {
+        str[i] = base[i];
+        i++;
+    }
+
     str[i] = '\0';
+    // 反转
+    for (int j = 0; j < i - 1; ++j) {
+        char temp = str[j];
+        str[j] = str[--i];
+        str[i] = temp;
+    }
 }
 
-__attribute__ ((format (printf, 1, 2))) void printfk(char *str, ...) {
+#ifdef __i386__
+
+__attribute__ ((format (printf, 1, 2))) void printfk(char *__restrict str, ...) {
     size_t str_len = q_strlen(str);
     va_list ap;
     va_start(ap, str);
@@ -141,6 +158,9 @@ __attribute__ ((format (printf, 1, 2))) void printfk(char *str, ...) {
                 case 'p':
                     print_pointer(va_arg(ap, void*));
                     break;
+                case 'x':
+                    print_hex(va_arg(ap, uint32_t));
+                    break;
                 default:
                     i--;
                     print_char(str[i]);
@@ -152,3 +172,4 @@ __attribute__ ((format (printf, 1, 2))) void printfk(char *str, ...) {
     }
     va_end(ap);
 }
+#endif

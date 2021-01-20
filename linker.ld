@@ -1,43 +1,40 @@
-/* The bootloader will look at this image and start execution at the symbol
-   designated as the entry point. */
+/* 入口, 跳转到 _start symbol 处执行*/
 ENTRY(_start)
 
-/* Tell where the various sections of the object files will be put in the final
-   kernel image. */
+/* 输出段 */
 SECTIONS
 {
-	/* Begin putting sections at 1 MiB, a conventional place for kernels to be
-	   loaded at by the bootloader. */
+	/* 内核从内存 1M 开始*/
 	. = 1M;
 
-	/* First put the multiboot header, as it is required to be put very early
-	   early in the image or the bootloader won't recognize the file format.
-	   Next we'll put the .text section. */
+	/* 读,执行代码段 */
 	.text BLOCK(4K) : ALIGN(4K)
-	{
+	{	
+		_startKernel = .;
 		*(.multiboot2)
 		*(.text)
 	}
 
-	/* Read-only data. */
+	/* 只读数据段 */
 	.rodata BLOCK(4K) : ALIGN(4K)
 	{
 		*(.rodata)
 	}
 
-	/* Read-write data (initialized) */
+	/* 可读写数据段 */
 	.data BLOCK(4K) : ALIGN(4K)
 	{
 		*(.data)
 	}
 
-	/* Read-write data (uninitialized) and stack */
+	/* 未初始化的可读写数据段/栈段 */
 	.bss BLOCK(4K) : ALIGN(4K)
 	{
 		*(COMMON)
 		*(.bss)
+		_ebss = .;
 	}
 
-	/* The compiler may produce other sections, by default it will put them in
-	   a segment with the same name. Simply add stuff here as needed. */
+    /* 用于获取内核结束地址 */
+	_endKernel = ALIGN(4k);
 }

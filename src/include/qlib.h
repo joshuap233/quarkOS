@@ -43,19 +43,54 @@ void print_pointer(void *p);
 
 void print_char(char data);
 
+// 10 进制转 16 进制,结果存在 str中
 void hex(uint32_t n, char *str);
 
-void printfk(char *str, ...);
 
 // 整数转字符,结果放在 str中
 void q_itoa(uint32_t value, char *str);
 
-
+#ifdef __i386__
 #define assertk(condition) {\
     if (!(condition)) {     \
         printfk("\nassert error: %s: %s: %u\n",__FILE__,__FUNCTION__,__LINE__); \
     }\
-}\
+}
+
+#else
+
+#include <assert.h>
+
+#define assertk(condition) assert(condition)
+#endif
+
+
+#ifdef __i386__
+
+void printfk(char *__restrict str, ...);
+
+#else
+
+#include <stdio.h>
+
+#define printfk printf
+
+#endif
+
+#define BIT_MASK(__type__, n) (sizeof(__type__)*8==n)? \
+        ((__type__)-1):\
+        (((__type__)1<<n)-1)
+
+// 生成指定位数的掩码
+static inline uint32_t generate_mask(uint8_t num) {
+    assertk(num <= 32 && num >> 0);
+    uint32_t res = 0b0;
+    for (int i = 0; i < num; ++i) {
+        res <<= 1;
+        res |= 0b1;
+    }
+    return res;
+}
 
 
 #endif //QUARKOS_QLIB_H

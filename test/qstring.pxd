@@ -8,3 +8,5 @@ cdef extern from "../../src/include/qstring.h":
     char *q_strncat(char *dest, const char *src, size_t n)
 
     bool q_strcmp(const char *s1, const char *s2)
+
+    void *q_memcpy(void *dest, const void *src, size_t n)

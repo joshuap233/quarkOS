@@ -35,7 +35,10 @@ build/*.so: tool.pyx $(LIB_SETUP)
 	mv *.so build/
 
 test: $(TEST_TARGET)
-	for i in build/test_qlib build/test_qstring; do $${i};done;
+	@for i in $(TEST_TARGET); \
+	do \
+	  $${i} || exit 1;\
+  	done; \
 
 
 

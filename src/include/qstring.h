@@ -15,13 +15,14 @@ char *q_strcat(char *dest, const char *src);
 
 char *q_strncat(char *dest, const char *src, size_t n);
 
-// 与 c标准库用法不一样
+// 与 c标准库返回值不一样
 bool q_strcmp(const char *s1, const char *s2);
+
+void *q_memcpy(void *dest, const void *src, size_t n);
 
 //TODO:
 
-// strncmp,q_strcpy,q_strncpy
-//void q_memcpy(uint8_t *dest, const uint8_t *src, uint32_t len);
+// q_strcpy,q_strncpy
 //void q_memset(void *dest, uint8_t val, uint32_t len);
 //void q_bzero(void *dest, uint32_t len);
 
