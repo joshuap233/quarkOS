@@ -47,3 +47,15 @@ void *q_memcpy(void *dest, const void *src, size_t n) {
     }
     return cd;
 }
+
+void *q_memset(void *s, int c, size_t n) {
+    unsigned char *_s = s;
+    for (size_t i = 0; i < n; ++i) {
+        _s[i] = c;
+    }
+    return s;
+}
+
+void q_bzero(void *s, size_t n) {
+    q_memset(s, 0, n);
+}

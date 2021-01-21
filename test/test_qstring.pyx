@@ -75,5 +75,19 @@ class Test(tool.TestCase):
         qstring.q_memcpy(&dest3, &src3, sizeof(double))
         self.assertEqual(dest3, src3)
 
+    def test_memset(self):
+        cdef char r[10]
+        qstring.q_memset(r, 0, 10)
+        self.assertEqual(r, '')
+
+        cdef int t;
+        qstring.q_memset(&t, 0, sizeof(int))
+        self.assertEqual(t, 0)
+
+    def test_bzero(self):
+        cdef char r[10]
+        qstring.q_bzero(r, 10)
+        self.assertEqual(r, '')
+
 
 Test().run()

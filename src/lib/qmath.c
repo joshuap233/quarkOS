@@ -4,8 +4,8 @@
 #include "limits.h"
 
 float _q_ceilf(float _arg) {
-    uint32_t be_mask = generate_mask(8);
-    uint32_t frac_mask = generate_mask(23);
+    uint32_t be_mask = BIT_MASK(uint32_t ,8);
+    uint32_t frac_mask = BIT_MASK(uint32_t ,23);
 
     uint32_t arg;
     q_memcpy(&arg, &_arg, sizeof(uint32_t));

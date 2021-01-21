@@ -30,15 +30,5 @@ class Test(tool.TestCase):
         qlib.hex(it, string)
         self.assertEqual(string, hex(it)[2:])
 
-    # def test_generate_mask(self):
-    #     def generate_mask(n):
-    #         return int('1' * n, 2) if n > 0 else 0
-    #     rand_int = random.randint(0, 64)
-    #     if rand_int > 32:
-    #         self.assertEqual(qlib.generate_mask(rand_int), 0)
-    #     else:
-    #         self.assertEqual(qlib.generate_mask(rand_int), generate_mask(rand_int))
-
-
 
 Test().run()

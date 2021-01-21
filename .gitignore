@@ -5,3 +5,5 @@ CMakeLists.txt
 build/
 test/build/
 note/
+isodir/boot/quarkOS.bin
+run.py

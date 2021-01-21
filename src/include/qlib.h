@@ -81,16 +81,6 @@ void printfk(char *__restrict str, ...);
         ((__type__)-1):\
         (((__type__)1<<n)-1)
 
-// 生成指定位数的掩码
-static inline uint32_t generate_mask(uint8_t num) {
-    assertk(num <= 32 && num >> 0);
-    uint32_t res = 0b0;
-    for (int i = 0; i < num; ++i) {
-        res <<= 1;
-        res |= 0b1;
-    }
-    return res;
-}
-
+#define MASK_U32(n) BIT_MASK(uint32_t, n)
 
 #endif //QUARKOS_QLIB_H

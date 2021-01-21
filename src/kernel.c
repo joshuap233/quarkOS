@@ -28,8 +28,6 @@ typedef struct multiboot_mmap_entry multiboot_mmap_entry_t;
 void parse_memory_map(multiboot_tag_mmap_t *mmap) {
     multiboot_mmap_entry_t *entry = mmap->entries;
     char *tail = (char *) mmap + mmap->size;
-    uint64_t mask = generate_mask(32);
-    mask <<= 32;
     while (entry < tail) {
         assertk(entry->zero == 0);
         switch (entry->type) {
@@ -85,7 +83,7 @@ void parse_multiboot_info_struct() {
 
 void kernel_main(void) {
     terminal_initialize();
-
 //    printfk("%x\n", (uint32_t) _startKernel);
     parse_multiboot_info_struct();
+    gdt_create(0x0);
 }

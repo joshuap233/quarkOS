@@ -5,12 +5,13 @@
 
 .PHONY: clean run reload
 
+
 CC := i686-elf-gcc
 AS := i686-elf-as
 DIR_INC   := ./src/include
-C_FLAGS   := -std=gnu11 -ffreestanding -O0 -Wall -Wextra -I $(DIR_INC)
+C_FLAGS   := -std=gnu11 -ffreestanding -O0 -Wall -Wextra -I $(DIR_INC) $(env_debug)
 LD_SCRIPT := linker.ld
-LD_FLAGS  := -T $(LD_SCRIPT) -ffreestanding -O0 -nostdlib -lgcc
+LD_FLAGS  := -T $(LD_SCRIPT) -ffreestanding -O0 -nostdlib -lgcc $(env_debug)
 
 C_SOURCES := $(shell find ./src -type f -name "*.c")
 S_SOURCES := $(shell find ./src -type f -name "*.s")
@@ -50,12 +51,16 @@ define _run
 	qemu-system-i386 -cdrom build/quarkOS.iso &
 endef
 
-reload: 
+kill:
 	-pkill -f qemu-system-i386
-	$(_run)
 
 run:
 	$(_run)
+
+#-s: shorthand for -gdb tcp::1234
+#-S: freeze CPU at startup (use 'c' to start execution)
+debug:
+	@qemu-system-i386 -s -S  -cdrom build/quarkOS.iso &
 
 clean:
 	-rm build/*

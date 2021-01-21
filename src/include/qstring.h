@@ -20,10 +20,12 @@ bool q_strcmp(const char *s1, const char *s2);
 
 void *q_memcpy(void *dest, const void *src, size_t n);
 
+void *q_memset(void *s, int c, size_t n);
+
+void q_bzero(void *s, size_t n);
+
 //TODO:
 
 // q_strcpy,q_strncpy
-//void q_memset(void *dest, uint8_t val, uint32_t len);
-//void q_bzero(void *dest, uint32_t len);
 
 #endif //QUARKOS_QSTRING_H
