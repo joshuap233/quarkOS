@@ -28,7 +28,7 @@ typedef struct multiboot_mmap_entry multiboot_mmap_entry_t;
 void parse_memory_map(multiboot_tag_mmap_t *mmap) {
     multiboot_mmap_entry_t *entry = mmap->entries;
     char *tail = (char *) mmap + mmap->size;
-    while (entry < tail) {
+    while ((char *) entry < tail) {
         assertk(entry->zero == 0);
         switch (entry->type) {
             case MULTIBOOT_MEMORY_AVAILABLE:
@@ -57,7 +57,7 @@ void parse_multiboot_info_struct() {
     // 第一个标签首地址
     tag = (multiboot_tag_t *) (bia + 2);
 
-    while (tag < tail) {
+    while ((char *) tag < tail) {
         switch (tag->type) {
             case MULTIBOOT_TAG_TYPE_MMAP:
                 mmap = (multiboot_tag_mmap_t *) tag;
