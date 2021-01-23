@@ -82,8 +82,9 @@ void parse_multiboot_info_struct() {
 
 
 void kernel_main(void) {
+    gdt_init();
     terminal_initialize();
+
 //    printfk("%x\n", (uint32_t) _startKernel);
-    parse_multiboot_info_struct();
-    gdt_create(0x0);
+//    parse_multiboot_info_struct();
 }

@@ -9,7 +9,7 @@ from libc.stdint cimport uint32_t
 
 
 class Test(tool.TestCase):
-    max_int = 2 ** 32 - 1
+    max_int = 2 ** 64 - 1
 
     def test_itoa(self):
         cdef char *string = <char*> malloc(33)
@@ -18,9 +18,16 @@ class Test(tool.TestCase):
         self.assertEqual(string, str(rand_int))
         free(string)
 
+    def test_itoa_limit(self):
+        cdef char *string = <char*> malloc(33)
+        it = 0
+        qlib.q_itoa(it, string)
+        self.assertEqual(string, str(it))
+        free(string)
+
     def test_hex(self):
         rand_int = random.randint(0, self.max_int)
-        cdef char *string = <char*> malloc(33)
+        cdef char *string = <char*> malloc(65)
         qlib.hex(rand_int, string)
         self.assertEqual(string, hex(rand_int)[2:])
 

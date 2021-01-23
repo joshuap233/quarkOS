@@ -10,7 +10,6 @@
 #include <stdarg.h>
 #include "stdint.h"
 
-
 /* Hardware text mode color constants. */
 enum vga_color {
     VGA_COLOR_BLACK = 0,
@@ -37,18 +36,20 @@ void terminal_setcolor(uint8_t color);
 
 void print_str(const char *data);
 
-void print_ui32(uint32_t num);
+void print_u(uint64_t num);
+
+void print_hex(uint64_t x);
 
 void print_pointer(void *p);
 
 void print_char(char data);
 
 // 10 进制转 16 进制,结果存在 str中
-void hex(uint32_t n, char *str);
+void hex(uint64_t n, char *str);
 
 
 // 整数转字符,结果放在 str中
-void q_itoa(uint32_t value, char *str);
+void q_itoa(uint64_t value, char *str);
 
 #ifdef __i386__
 #define assertk(condition) {\
@@ -61,7 +62,7 @@ void q_itoa(uint32_t value, char *str);
 
 #include <assert.h>
 
-#define assertk(condition) assert(condition)
+#define assertk(condition) assert(condition);
 #endif
 
 
@@ -77,6 +78,7 @@ void printfk(char *__restrict str, ...);
 
 #endif
 
+// 生成掩码
 #define BIT_MASK(__type__, n) (sizeof(__type__)*8==n)? \
         ((__type__)-1):\
         (((__type__)1<<n)-1)

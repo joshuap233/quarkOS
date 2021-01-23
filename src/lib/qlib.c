@@ -51,24 +51,39 @@ static void terminal_putentryat(char c, uint8_t color, size_t x, size_t y) {
     terminal_buffer[index] = vga_entry(c, color);
 }
 
-
-void q_itoa(uint32_t value, char *str) {
-    uint32_t i = 0, mod_op = 1000000000;
-
-    while (mod_op > value) {
-        mod_op /= 10;
+void reverse(char *s, uint32_t n) {
+    char temp;
+    for (uint32_t i = 0, j = n; i < j; i++, j--) {
+        temp = s[i];
+        s[i] = s[j];
+        s[j] = temp;
     }
+}
 
-    if (mod_op == 0) {
-        str[i++] = 48;
-    } else {
-        while (mod_op != 0) {
-            str[i++] = value / mod_op + 48;
-            value = value % mod_op;
-            mod_op = mod_op / 10;
-        }
-    }
+void q_itoa(uint64_t value, char *str){
+    uint8_t i = 0;
+    do {
+        str[i++] = value % 10 + '0';
+        value /= 10;
+    } while (value != 0);
     str[i] = '\0';
+    reverse(str, i - 1);
+}
+
+
+// 10 进制转 16 进制
+void hex(uint64_t n, char *str) {
+    static const char base[] = "0123456789abcdef";
+    uint8_t rem, i = 0;
+
+    do {
+        rem = n % 16;
+        n /= 16;
+        str[i++] = base[rem];
+    } while (n != 0);
+
+    str[i] = '\0';
+    reverse(str, i - 1);
 }
 
 void print_char(char c) {
@@ -95,47 +110,24 @@ void print_str(const char *data) {
 }
 
 
-void print_ui32(uint32_t num) {
-    char str[sizeof(uint32_t) + 1];
+void print_u(uint64_t num) {
+    char str[sizeof(uint64_t) + 1];
     q_itoa(num, str);
     print_str(str);
 }
 
 void print_pointer(void *p) {
-    char str[sizeof(uint32_t) + 1 + 2] = "0x";
+    char str[sizeof(uint64_t) + 1 + 2] = "0x";
     hex((uint32_t) p, str + 2);
     print_str(str);
 }
 
-void print_hex(uint32_t x) {
-    char str[sizeof(uint32_t) + 1 + 2] = "0x";
+void print_hex(uint64_t x) {
+    char str[sizeof(uint64_t) + 1 + 2] = "0x";
     hex(x, str + 2);
     print_str(str);
 }
 
-// 10 进制转 16 进制
-void hex(uint32_t n, char *str) {
-    static const char base[] = "0123456789abcdef";
-    uint8_t rem, i = 0;
-
-    while (n != 0) {
-        rem = n % 16;
-        n /= 16;
-        str[i++] = base[rem];
-    }
-    if (i == 0) {
-        str[i] = base[i];
-        i++;
-    }
-
-    str[i] = '\0';
-    // 反转
-    for (int j = 0; j < i - 1; ++j) {
-        char temp = str[j];
-        str[j] = str[--i];
-        str[i] = temp;
-    }
-}
 
 #ifdef __i386__
 
@@ -147,7 +139,7 @@ __attribute__ ((format (printf, 1, 2))) void printfk(char *__restrict str, ...) 
         if (str[i] == '%' && (i + 1) < str_len) {
             switch (str[++i]) {
                 case 'u':
-                    print_ui32(va_arg(ap, uint32_t));
+                    print_u(va_arg(ap, uint32_t));
                     break;
                 case 's':
                     print_str(va_arg(ap, char*));
@@ -161,10 +153,21 @@ __attribute__ ((format (printf, 1, 2))) void printfk(char *__restrict str, ...) 
                 case 'x':
                     print_hex(va_arg(ap, uint32_t));
                     break;
+                case 'l':
+                    switch (str[++i]) {
+                        case 'u':
+                            print_u(va_arg(ap, uint64_t));
+                            break;
+                        case 'x':
+                            print_hex(va_arg(ap, uint64_t));
+                            break;
+                        default:
+                            i--;
+                    }
+                    break;
                 default:
                     i--;
                     print_char(str[i]);
-                    break;
             }
         } else {
             print_char(str[i]);
@@ -172,4 +175,5 @@ __attribute__ ((format (printf, 1, 2))) void printfk(char *__restrict str, ...) 
     }
     va_end(ap);
 }
+
 #endif

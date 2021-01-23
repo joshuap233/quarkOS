@@ -60,20 +60,15 @@ stack_bottom:
 stack_top:
 
 /*
-The linker script specifies _start as the entry point to the kernel and the
-bootloader will jump to this position once the kernel has been loaded. It
-doesn't make sense to return from this function as the bootloader is gone.
+linker 脚本指定 _start symbol 为内核开始处,bootloader 会跳转到这里
+.global 使 ld 脚本可以看到 _start symbol
 */
 .section .text
 .global _start
 .type _start, @function
 _start:
 
-	/*
-	To set up a stack, we set the esp register to point to the top of the
-	stack (as it grows downwards on x86 systems). This is necessarily done
-	in assembly as languages such as C cannot function without a stack.
-	*/
+	/* 设置内核栈, x86 栈向低地址扩展, c 函数执行需要栈 */
 	mov $stack_top, %esp
 
 	/*
