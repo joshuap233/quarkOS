@@ -4,7 +4,7 @@
 #include "qstring.h"
 #include "qlib.h"
 #include "qstdint.h"
-
+#include "vga.h"
 // fg，bg 为前景色与背景色,屏幕上的每个字符对应着显存中的连续两个字节,
 // 前一个是字符的 ASCII 码,后一个显示属性,
 // 而显示属性的字节,高四位定义背景色,低四位定义前景色
