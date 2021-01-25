@@ -14,14 +14,14 @@ class Test(tool.TestCase):
     def test_itoa(self):
         cdef char *string = <char*> malloc(33)
         rand_int = random.randint(0, self.max_int)
-        qlib.q_itoa(rand_int, string)
+        qlib.q_utoa(rand_int, string)
         self.assertEqual(string, str(rand_int))
         free(string)
 
     def test_itoa_limit(self):
         cdef char *string = <char*> malloc(33)
         it = 0
-        qlib.q_itoa(it, string)
+        qlib.q_utoa(it, string)
         self.assertEqual(string, str(it))
         free(string)
 

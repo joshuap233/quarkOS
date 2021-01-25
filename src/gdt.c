@@ -5,14 +5,13 @@
 
 #define GDT_COUNT 7
 
+
 void gdt_init() {
     // 使用平坦模型,
     // 第 0 个 gdt 为 NULL,
     // 1-3 gdt 为内核段: text,data,rodata
     // 4-6 gdt 为用户段: text,data,rodata
-    static gdt_t gdt[GDT_COUNT] = {0};
-
-    // 设置 gdtr
+    static gdt_entry_t _Alignas(8) gdt[GDT_COUNT] = {0};
     gdtr_t gdtr = {
             .limit = GDT_COUNT * GDT_SIZE - 1,
             .address = (uint32_t) gdt
@@ -34,10 +33,10 @@ void gdt_init() {
     assertk(gdt[1].flag == 0xc)
     assertk(gdt[1].access == GDT_SYS_CODE)
     // 调用函数,参数压栈,返回地址压栈,因此参数地址 = (esp+4)
-    set_gdtr((uint32_t) &gdtr);
+    gdtr_set((uint32_t) &gdtr);
 }
 
-void gdt_set(gdt_t *gdt, uint32_t base, uint32_t limit, uint8_t flag, uint8_t access) {
+void gdt_set(gdt_entry_t *gdt, uint32_t base, uint32_t limit, uint8_t flag, uint8_t access) {
     // 设置基地址
     gdt->base_l = base & (MASK_U32(16));
     gdt->base_m = (base >> 16) & (MASK_U32(8));

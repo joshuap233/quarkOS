@@ -49,7 +49,7 @@ void hex(uint64_t n, char *str);
 
 
 // 整数转字符,结果放在 str中
-void q_itoa(uint64_t value, char *str);
+void q_utoa(uint64_t value, char *str);
 
 #ifdef __i386__
 #define assertk(condition) {\
@@ -79,9 +79,9 @@ void printfk(char *__restrict str, ...);
 #endif
 
 // 生成掩码
-#define BIT_MASK(__type__, n) (sizeof(__type__)*8==n)? \
+#define BIT_MASK(__type__, n) ((sizeof(__type__)*8==n)? \
         ((__type__)-1):\
-        (((__type__)1<<n)-1)
+        (((__type__)1<<n)-1))
 
 #define MASK_U32(n) BIT_MASK(uint32_t, n)
 

@@ -24,8 +24,10 @@ extern char _endKernel[], _startKernel[];
 
 void kernel_main(void) {
     gdt_init();
+    idt_init();
     terminal_initialize();
     printfk("hello word\n");
+//    uint32_t t= 1/0;
 //    printfk("%x\n", (uint32_t) _startKernel);
 //    parse_multiboot_info_struct();
 }

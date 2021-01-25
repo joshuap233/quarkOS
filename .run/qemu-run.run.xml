@@ -1,0 +1,5 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="qemu-run" type="qemu" factoryName="QEMU">
+    <method v="2" />
+  </configuration>
+</component>

@@ -5,6 +5,7 @@
 #include "qlib.h"
 #include "qstdint.h"
 #include "vga.h"
+
 // fg，bg 为前景色与背景色,屏幕上的每个字符对应着显存中的连续两个字节,
 // 前一个是字符的 ASCII 码,后一个显示属性,
 // 而显示属性的字节,高四位定义背景色,低四位定义前景色
@@ -60,7 +61,7 @@ void reverse(char *s, uint32_t n) {
     }
 }
 
-void q_itoa(uint64_t value, char *str){
+void q_utoa(uint64_t value, char *str) {
     uint8_t i = 0;
     do {
         str[i++] = value % 10 + '0';
@@ -109,10 +110,20 @@ void print_str(const char *data) {
         print_char(data[i]);
 }
 
+void print_d(int64_t num) {
+    uint8_t i = 0;
+    char str[sizeof(uint64_t) + 1 + 1];//1 位存符号
+    if (num < 0) {
+        str[i++] = '-';
+        num &= (BIT_MASK(uint64_t, 1) << 63);
+    }
+    q_utoa(num, str + i);
+    print_str(str);
+}
 
 void print_u(uint64_t num) {
     char str[sizeof(uint64_t) + 1];
-    q_itoa(num, str);
+    q_utoa(num, str);
     print_str(str);
 }
 
@@ -138,6 +149,9 @@ __attribute__ ((format (printf, 1, 2))) void printfk(char *__restrict str, ...) 
     for (size_t i = 0; i < str_len; i++) {
         if (str[i] == '%' && (i + 1) < str_len) {
             switch (str[++i]) {
+                case 'd':
+                    print_d(va_arg(ap, int32_t));
+                    break;
                 case 'u':
                     print_u(va_arg(ap, uint32_t));
                     break;
@@ -155,6 +169,9 @@ __attribute__ ((format (printf, 1, 2))) void printfk(char *__restrict str, ...) 
                     break;
                 case 'l':
                     switch (str[++i]) {
+                        case 'd':
+                            print_d(va_arg(ap, int64_t));
+                            break;
                         case 'u':
                             print_u(va_arg(ap, uint64_t));
                             break;
