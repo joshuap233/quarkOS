@@ -129,7 +129,7 @@ void print_u(uint64_t num) {
 
 void print_pointer(void *p) {
     char str[sizeof(uint64_t) + 1 + 2] = "0x";
-    hex((uint32_t) p, str + 2);
+    hex((pointer_t) p, str + 2);
     print_str(str);
 }
 

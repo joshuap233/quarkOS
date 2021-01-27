@@ -1,3 +1,6 @@
+#ifndef QUARKOS_MULTIBOOT2_H
+#define QUARKOS_MULTIBOOT2_H
+
 /*https://www.gnu.org/software/grub/manual/multiboot2/html_node/multiboot2_002eh.html#multiboot2_002eh*/
 
 #include "qstdint.h"
@@ -335,3 +338,5 @@ struct multiboot_tag_load_base_addr {
     multiboot_uint32_t size;
     multiboot_uint32_t load_base_addr;
 }__attribute__((packed));
+
+#endif //QUARKOS_MULTIBOOT2_H

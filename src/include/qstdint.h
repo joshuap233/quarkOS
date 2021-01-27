@@ -7,10 +7,14 @@
 
 #if defined(__i386__)
 #include <stdint.h>
-#else
+
+typedef uint32_t pointer_t;
 
 // x86 指针长 32 位,万一以后写64位 OS 呢,233
 #define POINTER_LENGTH 32
+
+#else
+
 
 // 用于测试
 typedef unsigned char uint8_t;

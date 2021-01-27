@@ -14,7 +14,7 @@ void gdt_init() {
     static gdt_entry_t _Alignas(8) gdt[GDT_COUNT] = {0};
     gdtr_t gdtr = {
             .limit = GDT_COUNT * GDT_SIZE - 1,
-            .address = (uint32_t) gdt
+            .address = (pointer_t) gdt
     };
 
     gdt_set(&gdt[1], 0, GDT_LIMIT, GDT_FLAG, GDT_SYS_CODE);
@@ -33,7 +33,7 @@ void gdt_init() {
     assertk(gdt[1].flag == 0xc)
     assertk(gdt[1].access == GDT_SYS_CODE)
     // 调用函数,参数压栈,返回地址压栈,因此参数地址 = (esp+4)
-    gdtr_set((uint32_t) &gdtr);
+    gdtr_set((pointer_t) &gdtr);
 }
 
 void gdt_set(gdt_entry_t *gdt, uint32_t base, uint32_t limit, uint8_t flag, uint8_t access) {

@@ -2,6 +2,7 @@
 // Created by pjs on 2021/1/25.
 //
 #include "idt.h"
+#include "pic.h"
 #include "qlib.h"
 
 // 编译器会保留 EFLAGS 外的所有寄存器,并使用 iret 返回
@@ -104,4 +105,11 @@ void ISR(19)(interrupt_frame_t *frame) {
 __attribute__((interrupt))
 void ISR(20)(interrupt_frame_t *frame) {
 
+}
+
+// PIC 0 号中断
+__attribute__((interrupt))
+void ISR(32)(interrupt_frame_t *frame) {
+    printfk("hello");
+    pic_eoi(32);
 }

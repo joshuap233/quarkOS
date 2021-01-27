@@ -3,5 +3,4 @@
 idtr_set:
     movl 4(%esp),%eax
     lidt (%eax)
-    # sti
     ret

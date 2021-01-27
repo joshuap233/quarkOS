@@ -1,3 +1,6 @@
+#ifndef QUARKOS_IDT_H
+#define QUARKOS_IDT_H
+
 #include "qstdint.h"
 
 typedef struct idtr {
@@ -78,4 +81,8 @@ void ISR(20)(interrupt_frame_t *);      // 20 #VE Virtualization Exception
 //21-31 不要使用
 //32-255 用户定义
 
+void ISR(32)(interrupt_frame_t *);      // 20 #VE Virtualization Exception
+
 extern void idtr_set(uint32_t idtr);
+
+#endif //QUARKOS_IDT_H

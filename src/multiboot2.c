@@ -14,8 +14,8 @@ void parse_memory_map(multiboot_tag_mmap_t *mmap) {
         assertk(entry->zero == 0);
         switch (entry->type) {
             case MULTIBOOT_MEMORY_AVAILABLE:
-                printfk("base_addr: %x\n", (uint32_t) entry->addr);
-                printfk("length   : %x\n", (uint32_t) entry->len);
+                printfk("base_addr: %x\n", (pointer_t) entry->addr);
+                printfk("length   : %x\n", (pointer_t) entry->len);
                 break;
         }
         entry = entry + 1;
@@ -31,7 +31,7 @@ void parse_multiboot_info_struct() {
     multiboot_tag_apm_t *apm;
     uint32_t flag = 0;
 
-    bia = (uint32_t *) ebx;
+    bia = (pointer_t *) ebx;
     //指向最大地址,*bia 为信息结构总大小
     char *tail = (char *) bia + *bia;
     // 保留字段恒为 0
