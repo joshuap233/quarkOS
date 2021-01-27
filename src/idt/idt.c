@@ -7,7 +7,7 @@
 #include "idt.h"
 #include "qlib.h"
 #include "pic.h"
-
+#include "ihandle.h"
 
 // 设置 interrupt gate
 static void idt_set_ig(idt_t *idt, uint32_t offset, uint16_t selector, uint8_t type) {

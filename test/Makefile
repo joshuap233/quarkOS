@@ -1,4 +1,5 @@
-INCLUDE      = $(shell pwd)/../src/include
+SRC          = $(shell pwd)/../src
+INCLUDE      = $(SRC)/include
 CC           = gcc
 CYTHON       = cython
 PYTHON       = python3
@@ -13,7 +14,8 @@ CTEST_FLAGS  = -I $(INCLUDE) -I /usr/include/python3.8 -L$(LIB) -lpython3.8
 TEST_SOURCES := $(notdir $(shell find . -type f -name "test_*.pyx"))
 TEST_TARGET  := $(addprefix build/,$(patsubst %.pyx,%,$(TEST_SOURCES)))
 
-LIB_SOURCES  := $(shell find ../src/lib -type f -name "*.c")
+LIB_SOURCES  := $(addprefix $(SRC)/, lib/qmath.c lib/qstring.c)
+
 LIB_OBJECTS  := $(addprefix build/,$(notdir $(patsubst %.c,%.o,$(LIB_SOURCES))))
 
 VPATH = ./build:../src/lib/

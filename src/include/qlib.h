@@ -9,30 +9,8 @@
 #include <stdbool.h>
 #include <stdarg.h>
 #include "stdint.h"
+#include "vga.h"
 
-/* Hardware text mode color constants. */
-enum vga_color {
-    VGA_COLOR_BLACK = 0,
-    VGA_COLOR_BLUE = 1,
-    VGA_COLOR_GREEN = 2,
-    VGA_COLOR_CYAN = 3,
-    VGA_COLOR_RED = 4,
-    VGA_COLOR_MAGENTA = 5,
-    VGA_COLOR_BROWN = 6,
-    VGA_COLOR_LIGHT_GREY = 7,
-    VGA_COLOR_DARK_GREY = 8,
-    VGA_COLOR_LIGHT_BLUE = 9,
-    VGA_COLOR_LIGHT_GREEN = 10,
-    VGA_COLOR_LIGHT_CYAN = 11,
-    VGA_COLOR_LIGHT_RED = 12,
-    VGA_COLOR_LIGHT_MAGENTA = 13,
-    VGA_COLOR_LIGHT_BROWN = 14,
-    VGA_COLOR_WHITE = 15,
-};
-
-void terminal_initialize(void);
-
-void terminal_setcolor(uint8_t color);
 
 void print_str(const char *data);
 
@@ -44,13 +22,6 @@ void print_pointer(void *p);
 
 void print_char(char data);
 
-// 10 进制转 16 进制,结果存在 str中
-void hex(uint64_t n, char *str);
-
-
-// 整数转字符,结果放在 str中
-void q_utoa(uint64_t value, char *str);
-
 #ifdef __i386__
 #define assertk(condition) {\
     if (!(condition)) {     \
@@ -59,9 +30,7 @@ void q_utoa(uint64_t value, char *str);
 }
 
 #else
-
 #include <assert.h>
-
 #define assertk(condition) assert(condition);
 #endif
 
@@ -71,11 +40,8 @@ void q_utoa(uint64_t value, char *str);
 void printfk(char *__restrict str, ...);
 
 #else
-
 #include <stdio.h>
-
 #define printfk printf
-
 #endif
 
 // 生成掩码

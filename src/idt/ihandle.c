@@ -5,6 +5,11 @@
 #include "pic.h"
 #include "qlib.h"
 
+// 忽略 -Wunused-parameter
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-parameter"
+#include "ihandle.h"
+
 // 编译器会保留 EFLAGS 外的所有寄存器,并使用 iret 返回
 __attribute__((interrupt))
 void ISR(0)(interrupt_frame_t *frame) {
@@ -107,9 +112,11 @@ void ISR(20)(interrupt_frame_t *frame) {
 
 }
 
-// PIC 0 号中断
+// PIC 0 号中断,PIT 时钟中断
 __attribute__((interrupt))
 void ISR(32)(interrupt_frame_t *frame) {
-    printfk("hello");
+//    printfk("hello\n");
     pic_eoi(32);
 }
+
+#pragma GCC diagnostic pop

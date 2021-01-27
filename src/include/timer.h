@@ -1,7 +1,7 @@
 //
 // Created by pjs on 2021/1/26.
 //
-
+// 8253/8253 PIT 以及 RTC
 #ifndef QUARKOS_TIMER_H
 #define QUARKOS_TIMER_H
 

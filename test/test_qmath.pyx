@@ -1,12 +1,10 @@
 # cython: c_string_type=unicode, c_string_encoding=utf8
 # 设置自动编码,不要删除上面的注释
 
-cimport qlib
 cimport qmath
 import random
 import tool
 import math
-from libc.stdlib cimport malloc, free
 
 
 class Test(tool.TestCase):

@@ -39,6 +39,7 @@ bool q_strcmp(const char *s1, const char *s2) {
 }
 
 void *q_memcpy(void *dest, const void *src, size_t n) {
+    //TODO:使用 movsb 指令传输
     char *cd = dest;
     const char *cs = src;
 
@@ -56,6 +57,51 @@ void *q_memset(void *s, uint32_t c, size_t n) {
     return s;
 }
 
+// 以字为单位复制,n为需要复制的字的数量
+void *q_memset16(void *s, uint16_t c, size_t n) {
+    uint16_t *_s = s;
+    for (size_t i = 0; i < n; ++i) {
+        _s[i] = c;
+    }
+    return s;
+}
+
 void q_bzero(void *s, size_t n) {
     q_memset(s, 0, n);
+}
+
+//li 为最后一个索引值(非 '\0')
+void reverse(char *const s, uint32_t li) {
+    char temp;
+    for (uint32_t i = 0, j = li; i < j; i++, j--) {
+        temp = s[i];
+        s[i] = s[j];
+        s[j] = temp;
+    }
+}
+
+void q_utoa(uint64_t value, char *str) {
+    uint8_t i = 0;
+    do {
+        str[i++] = value % 10 + '0';
+        value /= 10;
+    } while (value != 0);
+    str[i] = '\0';
+    reverse(str, i - 1);
+}
+
+
+// 10 进制转 16 进制
+void hex(uint64_t n, char *str) {
+    static const char base[] = "0123456789abcdef";
+    uint8_t rem, i = 0;
+
+    do {
+        rem = n % 16;
+        n /= 16;
+        str[i++] = base[rem];
+    } while (n != 0);
+
+    str[i] = '\0';
+    reverse(str, i - 1);
 }

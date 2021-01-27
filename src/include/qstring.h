@@ -20,9 +20,23 @@ bool q_strcmp(const char *s1, const char *s2);
 
 void *q_memcpy(void *dest, const void *src, size_t n);
 
+void *q_memset16(void *s, uint16_t c, size_t n);
+
 void *q_memset(void *s, uint32_t c, size_t n);
 
 void q_bzero(void *s, size_t n);
+
+
+// 10 进制转 16 进制,结果存在 str中
+void hex(uint64_t n, char *str);
+
+
+// 整数转字符,结果放在 str中
+void q_utoa(uint64_t value, char *str);
+
+//li 为最后一个索引(非 '\0')
+// 字符串反转
+void reverse(char *s, uint32_t li);
 
 //TODO:
 

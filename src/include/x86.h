@@ -1,7 +1,7 @@
 //
 // Created by pjs on 2021/1/25.
 //
-
+// 常用内联汇编
 #ifndef QUARKOS_X86_H
 #define QUARKOS_X86_H
 

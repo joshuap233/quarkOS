@@ -12,7 +12,7 @@ set(CMAKE_C_COMPILER ${TOOLS}/bin/i686-elf-gcc)
 set(CMAKE_ASM_COMPILER ${TOOLS}/bin/i686-elf-as)
 
 set(CMAKE_C_STANDARD 11)
-set(CMAKE_C_FLAGS "-ffreestanding -O0 -Wall -Wextra -isystem ${PROJECT_SOURCE_DIR}/src/idt/")
+set(CMAKE_C_FLAGS "-ffreestanding -O0 -Wall -Wextra")
 
 set(KERNEL_BIN ${CMAKE_PROJECT_NAME}.bin)
 set(KERNEL_ISO ${CMAKE_PROJECT_NAME}.iso)
