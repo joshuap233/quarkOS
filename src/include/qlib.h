@@ -51,4 +51,14 @@ void printfk(char *__restrict str, ...);
 
 #define MASK_U32(n) BIT_MASK(uint32_t, n)
 
+// bit 为 0-7
+static inline void set_bit(uint8_t *value, uint8_t bit) {
+    *value |= (0b1 << bit);
+}
+
+// bit 为 0-7
+static inline void clear_bit(uint8_t *value, uint8_t bit) {
+    *value &= (~(0b1 << bit));
+}
+
 #endif //QUARKOS_QLIB_H

@@ -42,4 +42,20 @@ static inline void enable_interrupt() {
     asm volatile ("sti");
 }
 
+static inline void disable_interrupt() {
+    asm volatile ("cli");
+}
+
+
+static inline void halt() {
+    asm volatile ("hlt");
+}
+
+
+// 内核异常,停止运行
+static inline void panic() {
+    disable_interrupt();
+    halt();
+}
+
 #endif //QUARKOS_X86_H

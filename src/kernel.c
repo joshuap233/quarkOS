@@ -23,11 +23,27 @@
 // 内核最大地址+1, 不要修改成 *_end,
 extern char _endKernel[], _startKernel[];
 
+void hello() {
+    char space[] = "                ";
+    printfk("\n");
+    printfk("%s************************************************\n", space);
+    printfk("%s*                                              *\n", space);
+    printfk("%s*                                              *\n", space);
+    printfk("%s*              Welcome to Quark OS             *\n", space);
+    printfk("%s*                                              *\n", space);
+    printfk("%s*                                              *\n", space);
+    printfk("%s************************************************\n", space);
+    printfk("\n");
+}
+
 void kernel_main(void) {
+    vga_init();
     gdt_init();
     idt_init();
-    vga_init();
-    printfk("hello word\n");
+    hello();
+//    while (1){
+//
+//    }
 //    uint32_t t= 1/0;
 //    printfk("%x\n", (uint32_t) _startKernel);
 //    parse_multiboot_info_struct();

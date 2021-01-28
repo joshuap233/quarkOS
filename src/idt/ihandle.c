@@ -8,6 +8,7 @@
 // 忽略 -Wunused-parameter
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-parameter"
+
 #include "ihandle.h"
 
 // 编译器会保留 EFLAGS 外的所有寄存器,并使用 iret 返回
@@ -117,6 +118,13 @@ __attribute__((interrupt))
 void ISR(32)(interrupt_frame_t *frame) {
 //    printfk("hello\n");
     pic_eoi(32);
+}
+
+// PIC 1 号中断,键盘输入
+__attribute__((interrupt))
+void ISR(33)(interrupt_frame_t *frame) {
+//    printfk("key: %u\n", inb(0x60));
+    pic_eoi(33);
 }
 
 #pragma GCC diagnostic pop

@@ -8,6 +8,7 @@
 #include "qlib.h"
 #include "pic.h"
 #include "ihandle.h"
+#include "ps2.h"
 
 // 设置 interrupt gate
 static void idt_set_ig(idt_t *idt, uint32_t offset, uint16_t selector, uint8_t type) {
@@ -49,6 +50,8 @@ void idt_init() {
 
     idtr_set((pointer_t) &idtr);
 
-    idt_set_ig(&idt[PIC1_OFFSET], (pointer_t) (ISR(32)), IDT_SC, IDT_TYPE);
-    pic_init(PIC1_OFFSET, PIC2_OFFSET);
+    idt_set_ig(&idt[32], (pointer_t) (ISR(32)), IDT_SC, IDT_TYPE);
+    idt_set_ig(&idt[33], (pointer_t) (ISR(33)), IDT_SC, IDT_TYPE);
+    pic_init(32, 40);
+    ps2_init();
 }

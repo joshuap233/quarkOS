@@ -5,7 +5,7 @@
 #ifndef QUARKOS_TIMER_H
 #define QUARKOS_TIMER_H
 
-// 8 bit 端口
+// 8 bit 端口,分别为 c0 c2 数据端口以及命令端口
 #define PIT_C0_DAT 0x40
 #define PIT_C2_DAT 0x42
 #define PIT_CMD    0x43
