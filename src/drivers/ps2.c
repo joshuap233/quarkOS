@@ -6,9 +6,8 @@
 #include "qstdint.h"
 #include "x86.h"
 #include "qlib.h"
-#include "foo.h"
 #include <stdbool.h>
-
+#include "keyboard.h"
 
 bool poll_status(uint8_t bit, status_t expect) {
     //TODO: 定时轮询,添加 sleep 函数
@@ -18,49 +17,49 @@ bool poll_status(uint8_t bit, status_t expect) {
  *  轮询结束没有达到期望值返回 False
 */
     for (int i = 0; i < N_POLL; ++i)
-        if (((inb(PS2_CMD) >> bit) & 0b1) == expect)
+        if (ps2_cs(bit, expect))
             return true;
     return false;
 }
 
 // 轮询读取数据
-uint8_t ps2_rd() {
+uint8_t ps2_prd() {
     if (!poll_status(0, ZERO)) {
         printfk("ps2_rd error\n");
         panic();
     }
-    return inb(PS2_DAT);
+    return ps2_rd();
 }
 
 // 轮询写数据
-void ps2_wd(uint8_t value) {
+void ps2_pwd(uint8_t value) {
     if (!poll_status(1, ZERO)) {
         printfk("ps2_rd error\n");
         panic();
     }
-    outb(PS2_DAT, value);
+    ps2_wd(value);
 }
 
 // 轮询写指令
-void ps2_wc(uint8_t value) {
-    if (!poll_status(1, 0)) {
+void ps2_pwc(uint8_t value) {
+    if (!poll_status(1, ZERO)) {
         printfk("ps2_rd error\n");
     }
-    outb(PS2_CMD, value);
+    ps2_wc(value);
 }
 
 
 void ps2_init() {
     //禁用 ps/2 两个端口
-    ps2_wc(0xAD);
-    ps2_wc(0xA7);
+    ps2_pwc(0xAD);
+    ps2_pwc(0xA7);
 
     //清空输出缓存
     ps2_rd();
 
     //读取控制位
-    ps2_rd();
-    uint8_t config = ps2_rd();
+    ps2_prd();
+    uint8_t config = ps2_prd();
     //开启键盘中断
     set_bit(&config, 0);
     //关闭鼠标中断,关闭 scanCode set 转换
@@ -68,25 +67,27 @@ void ps2_init() {
     clear_bit(&config, 6);
 
     //写回控制位
-    ps2_wc(0x60);
-    ps2_wd(config);
+    ps2_pwc(0x60);
+    ps2_pwd(config);
 
-    //开启 ps/2 键盘端口
-    ps2_wc(0xAE);
+    //测试端口1
+    ps2_wc(0xAB);
+    assertk(ps2_rd() == 0x00);
 
-    //测试是否设置成功
-    outb(PS2_CMD, 0xAA);
-    assertk(inb(PS2_DAT) == 0x55);
+    //开启 ps/2 键盘端口1
+    ps2_pwc(0xAE);
+    //测试是否设置成功,会接受到中断
+    ps2_wc(0xAA);
+    assertk(ps2_rd() == 0x55);
 
-    ps2_d_scode();
+    //初始化 ps/2 键盘
+    ps2_kb_init();
 }
 
-void ps2_d_device() {
 
-}
-
-void ps2_d_scode() {
-    ps2_wc(0xD1);
-    ps2_wd(0x1);
-    printfk("ps2_scode: %x\n", ps2_rd());
+uint8_t ps2_device_cmd(uint8_t cmd, device_status_t ds) {
+    uint8_t res;
+    ps2_pwd(cmd);
+    while ((res = ps2_prd()) == ds.resend);
+    return res;
 }

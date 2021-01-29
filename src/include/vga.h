@@ -57,4 +57,6 @@ void vga_enable_cursor();
 void vga_move_cursor(cursor_t cur);
 void vga_move_end();
 
+void vga_put_string(const char *data);
+
 #endif //QUARKOS_VGA_H

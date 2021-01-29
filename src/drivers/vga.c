@@ -58,7 +58,7 @@ void vga_set_color(uint8_t color) {
     terminal_color = color;
 }
 
-void vga_put_char(char c) {
+static void _vga_put_char(char c) {
     if (c == NEWLINE) {
         vga_newline();
         return;
@@ -101,4 +101,16 @@ void vga_move_cursor(cursor_t cur) {
 //长字符串输出结束调用,移动指针
 void vga_move_end() {
     vga_move_cursor(cursor);
+}
+
+void vga_put_char(char c){
+    _vga_put_char(c);
+    vga_move_end();
+}
+
+void vga_put_string(const char *data) {
+    size_t size = q_strlen(data);
+    for (size_t i = 0; i < size; i++)
+        _vga_put_char(data[i]);
+    vga_move_end();
 }

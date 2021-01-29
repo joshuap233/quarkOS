@@ -21,7 +21,7 @@ include_directories("${PROJECT_SOURCE_DIR}/src/include")
 #AUX_SOURCE_DIRECTORY("${PROJECT_SOURCE_DIR}/src/" C_SOURCE)
 
 set(S_SOURCE src/boot.s src/gdt.s)
-set(C_SOURCE src/kernel.c src/gdt.c src/multiboot2.c)
+set(C_SOURCE src/kernel.c src/gdt.c src/multiboot2.c src/queue.c)
 
 add_executable(${KERNEL_BIN} ${S_SOURCE} ${C_SOURCE} ${mylib} ${drivers})
 set_target_properties(${KERNEL_BIN} PROPERTIES LINK_FLAGS "-T ${CMAKE_SOURCE_DIR}/linker.ld -ffreestanding -O0 -nostdlib")

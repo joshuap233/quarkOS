@@ -6,19 +6,7 @@
 #include "vga.h"
 
 
-void print_char(char c) {
-    vga_put_char(c);
-    vga_move_end();
-}
-
-void print_str(const char *data) {
-    size_t size = q_strlen(data);
-    for (size_t i = 0; i < size; i++)
-        vga_put_char(data[i]);
-    vga_move_end();
-}
-
-void print_d(int64_t num) {
+static void print_d(int64_t num) {
     uint8_t i = 0;
     char str[sizeof(uint64_t) + 1 + 1];//1 位存符号
     if (num < 0) {
@@ -26,25 +14,25 @@ void print_d(int64_t num) {
         num &= (BIT_MASK(uint64_t, 1) << 63);
     }
     q_utoa(num, str + i);
-    print_str(str);
+    vga_put_string(str);
 }
 
-void print_u(uint64_t num) {
+static void print_u(uint64_t num) {
     char str[sizeof(uint64_t) + 1];
     q_utoa(num, str);
-    print_str(str);
+    vga_put_string(str);
 }
 
-void print_pointer(void *p) {
+static void print_pointer(void *p) {
     char str[sizeof(uint64_t) + 1 + 2] = "0x";
     hex((pointer_t) p, str + 2);
-    print_str(str);
+    vga_put_string(str);
 }
 
-void print_hex(uint64_t x) {
+static void print_hex(uint64_t x) {
     char str[sizeof(uint64_t) + 1 + 2] = "0x";
     hex(x, str + 2);
-    print_str(str);
+    vga_put_string(str);
 }
 
 
@@ -64,10 +52,10 @@ __attribute__ ((format (printf, 1, 2))) void printfk(char *__restrict str, ...) 
                     print_u(va_arg(ap, uint32_t));
                     break;
                 case 's':
-                    print_str(va_arg(ap, char*));
+                    vga_put_string(va_arg(ap, char*));
                     break;
                 case 'c':
-                    print_char((char) va_arg(ap, int));
+                    vga_put_char((char) va_arg(ap, int));
                     break;
                 case 'p':
                     print_pointer(va_arg(ap, void*));
@@ -92,10 +80,10 @@ __attribute__ ((format (printf, 1, 2))) void printfk(char *__restrict str, ...) 
                     break;
                 default:
                     i--;
-                    print_char(str[i]);
+                    vga_put_char(str[i]);
             }
         } else {
-            print_char(str[i]);
+            vga_put_char(str[i]);
         }
     }
     va_end(ap);

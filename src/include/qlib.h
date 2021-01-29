@@ -10,22 +10,13 @@
 #include <stdarg.h>
 #include "stdint.h"
 #include "vga.h"
-
-
-void print_str(const char *data);
-
-void print_u(uint64_t num);
-
-void print_hex(uint64_t x);
-
-void print_pointer(void *p);
-
-void print_char(char data);
+#include "x86.h"
 
 #ifdef __i386__
 #define assertk(condition) {\
     if (!(condition)) {     \
         printfk("\nassert error: %s: %s: %u\n",__FILE__,__FUNCTION__,__LINE__); \
+        panic();                        \
     }\
 }
 

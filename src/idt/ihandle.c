@@ -4,6 +4,7 @@
 #include "idt.h"
 #include "pic.h"
 #include "qlib.h"
+#include "ps2.h"
 
 // 忽略 -Wunused-parameter
 #pragma GCC diagnostic push
@@ -123,7 +124,8 @@ void ISR(32)(interrupt_frame_t *frame) {
 // PIC 1 号中断,键盘输入
 __attribute__((interrupt))
 void ISR(33)(interrupt_frame_t *frame) {
-//    printfk("key: %u\n", inb(0x60));
+    printfk("key: %x |", ps2_rd());
+    printfk("\n");
     pic_eoi(33);
 }
 

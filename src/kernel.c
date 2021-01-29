@@ -7,6 +7,7 @@
 #include "gdt.h"
 #include "idt.h"
 #include "vga.h"
+#include "x86.h"
 
 #if defined(__linux__)
 #warning "你没有使用跨平台编译器进行编译"
@@ -38,12 +39,12 @@ void hello() {
 
 void kernel_main(void) {
     vga_init();
+    hello();
     gdt_init();
     idt_init();
-    hello();
-//    while (1){
-//
-//    }
+    while (1){
+        halt();
+    }
 //    uint32_t t= 1/0;
 //    printfk("%x\n", (uint32_t) _startKernel);
 //    parse_multiboot_info_struct();
