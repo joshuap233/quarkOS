@@ -2,7 +2,7 @@
 // Created by pjs on 2021/1/26.
 //
 
-#include "qstdint.h"
+#include "types.h"
 #include "x86.h"
 #include "qlib.h"
 #include "pic.h"

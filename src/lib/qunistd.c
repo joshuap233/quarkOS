@@ -3,3 +3,7 @@
 //
 
 #include "qunistd.h"
+
+//unsigned int sleep(unsigned int seconds);
+
+//int usleep(__useconds_t __useconds);

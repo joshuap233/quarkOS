@@ -1,7 +1,7 @@
 #ifndef QUARKOS_VGA_H
 #define QUARKOS_VGA_H
 
-#include "qstdint.h"
+#include "types.h"
 
 #define VGA_TEXT_MODE_MEM 0xB8000
 
@@ -42,7 +42,7 @@ enum vga_color {
 typedef struct cursor {
     uint8_t row;
     uint8_t col;
-}cursor_t;
+} cursor_t;
 
 void vga_init();
 
@@ -50,13 +50,15 @@ void vga_set_color(uint8_t color);
 
 void vga_put_char(char c);
 
-void vga_newline();
-
 void vga_enable_cursor();
 
-void vga_move_cursor(cursor_t cur);
-void vga_move_end();
+void vga_sync_cursor(cursor_t cur);
 
 void vga_put_string(const char *data);
 
+void vga_delete();
+void vga_cursor_left();
+void vga_cursor_right();
+void vga_cursor_up();
+void vga_cursor_down();
 #endif //QUARKOS_VGA_H

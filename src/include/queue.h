@@ -5,7 +5,7 @@
 #ifndef QUARKOS_QUEUE_H
 #define QUARKOS_QUEUE_H
 
-#include "qstdint.h"
+#include "types.h"
 #include "stddef.h"
 
 #define QUEUE_LEN 10

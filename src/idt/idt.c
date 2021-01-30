@@ -2,12 +2,12 @@
 // Created by pjs on 2021/1/23.
 //
 
-#include "qstdint.h"
+#include "types.h"
 
 #include "idt.h"
 #include "qlib.h"
 #include "pic.h"
-#include "ihandle.h"
+#include "isr.h"
 #include "ps2.h"
 
 // 设置 interrupt gate

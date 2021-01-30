@@ -7,7 +7,8 @@
 #define QUARKOS_KEYBOARD_H
 
 #include <stdbool.h>
-#include "qstdint.h"
+#include "types.h"
+#include <stddef.h>
 //状态读取
 #define KB_ACK     0xFA
 #define KB_RESEND  0xFE
@@ -33,6 +34,8 @@
 #define    ENTER        '\n'
 #define    SPACE        ' '
 
+//字符 ascii < 0x84
+
 // f1-f12 都在 asciiNonShift1 和 asciiShift1
 //f1-f12 0x84-0x8f
 #define    F1           0x84
@@ -50,8 +53,8 @@
 
 //功能键 0x90-0xa0
 #define    ESC                  0x90
-#define    CAPSLOCK             (SPACE+1)
-#define    BACKSPACE            (ENTER+1)
+#define    CAPSLOCK             (ESC+1)
+#define    BACKSPACE            (CAPSLOCK+1)
 #define    NUMBER_LOCK          (BACKSPACE+1)
 #define    SCROLL_LOCK          (NUMBER_LOCK+1)
 #define    RIGHT_GUI            (SCROLL_LOCK+1)
@@ -246,71 +249,70 @@ static const unsigned char asciiNonShift1[] = {
 
 
 // asciiNonShift2 不受 shift 影响
-#define asciiShift2 asciiNonShift2
 
 // 0x83 后,每个键扫描码为2字节,第一字节为 0xe0
-static const unsigned char asciiNonShift2[] = {
+static const unsigned char ascii2[] = {
         KNULL, KNULL, KNULL, KNULL, KNULL, KNULL, KNULL, KNULL, KNULL, KNULL, KNULL, KNULL, KNULL, KNULL, KNULL, KNULL,
         [0x10] = M_WWW_SEARCH,
         [0x11] = RIGHT_ALT,
-        [0x12] = KNULL,KNULL,
+        [0x12] = KNULL, KNULL,
         [0x14] = RIGHT_CTRL,
         [0x15] = M_PREVIOUS_TRACK,
-        [0x16] = KNULL,KNULL,
+        [0x16] = KNULL, KNULL,
         [0x18] = M_WWW_FAVORITES,
-        [0x19] = KNULL,KNULL,KNULL,KNULL,KNULL,
+        [0x19] = KNULL, KNULL, KNULL, KNULL, KNULL,
         [0x1F] = LEFT_GUI,
         [0x20] = M_WWW_REFRESH,
         [0x21] = M_VOLUME_DOWN,
         [0x22] = KNULL,
         [0x23] = M_MUTE,
-        [0x24] = KNULL,KNULL,KNULL,
+        [0x24] = KNULL, KNULL, KNULL,
         [0x27] = RIGHT_GUI,
         [0x28] = M_WWW_STOP,
-        [0x29] = KNULL,KNULL,
+        [0x29] = KNULL, KNULL,
         [0x2B] = M_CALCULATOR,
-        [0x2C] = KNULL,KNULL,KNULL,
+        [0x2C] = KNULL, KNULL, KNULL,
         [0x2F] = APPS,
         [0x30] = M_WWW_FORWARD,
         [0x31] = KNULL,
         [0x32] = M_VOLUME_UP,
         [0x33] = KNULL,
         [0x34] = M_PLAY_PAUSE,
-        [0x35] = KNULL,KNULL,
+        [0x35] = KNULL, KNULL,
         [0x37] = A_POWER,
         [0x38] = M_WWW_BACK,
         [0x39] = KNULL,
         [0x3A] = M_WWW_HOME,
         [0x3B] = M_STOP,
-        [0x3C] = KNULL,KNULL,KNULL,
+        [0x3C] = KNULL, KNULL, KNULL,
         [0x3f] = A_SLEEP,
         [0x40] = M_MY_COMPUTER,
-        [0x41] = KNULL,KNULL,KNULL,KNULL,KNULL,KNULL,KNULL,
+        [0x41] = KNULL, KNULL, KNULL, KNULL, KNULL, KNULL, KNULL,
         [0x48] = M_EMAIL,
         [0x49] = KNULL,
         [0x4A] = '/',//keypad
-        [0x4B] = KNULL,KNULL,
+        [0x4B] = KNULL, KNULL,
         [0x4D] = M_NEXT_TRACK,
-        [0x4E] = KNULL,KNULL,
+        [0x4E] = KNULL, KNULL,
         [0x50] = M_MEDIA_SELECT,
-        [0x51] = KNULL,KNULL,KNULL,KNULL,KNULL,KNULL,KNULL,KNULL,KNULL,
+        [0x51] = KNULL, KNULL, KNULL, KNULL, KNULL, KNULL, KNULL, KNULL, KNULL,
         [0x5A] = ENTER, //keypad
-        [0x5B] = KNULL,KNULL,KNULL,
+        [0x5B] = KNULL, KNULL, KNULL,
         [0x5E] = A_WAKE,
-        [0x5F] = KNULL,KNULL,KNULL,KNULL,KNULL,KNULL,KNULL,KNULL,KNULL,KNULL,
+        [0x5F] = KNULL, KNULL, KNULL, KNULL, KNULL, KNULL, KNULL, KNULL, KNULL, KNULL,
         [0x69] = END,
         [0x6B] = CURSOR_LEFT,
         [0x6C] = HOME,
-        [0x6D] = KNULL,KNULL,KNULL,
+        [0x6D] = KNULL, KNULL, KNULL,
         [0x70] = INSERT,
         [0x71] = DELETE,
         [0x72] = CURSOR_DOWN,
         [0x73] = KNULL,
         [0x74] = CURSOR_RIGHT,
         [0x75] = CURSOR_UP,
-        [0x76] = KNULL,KNULL,KNULL,KNULL,
+        [0x76] = KNULL, KNULL, KNULL, KNULL,
         [0x7A] = PAGE_DOWN,
-        [0x7B] = KNULL,KNULL,
+        [0x7B] = KNULL, KNULL,
         [0x7D] = KNULL
 };
 
@@ -449,24 +451,51 @@ static const unsigned char asciiShift1[] = {
         [0x83] = F7,
 };
 
+typedef bool status_t;
+#define PRESS   true
+#define RELEASE false
+
 //键盘状态
 typedef struct kb_status {
     bool e0; //是否收到 e0
     bool f0; //是否收到 f0
-    bool lShift;
-    bool rShift;
-    bool lCtrl;
-    bool rCtrl;
-    bool lGui;   // 左 win 键
-    bool lAlt;
-    bool rAlt;
-    bool numLk; //NUMBER_LOCK
-    bool capsLK; //CAPSLOCK
-    bool scrollLk; //SCROLL_LOCK
-}kb_status_t;
+    status_t lShift;
+    status_t rShift;
+    status_t lCtrl;
+    status_t rCtrl;
+    status_t lGui;   // 左 win 键
+    status_t lAlt;
+    status_t rAlt;
+    status_t numLk; //NUMBER_LOCK
+    status_t capsLK; //CAPSLOCK
+    status_t scrollLk; //SCROLL_LOCK
+} kb_status_t;
 
-void ps2_kb_init();
+typedef struct kb_queue {
+#define KB_BUFFER_SIZE  256 //键盘缓冲区大小
+#define KB_NULL         '\0'
+    uint8_t buffer[KB_BUFFER_SIZE];
+    size_t header;
+    size_t tail;
+} kb_queue_t;
+
+void kb_init();
 
 //解析扫描码
-void ps2_sc_parse(uint8_t scancode);
+void kb_sc_parse(uint8_t scancode);
+
+char kb_getchar();
+
+typedef enum KEY_TYPE {
+    CHAR = 0,
+    F = 1, //F1-F12
+    FN = 2, //功能键
+    META = 3, //修饰键
+    MEDIA = 4, //媒体键
+    ACPI = 5, //电源键
+} key_type_t;
+
+
+key_type_t kb_key_type(uint8_t value);
+
 #endif //QUARKOS_KEYBOARD_H

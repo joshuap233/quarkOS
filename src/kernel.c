@@ -1,5 +1,5 @@
 #include <stddef.h> // size_t and NULL
-#include "qstdint.h" // ntx_t and uintx_t
+#include "types.h" // ntx_t and uintx_t
 #include "qstring.h"
 #include "qlib.h"
 #include "multiboot2.h"
@@ -8,6 +8,7 @@
 #include "idt.h"
 #include "vga.h"
 #include "x86.h"
+#include "keyboard.h"
 
 #if defined(__linux__)
 #warning "你没有使用跨平台编译器进行编译"
@@ -42,9 +43,15 @@ void kernel_main(void) {
     hello();
     gdt_init();
     idt_init();
+
     while (1){
-        halt();
+        kb_getchar();
     }
+//    kb_getchar();
+
+//    while (1){
+//        halt();
+//    }
 //    uint32_t t= 1/0;
 //    printfk("%x\n", (uint32_t) _startKernel);
 //    parse_multiboot_info_struct();

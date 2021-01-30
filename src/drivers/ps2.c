@@ -2,23 +2,24 @@
 // Created by pjs on 2021/1/27.
 //
 
+#include <stdbool.h>
 #include "ps2.h"
-#include "qstdint.h"
+#include "types.h"
 #include "x86.h"
 #include "qlib.h"
-#include <stdbool.h>
 #include "keyboard.h"
 
 bool poll_status(uint8_t bit, status_t expect) {
-    //TODO: 定时轮询,添加 sleep 函数
 /*
  *  轮询状态寄存器状态并等待,bit 为需要检查的位,expect 为期望值
  *  bit 范围: 0-7, 不会检查参数
  *  轮询结束没有达到期望值返回 False
 */
     for (int i = 0; i < N_POLL; ++i)
-        if (ps2_cs(bit, expect))
+        if (ps2_cs(bit, expect)) {
+            ssleep(10);
             return true;
+        }
     return false;
 }
 
@@ -81,7 +82,7 @@ void ps2_init() {
     assertk(ps2_rd() == 0x55);
 
     //初始化 ps/2 键盘
-    ps2_kb_init();
+    kb_init();
 }
 
 

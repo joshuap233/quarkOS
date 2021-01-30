@@ -8,9 +8,10 @@
 #include <stddef.h> // size_t and NULL
 #include <stdbool.h>
 #include <stdarg.h>
-#include "stdint.h"
+#include "types.h"
 #include "vga.h"
 #include "x86.h"
+#include "timer.h"
 
 #ifdef __i386__
 #define assertk(condition) {\
@@ -36,11 +37,12 @@ void printfk(char *__restrict str, ...);
 #endif
 
 // 生成掩码
-#define BIT_MASK(__type__, n) ((sizeof(__type__)*8==n)? \
+#define BIT_MASK(__type__, n) ((sizeof(__type__)*8==(n))? \
         ((__type__)-1):\
-        (((__type__)1<<n)-1))
+        (((__type__)1<<(n))-1))
 
 #define MASK_U32(n) BIT_MASK(uint32_t, n)
+#define MASK_U8(n)  BIT_MASK(uint8_t, n)
 
 // bit 为 0-7
 static inline void set_bit(uint8_t *value, uint8_t bit) {
@@ -51,5 +53,7 @@ static inline void set_bit(uint8_t *value, uint8_t bit) {
 static inline void clear_bit(uint8_t *value, uint8_t bit) {
     *value &= (~(0b1 << bit));
 }
+
+
 
 #endif //QUARKOS_QLIB_H

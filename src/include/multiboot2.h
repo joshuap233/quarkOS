@@ -3,7 +3,7 @@
 
 /*https://www.gnu.org/software/grub/manual/multiboot2/html_node/multiboot2_002eh.html#multiboot2_002eh*/
 
-#include "qstdint.h"
+#include "types.h"
 
 #define MULTIBOOT_TAG_ALIGN                  8
 #define MULTIBOOT_TAG_TYPE_END               0

@@ -1,14 +1,15 @@
 #include "vga.h"
 #include "x86.h"
-#include "qstdint.h"
+#include "types.h"
 #include <stddef.h>
 #include "qstring.h"
 #include "qlib.h"
 
-//即将读写的行与列
+//即将读写的行与列,不要直接修改
 static cursor_t cursor;
 static uint8_t terminal_color;
 static uint16_t *terminal_buffer;
+
 
 // fg，bg 为前景色与背景色
 static inline uint8_t vga_entry_color(enum vga_color fg, enum vga_color bg) {
@@ -20,6 +21,7 @@ static inline uint16_t vga_entry(unsigned char uc, uint8_t color) {
     return (uint16_t) uc | (uint16_t) color << 8;
 }
 
+#define VGA_SPACE vga_entry(' ', terminal_color)
 
 static inline void vga_set_buf(char c, uint8_t color, cursor_t cur) {
     // 根据行列设置buffer
@@ -28,7 +30,7 @@ static inline void vga_set_buf(char c, uint8_t color, cursor_t cur) {
 }
 
 static inline void vga_clean_line(uint8_t row) {
-    q_memset16(&terminal_buffer[BUF_INDEX(0, row)], vga_entry(' ', terminal_color), VGA_WIDTH);
+    q_memset16(&terminal_buffer[BUF_INDEX(0, row)], VGA_SPACE, VGA_WIDTH);
 }
 
 static inline void vga_scroll_up() {
@@ -39,18 +41,63 @@ static inline void vga_scroll_up() {
 
 static inline void vga_clean() {
     // 清屏为空格
-    q_memset16(terminal_buffer, vga_entry(' ', terminal_color), VGA_WIDTH * VGA_HEIGHT);
+    q_memset16(terminal_buffer, VGA_SPACE, VGA_WIDTH * VGA_HEIGHT);
+}
+
+static inline void vga_cleanc(cursor_t c) {
+    //清除一个字符
+    q_memset16(&terminal_buffer[BUF_INDEX(c.col, c.row)], VGA_SPACE, 1);
 }
 
 
+static inline void set_cursor(uint8_t row, uint8_t col) {
+    cursor.row = row;
+    cursor.col = col;
+}
+
+
+//指针向上平移
+static inline void cursor_up() {
+    cursor.row = cursor.row == 0 ? 0 : cursor.row - 1;
+}
+
+//指针向下平移
+static inline void cursor_down() {
+    uint8_t nr = cursor.row + 1;
+    cursor.row = nr >= VGA_HEIGHT ? cursor.row : nr;
+}
+
+// 移动到下一行行首
+static inline void inc_row() {
+    cursor.row + 1 == VGA_HEIGHT ? vga_scroll_up() : cursor.row++;
+    cursor.col = 0;
+}
+
+// 移动到上一行行尾
+static inline void dec_row() {
+    if (cursor.row != 0) {
+        cursor.row--;
+        cursor.col = VGA_WIDTH - 1;
+    }
+}
+
+// cursor.col + 1
+static inline void inc_col() {
+    cursor.col + 1 == VGA_WIDTH ? inc_row() : cursor.col++;
+}
+
+// cursor.col - 1
+static inline void dec_col() {
+    cursor.col == 0 ? dec_row() : cursor.col--;
+}
+
 void vga_init() {
-    cursor.row=0;
-    cursor.col=0;
+    set_cursor(0, 0);
     terminal_color = vga_entry_color(VGA_COLOR_LIGHT_GREY, VGA_COLOR_BLACK);
     terminal_buffer = (uint16_t *) VGA_TEXT_MODE_MEM;
     vga_enable_cursor();
     vga_clean();
-    vga_move_cursor(cursor);
+    vga_sync_cursor(cursor);
 }
 
 
@@ -58,25 +105,16 @@ void vga_set_color(uint8_t color) {
     terminal_color = color;
 }
 
-static void _vga_put_char(char c) {
+static void put_char(char c) {
     if (c == NEWLINE) {
-        vga_newline();
+        inc_row();
         return;
     }
 
     vga_set_buf(c, terminal_color, cursor);
-    if (++cursor.col == VGA_WIDTH) {
-        vga_newline();
-    }
+    inc_col();
 }
 
-void vga_newline() {
-    if (cursor.row + 1 == VGA_HEIGHT)
-        vga_scroll_up();
-    else
-        cursor.row++;
-    cursor.col = 0;
-}
 
 void vga_enable_cursor() {
 //    outb(VGA_INDEX, MAX_SLI);
@@ -90,7 +128,8 @@ void vga_enable_cursor() {
     outb(VGA_DAT, 0x0F);
 }
 
-void vga_move_cursor(cursor_t cur) {
+void vga_sync_cursor(cursor_t cur) {
+    //同步指针到 vga 设备
     uint16_t pos = BUF_INDEX(cur.col, cur.row);
     outb(VGA_INDEX, CI_L);
     outb(VGA_DAT, pos & BIT_MASK(uint8_t, 8));
@@ -98,19 +137,47 @@ void vga_move_cursor(cursor_t cur) {
     outb(VGA_DAT, pos >> 8);
 }
 
-//长字符串输出结束调用,移动指针
-void vga_move_end() {
-    vga_move_cursor(cursor);
+
+void vga_put_char(char c) {
+    put_char(c);
+    vga_sync_cursor(cursor);
 }
 
-void vga_put_char(char c){
-    _vga_put_char(c);
-    vga_move_end();
+void vga_delete() {
+    //前移指针并删除一个字符
+    dec_col();
+    vga_cleanc(cursor);
+    vga_sync_cursor(cursor);
+}
+
+//指针左移
+void vga_cursor_left() {
+    dec_col();
+    vga_sync_cursor(cursor);
+}
+
+//指针右移
+void vga_cursor_right() {
+    inc_col();
+    vga_sync_cursor(cursor);
+}
+
+//指针上移
+void vga_cursor_up() {
+    cursor_up();
+    vga_sync_cursor(cursor);
+
+}
+
+//指针下移
+void vga_cursor_down() {
+    cursor_down();
+    vga_sync_cursor(cursor);
 }
 
 void vga_put_string(const char *data) {
     size_t size = q_strlen(data);
     for (size_t i = 0; i < size; i++)
-        _vga_put_char(data[i]);
-    vga_move_end();
+        put_char(data[i]);
+    vga_sync_cursor(cursor);
 }

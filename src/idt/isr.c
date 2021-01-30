@@ -5,12 +5,14 @@
 #include "pic.h"
 #include "qlib.h"
 #include "ps2.h"
+#include "keyboard.h"
+#include "timer.h"
 
 // 忽略 -Wunused-parameter
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-parameter"
 
-#include "ihandle.h"
+#include "isr.h"
 
 // 编译器会保留 EFLAGS 外的所有寄存器,并使用 iret 返回
 __attribute__((interrupt))
@@ -117,6 +119,7 @@ void ISR(20)(interrupt_frame_t *frame) {
 // PIC 0 号中断,PIT 时钟中断
 __attribute__((interrupt))
 void ISR(32)(interrupt_frame_t *frame) {
+    increment_tick();
 //    printfk("hello\n");
     pic_eoi(32);
 }
@@ -124,8 +127,9 @@ void ISR(32)(interrupt_frame_t *frame) {
 // PIC 1 号中断,键盘输入
 __attribute__((interrupt))
 void ISR(33)(interrupt_frame_t *frame) {
-    printfk("key: %x |", ps2_rd());
-    printfk("\n");
+    kb_sc_parse(ps2_rd());
+//    printfk("key: %x |", ps2_rd());
+//    printfk("\n");
     pic_eoi(33);
 }
 

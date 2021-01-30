@@ -5,7 +5,7 @@
 #ifndef QUARKOS_QMATH_H
 #define QUARKOS_QMATH_H
 
-#include "stdint.h"
+#include "types.h"
 
 // 在整数过大的情况,q_ceilf 会调用 _q_ceilf
 float q_ceilf(float _arg);

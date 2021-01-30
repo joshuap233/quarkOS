@@ -1,7 +1,7 @@
 #ifndef QUARKOS_IDT_H
 #define QUARKOS_IDT_H
 
-#include "qstdint.h"
+#include "types.h"
 
 typedef struct idtr {
     uint16_t limit;

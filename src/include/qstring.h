@@ -7,7 +7,7 @@
 
 #include <stddef.h>
 #include <stdbool.h>
-#include "qstdint.h"
+#include "types.h"
 
 size_t q_strlen(const char *str);
 

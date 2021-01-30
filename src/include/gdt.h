@@ -5,7 +5,7 @@
 #ifndef QUARKOS_GDT_H
 #define QUARKOS_GDT_H
 
-#include "qstdint.h"
+#include "types.h"
 #include "qlib.h"
 
 typedef struct gdt_entry {

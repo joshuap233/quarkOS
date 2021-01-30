@@ -2,10 +2,10 @@
 // Created by pjs on 2021/1/27.
 //
 //中断处理函数
-#ifndef QUARKOS_IHANDLE_H
-#define QUARKOS_IHANDLE_H
+#ifndef QUARKOS_ISR_H
+#define QUARKOS_ISR_H
 
-#include "qstdint.h"
+#include "types.h"
 #include "idt.h"
 
 #define ISR(index) isr ## index
@@ -39,4 +39,4 @@ void ISR(20)(interrupt_frame_t *);      // 20 #VE Virtualization Exception
 void ISR(32)(interrupt_frame_t *);
 void ISR(33)(interrupt_frame_t *);
 
-#endif //QUARKOS_IHANDLE_H
+#endif //QUARKOS_ISR_H

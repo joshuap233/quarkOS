@@ -2,9 +2,9 @@
 #include <stddef.h> // size_t and NULL
 #include "qstring.h"
 #include "qlib.h"
-#include "qstdint.h"
+#include "types.h"
 #include "vga.h"
-
+#include "qmath.h"
 
 static void print_d(int64_t num) {
     uint8_t i = 0;
@@ -34,7 +34,6 @@ static void print_hex(uint64_t x) {
     hex(x, str + 2);
     vga_put_string(str);
 }
-
 
 #ifdef __i386__
 

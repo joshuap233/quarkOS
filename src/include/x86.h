@@ -5,7 +5,7 @@
 #ifndef QUARKOS_X86_H
 #define QUARKOS_X86_H
 
-#include "qstdint.h"
+#include "types.h"
 
 // 读一个字节
 static inline uint8_t inb(uint16_t port) {

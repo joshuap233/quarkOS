@@ -5,7 +5,7 @@
 #ifndef QUARKOS_PS2_H
 #define QUARKOS_PS2_H
 
-#include "qstdint.h"
+#include "types.h"
 #include "x86.h"
 
 #define PS2_DAT    0x60 //读写数据端口
@@ -21,6 +21,11 @@ typedef struct device_status {
     //...
 } device_status_t;
 
+
+//驱动程序常常需要检测状态: 0/1
+typedef bool status_t;
+#define ZERO  false
+#define NZ    true
 
 void ps2_init();
 
