@@ -21,6 +21,9 @@ void pit_init(uint32_t frequency);
 
 void ssleep(mseconds_t ms);
 
-void increment_tick();
+extern volatile uint32_t tick;
+// 不要直接修改,每个时钟中断加一
+//void increment_tick();
+
 
 #endif //QUARKOS_TIMER_H

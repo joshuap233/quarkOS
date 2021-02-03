@@ -52,10 +52,20 @@ static inline void halt() {
 }
 
 
+static inline void enable_paging() {
+    asm volatile (
+    "mov %%cr0, %%eax       \n\t"
+    "or  $0x80000000, %%eax \n\t"
+    "mov %%eax, %%cr0"
+    :: :"%eax");
+}
+
+
 // 内核异常,停止运行
 static inline void panic() {
     disable_interrupt();
     halt();
 }
+
 
 #endif //QUARKOS_X86_H

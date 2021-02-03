@@ -5,6 +5,7 @@
 
 #include "types.h"
 
+
 #define MULTIBOOT_TAG_ALIGN                  8
 #define MULTIBOOT_TAG_TYPE_END               0
 #define MULTIBOOT_TAG_TYPE_CMDLINE           1
@@ -151,6 +152,12 @@ struct multiboot_mmap_entry {
     multiboot_uint32_t zero;
 }__attribute__((packed));
 typedef struct multiboot_mmap_entry multiboot_memory_map_t;
+
+// Boot information 固定头
+typedef struct multiboot_info {
+    uint32_t total;
+    uint32_t zero;
+}__attribute__((packed)) multiboot_info_t;
 
 //  Boot information tag 的基本结构
 struct multiboot_tag {
@@ -338,5 +345,17 @@ struct multiboot_tag_load_base_addr {
     multiboot_uint32_t size;
     multiboot_uint32_t load_base_addr;
 }__attribute__((packed));
+
+//解析 multiboot2 info struct
+void parse_boot_info(multiboot_info_t *bia);
+
+void parse_memory_map(void (*alloc)(pointer_t start, pointer_t length));
+
+typedef struct multiboot_tag_mmap multiboot_tag_mmap_t;
+typedef struct multiboot_tag_apm multiboot_tag_apm_t;
+typedef struct multiboot_tag multiboot_tag_t;
+typedef struct multiboot_mmap_entry multiboot_mmap_entry_t;
+extern multiboot_tag_mmap_t *mmap;
+extern multiboot_tag_apm_t *apm;
 
 #endif //QUARKOS_MULTIBOOT2_H

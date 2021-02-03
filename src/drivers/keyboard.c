@@ -194,7 +194,7 @@ static void kb_release_handle(uint8_t r) {
     kbStatus.f0 = false;
     switch (kp) {
         case META:
-            kb_meta(r, PRESS);
+            kb_meta(r, RELEASE);
             break;
         default:
             break;

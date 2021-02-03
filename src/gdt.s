@@ -1,4 +1,5 @@
     .global gdtr_set
+    .type gdtr_set, @function
     .text
 gdtr_set:
     movl 4(%esp),%eax

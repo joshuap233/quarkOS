@@ -9,7 +9,7 @@
 // 0xB8000 ~ 0xBFFFF 内存地址映射到显存(VGA text mode)
 #define VGA_WIDTH    80
 #define VGA_HEIGHT   25
-#define BUF_INDEX(col, row) (row*VGA_WIDTH+col)
+#define BUF_INDEX(col, row) ((row)*VGA_WIDTH+(col))
 #define NEWLINE      '\n'
 #define VGA_INDEX   0x3d4  //索引寄存器端口
 #define VGA_DAT     0x3d5  //vga 数据端口

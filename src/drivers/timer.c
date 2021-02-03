@@ -21,22 +21,20 @@ void pit_init(uint32_t frequency) {
 }
 
 //每个时钟中断加一
-static volatile uint32_t tick = 0;
+volatile uint32_t tick = 0;
 
-void increment_tick() {
-    tick++;
-}
 
 void ssleep(mseconds_t ms) {
 /*
- * 操作系统睡眠
- * 不精确的睡眠函数，睡眠时间（毫秒）为 10 的整数倍,ms<10 取 10
+ * 内核睡眠函数
+ * 不精确的睡眠，睡眠时间（毫秒）为 10 的整数倍,ms<10 取 10
  */
+    disable_interrupt();
     tick = 0;
-    uint32_t t = divUc(ms, 1000 / PIT_TIMER_FREQUENCY);
-    while (tick < t) {
+    uint32_t end = divUc(ms, 1000 / PIT_TIMER_FREQUENCY);
+    enable_interrupt();
+    while (tick < end)
         halt();
-    }
 }
 
 

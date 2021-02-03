@@ -6,4 +6,3 @@ test/build/
 note/
 isodir/boot/quarkOS.bin
 run.py
-src/include/foo.h

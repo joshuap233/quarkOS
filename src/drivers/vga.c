@@ -95,8 +95,8 @@ void vga_init() {
     set_cursor(0, 0);
     terminal_color = vga_entry_color(VGA_COLOR_LIGHT_GREY, VGA_COLOR_BLACK);
     terminal_buffer = (uint16_t *) VGA_TEXT_MODE_MEM;
-    vga_enable_cursor();
     vga_clean();
+    vga_enable_cursor();
     vga_sync_cursor(cursor);
 }
 
@@ -106,6 +106,7 @@ void vga_set_color(uint8_t color) {
 }
 
 static void put_char(char c) {
+    // newline 与 tab 交给 console 处理?
     if (c == NEWLINE) {
         inc_row();
         return;

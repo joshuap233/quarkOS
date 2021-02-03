@@ -9,6 +9,7 @@
 #include "vga.h"
 #include "x86.h"
 #include "keyboard.h"
+#include "mm.h"
 
 #if defined(__linux__)
 #warning "你没有使用跨平台编译器进行编译"
@@ -22,8 +23,6 @@
 #warning "你没有使用 freestanding 模式"
 #endif
 
-// 内核最大地址+1, 不要修改成 *_end,
-extern char _endKernel[], _startKernel[];
 
 void hello() {
     char space[] = "                ";
@@ -38,21 +37,17 @@ void hello() {
     printfk("\n");
 }
 
-void kernel_main(void) {
+//mba 为 multiboot info struct 首地址
+void kernel_main(multiboot_info_t *mba, uint32_t magic) {
     vga_init();
+    assertk(magic == 0x36d76289);
+    assertk(mba->zero == 0);
+    parse_boot_info(mba);
     hello();
     gdt_init();
     idt_init();
-
-    while (1){
+    mm_init();
+    while (1) {
         kb_getchar();
     }
-//    kb_getchar();
-
-//    while (1){
-//        halt();
-//    }
-//    uint32_t t= 1/0;
-//    printfk("%x\n", (uint32_t) _startKernel);
-//    parse_multiboot_info_struct();
 }
