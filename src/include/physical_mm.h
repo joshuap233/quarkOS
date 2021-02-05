@@ -11,7 +11,7 @@ void phymm_init(pointer_t start, pointer_t length);
 
 pointer_t phymm_alloc();
 
-void phymm__free(pointer_t addr);
+void phymm_free(pointer_t addr);
 
 
 #endif //QUARKOS_PHYSICAL_MM_H

@@ -10,12 +10,12 @@
 
 
 static struct stack {
-    pointer_t page[N_PAGE];
+    pointer_t page[N_PPAGE];
     uint32_t top;
     uint32_t size;
 } mm_page = {
         .top=0,
-        .size = N_PAGE
+        .size = N_PPAGE
 };
 
 
@@ -38,7 +38,7 @@ void phymm_init(pointer_t start, pointer_t length) {
         length -= K_SIZE;
     }
 
-    start = PAGE_ALIGN(start);
+    start = ADDR_ALIGN(start);
 
     //TODO: 遇到小于 4k 的内存块直接舍弃?
     while (length >= PAGE_SIZE) {
@@ -52,6 +52,6 @@ pointer_t phymm_alloc() {
     return pop();
 }
 
-void phymm__free(pointer_t addr) {
-    push(addr);
+void phymm_free(pointer_t addr) {
+    push(PAGE_ADDR(addr));
 }
