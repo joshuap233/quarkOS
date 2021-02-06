@@ -23,12 +23,12 @@
 #define PDE_INDEX(addr)     ((addr)>>22)                //页目录索引
 #define PTE_INDEX(addr)     (((addr) >> 12) & MASK_U32(10))
 
-#define MM_NULL             ((void*)0)  //空页表指针, 存在位我为 0
+#define MM_NULL             ((void*)0)  //空页表指针, 存在位为 0
 #define PTE_SIZE            sizeof(pte_t)                   //页表项大小
 #define PDE_SIZE            sizeof(pde_t)
 #define N_PTE              (PAGE_SIZE/PTE_SIZE)  //每个页面的表项数
 #define N_PDE              (PAGE_SIZE/PDE_SIZE)
-
+#define ENTRY_SIZE         N_PDE * N_PTE * PAGE_SIZE // 页表项总大小
 // 使 a 页对齐(向上)
 #define ADDR_ALIGN(a)       ((a) & ALIGN_MASK) \
                                 ?((a)&(~ALIGN_MASK)):(a)
@@ -38,20 +38,10 @@
                                 ?((s)&(~ALIGN_MASK)+PAGE_SIZE):(s)
 
 
-#define A_MASK          (0b1<<5) //访问位掩码
-#define D_MASK          (0b1<<6) //脏位掩码
-#define MM_PRES          0b1    // 在物理内存中
-#define MM_NPRES         0b0    // 不在物理内存中
-#define MM_KR            0b100  // 特权可读页
-#define MM_KW            0b110  // 特权可读写页
-#define MM_UR            0b000  // 用户可读页
-#define MM_UW            0b010
-
 #define CR3_CTRL 0       //不使用 write-through,且页目录允许缓存
 
-
-typedef uint32_t pde_t;
 typedef uint32_t cr3_t;
+typedef uint32_t pde_t;
 typedef uint32_t pte_t;
 
 

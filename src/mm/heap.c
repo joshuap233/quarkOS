@@ -1,57 +1,39 @@
 //
 // Created by pjs on 2021/2/3.
 //
+// 内核堆
 
 #include "heap.h"
 #include "types.h"
 #include "mm.h"
 #include "virtual_mm.h"
-//内核堆
-#define HEAP_NULL (void*)0
+#include "link_list.h"
+
 
 //追踪空闲空间
-typedef struct link_list {
-    pointer_t *addr;
-    uint32_t length;
-    struct link_list *next;
-} link_list_t;
-
-static link_list_t heap;
-
-
-//合并空闲空间
-static void merge() {
-
-}
+static list_t heap;
 
 void heap_init() {
-    heap.length = PAGE_SIZE;
-    heap.addr = vmm_alloc(1);
-    heap.next = HEAP_NULL;
+    heap.size = PAGE_SIZE;
+    heap.addr = (pointer_t) vmm_alloc(1);//初始内核堆为大小为1页
+    heap.next = MM_NULL;
 }
 
-pointer_t *mallocK(size_t size) {
-    link_list_t *temp = &heap;
+void *mallocK(size_t size) {
+    heap_chunk_t *chunk = list_split_ff(&heap, CHUNK_SIZE(size));
+    chunk->size = size;
+    chunk->magic = HEAP_MAGIC;
+    //TODO: 扩展堆
+    return chunk == MM_NULL ? MM_NULL : chunk->addr;
+}
 
-    while (true) {
-        if (temp->length > size) {
-            pointer_t *res = temp->addr;
-            temp->addr += size;
-            temp->length -= size;
-            return res;
-        }
-        if (temp->next == HEAP_NULL) {
-
-        }
-        temp->next = temp;
-    }
-
+pointer_t *freeK(void *addr) {
+    heap_chunk_t *chunk = addr;
+    assertk(chunk->magic == HEAP_MAGIC);
+    list_free(&heap, (pointer_t) chunk->addr, chunk->size);
 }
 
 
+//TODO:扩展堆区域
 
-// mallocK
-// freeK
-
-//扩展堆区域
 

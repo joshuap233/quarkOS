@@ -6,138 +6,112 @@
 #include "types.h"
 #include "mm.h"
 #include "physical_mm.h"
+#include "link_list.h"
+#include "qstring.h"
 
-typedef struct free_list {
-    pointer_t addr;     //空闲空间起始地址
-    pointer_t end_addr;
-    uint32_t size;     //缓存一份页面数
-    struct free_list *next;
-} list_t;
+//TODO: 使用伙伴管理空闲内存而不是链表
 
-static pde_t _Alignas(PAGE_SIZE) k_pde[] = {[0 ...PAGE_SIZE - 1]=(MM_KR | MM_NPRES)};
+//修改/访问页目录: k_pde[index] = xxx
+//修改/访问页表项: pointer_t *pte = PTE_ADDR(pde_index); pte[index]=xxx
+static pde_t _Alignas(PAGE_SIZE) k_pde[] = {[0 ...PAGE_SIZE - 1]=(VM_KR | VM_NPRES)};
 //内核虚拟页目录
 
-static list_t free_list;
-
-bool list_split(pointer_t va, uint32_t size) {
-    //查找空闲列表是否有满足大小的空闲空间并切割
-    va = PAGE_ADDR(va);
-    pointer_t end = va + size * PAGE_SIZE;
-    list_t *temp = &free_list, *pre_temp = temp;
-    while (temp != MM_NULL) {
-        if (temp->addr <= va && temp->end_addr >= end) {
-            temp->size -= size;
-            temp->addr = end;
-            if (temp->addr == end) pre_temp->next = temp->next;
-            return true;
-        }
-        pre_temp = temp;
-        temp = temp->next;
-    }
-    return false;
-}
-
-// 使用首次适应查找,返回空闲页虚拟地址, size 为页面数
-void *list_splitr(uint32_t size) {
-    list_t *temp = &free_list, *pre_temp = temp;
-    while (temp != MM_NULL) {
-        if (temp->size >= size) {
-            void *temp_addr = (void *) (temp->addr);
-            temp->addr = temp->addr + size * PAGE_SIZE;
-            temp->size -= size;
-            if (temp->addr == temp->end_addr) pre_temp->next = temp->next;
-            return temp_addr;
-        }
-        pre_temp = temp;
-        temp = temp->next;
-    }
-    return MM_NULL;
-}
-
-
-//释放空闲空间
-bool list_append(pointer_t va, uint32_t size) {
-    list_t *temp = &free_list, *pre_temp = temp;
-    while (temp != MM_NULL) {
-        if (temp->size >= size) {
-        //TODO:需要堆
-        }
-        pre_temp = temp;
-        temp = temp->next;
-    }
-    return MM_NULL;
-}
-
-
-//合并连续空闲空间
-void list_merge(){
-
-}
-
-void free_list_init() {
-    free_list.addr = 0;
-    free_list.end_addr = PHYMM - 1;
-    free_list.size = N_VPAGE;
-    free_list.next = MM_NULL;
-}
-
-
-// 初始化内核页表
-void vmm_init() {
-    free_list_init();
-    uint32_t size = SIZE_ALIGN(K_END) / PAGE_SIZE;
-    cr3_t cr3 = CR3_CTRL | ((pointer_t) &k_pde);
-    //映射内核空间与低于 1M 的空间
-    assertk(list_split(0, size));
-    mm_map(0, 0, SIZE_ALIGN(K_END) / PAGE_SIZE);
-    cr3_set(cr3);
-}
+static list_t free_list = {
+        .addr=0,
+        .end_addr = PHYMM - 1,
+        .size = PHYMM,
+        .next = MM_NULL
+};
 
 
 // 三个参数分别为:
-// 需要映射的虚拟地址,物理地址, 虚拟地址页面数, (地址需要包括20位地址与12位标志)
+// 需要映射的虚拟地址,物理地址, 需要映射的内存大小, (地址需要包括20位地址与12位标志)
 // 映射成功返回 true
-bool mm_map(pointer_t va, pointer_t pa, uint32_t size) {
+static bool mm_map(pointer_t va, pointer_t pa, uint32_t size) {
+    size = SIZE_ALIGN(size);
     uint32_t pdeI = PDE_INDEX(va);
     uint32_t pteI = PTE_INDEX(va);
 
-    for (; size > 0; pdeI++, pteI = 0) {
-        pte_t *pte = &k_pde[pdeI];
-        if ((*pte & MM_PRES) == 0) {
-            *pte = phymm_alloc() | MM_KW | MM_PRES;
-            //TODO: va 为 *pte, 但如果 pte (虚拟地址)已经被分配了呢
-            if (!mm_map(*pte, *pte, 1)) return false;
+    for (; size > 0 && pdeI < N_PDE - 1; pdeI++, pteI = 0) {
+        pde_t *pde = &k_pde[pdeI];
+        pte_t *pte = (pte_t *) PTE_ADDR(pdeI); //页目录首地址(虚拟)
+        if (!(*pde & VM_PRES)) {
+            // 映射页表,phy_addr 为页表物理地址
+            uint32_t phy_addr = phymm_alloc() | VM_KW | VM_PRES;
+            if (!mm_map((pointer_t) pte, phy_addr, PAGE_SIZE)) {
+                phymm_free(phy_addr);
+                return false;
+            };
+            *pde = phy_addr;
+            q_memset(pte, 0, PAGE_SIZE);
         }
-        for (; pteI < N_PTE; pteI++, size--, pa += PAGE_SIZE)
+        for (; pteI < N_PTE && size > 0; pteI++) {
             pte[pteI] = pa;
+            size -= PAGE_SIZE;
+            pa += PAGE_SIZE;
+        }
     }
     return true;
 }
 
 
+// 初始化内核页表
+void vmm_init() {
+    uint32_t size = SIZE_ALIGN(K_END);
+    cr3_t cr3 = CR3_CTRL | ((pointer_t) &k_pde);
+    assertk(list_split(&free_list, 0, size));
+    assertk(list_split(&free_list, PTE_VA, ENTRY_SIZE));
+    // 页目录最后一项映射到 pde 首地址(即内核结束地址)
+    k_pde[N_PDE - 1] = size | VM_KW | VM_PRES;
 
-//size 为页数量
-bool vmm_unmap(pointer_t va, uint32_t size) {
-    uint32_t pdeI = PDE_INDEX(va);
-    uint32_t pteI = PTE_INDEX(va);
-    for (; size > 0; pdeI++, pteI = 0) {
-        pte_t *pte = &k_pde[pdeI];
-        assertk((*pte & MM_PRES) == 0);
-        for (; pteI < N_PDE; pteI++, size--)
-            pte[pteI] = 0;
+    //映射内核空间与低于 1M 的空间
+    uint32_t phy_addr = 0;
+    for (uint32_t i = 0; i < N_PDE - 1 && size > 0; ++i) {
+        pte_t *pte = (pte_t *) phymm_alloc();
+        q_memset(pte, 0, PAGE_SIZE);
+        for (uint32_t j = 0; j < N_PTE && size > 0; ++j) {
+            pte[j] = phy_addr | VM_PRES | VM_KW;
+            phy_addr += PAGE_SIZE;
+            size -= PAGE_SIZE;
+        }
+        k_pde[i] = ((pde_t) pte) | VM_KW | VM_PRES;
     }
-    // TODO: 将被释放的空间添加到空闲列表
+
+    cr3_set(cr3);
 }
 
 
-// size 为需要分配的虚拟内存页数量
+// size 为 PAGE_SIZE 的整数倍
+bool vmm_free(pointer_t va, uint32_t size) {
+    uint32_t pdeI = PDE_INDEX(va);
+    uint32_t pteI = PTE_INDEX(va);
+    for (; size > 0 && pdeI < N_PDE; pdeI++, pteI = 0) {
+        uint32_t start = pteI;
+        pte_t *pte = (pte_t *) PTE_ADDR(pdeI);
+        for (; pteI < N_PTE; pteI++, size -= PAGE_SIZE) {
+            pte[pteI] = 0;
+            //释放空页目录项对应的物理地址
+            phymm_free(pte[pteI]);
+        }
+        //释放空页表
+        if (start == 0 && pteI == N_PTE - 1) {
+            phymm_free(k_pde[pdeI]);
+            k_pde[pdeI] = VM_NPRES;
+        }
+    }
+    list_free(&free_list, va, size);
+}
+
+
+// size 为需要分配的虚拟内存内存大小
 void *vmm_alloc(uint32_t size) {
-    void *addr = list_splitr(size);
+    size = SIZE_ALIGN(size);
+    void *addr = list_split_ff(&free_list, size);
     if (addr == MM_NULL)return MM_NULL;
-    //TODO: 映射
     pointer_t phy_addr = phymm_alloc();
-    if (!mm_map((pointer_t) addr, phy_addr | MM_KW | MM_PRES, size)) {
+    if (!mm_map((pointer_t) addr, phy_addr | VM_KW | VM_PRES, size)) {
         phymm_free(phy_addr);
+        list_free(&free_list, (pointer_t) addr, size);
         return MM_NULL;
     };
     return addr;

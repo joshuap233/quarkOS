@@ -9,7 +9,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-typedef uint32_t pointer_t;
+typedef uint32_t pointer_t; //pointer_t 存地址值
 
 // x86 指针长 32 位,万一以后写64位 OS 呢,233
 #define POINTER_LENGTH 32
