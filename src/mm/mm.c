@@ -9,7 +9,7 @@
 #include "heap.h"
 
 void mm_init() {
-    parse_memory_map(phymm_init);
+    phymm_init();
     vmm_init();
     heap_init();
 }

@@ -7,7 +7,8 @@
 
 #include "types.h"
 
-void phymm_init(pointer_t start, pointer_t length);
+//mem_size 为可用内存总大小
+void phymm_init();
 
 pointer_t phymm_alloc();
 

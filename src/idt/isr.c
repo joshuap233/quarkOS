@@ -94,6 +94,7 @@ __attribute__((interrupt))
 void ISR(14)(interrupt_frame_t *frame, uint32_t error_code) {
 //页错误
     printfk("page fault\n");
+    panic();
 }
 
 

@@ -1,24 +1,39 @@
 #include "multiboot2.h"
 #include "qlib.h"
 #include "qmath.h"
+#include "mm.h"
 
-multiboot_tag_mmap_t *mmap;
-multiboot_tag_apm_t *apm;
+multiboot_tag_mmap_t *g_mmap;
+multiboot_tag_apm_t *g_apm;
+uint32_t g_mem_total;
 
-void parse_memory_map(void (*alloc)(pointer_t, pointer_t)) {
-    pointer_t tail = (pointer_t) mmap + mmap->size;
-    for (multiboot_mmap_entry_t *entry = mmap->entries; (pointer_t) entry < tail; entry++) {
-        assertk(entry->zero == 0);
-        switch (entry->type) {
-            case MULTIBOOT_MEMORY_AVAILABLE:
-                alloc(entry->addr, entry->len);
-                break;
+
+
+//计算所有可用物理内存大小
+//移除内核以下可用内存
+//使可用内存开始地址页对齐(不对齐部分直接抛弃)
+void parse_memory_map() {
+    pointer_t tail = (pointer_t) g_mmap + g_mmap->size;
+    for (multiboot_mmap_entry_t *entry = g_mmap->entries; (pointer_t) entry < tail; entry++)
+        if (entry->type == MULTIBOOT_MEMORY_AVAILABLE) {
+            if (entry->addr < K_END) {
+                uint64_t end_addr = entry->addr + entry->len;
+                if (end_addr < K_END) {
+                    entry->type = MULTIBOOT_MEMORY_RESERVED;
+                    continue;
+                }
+                entry->addr = K_END;
+                entry->len = end_addr - entry->addr;
+            }
+            //使页地址向后对齐,无法对齐内存直接舍弃
+            entry->addr = SIZE_ALIGN(entry->addr);
+            g_mem_total += entry->len;
         }
-    }
+
 }
 
 
-void parse_boot_info(multiboot_info_t *bia) {
+void multiboot_init(multiboot_info_t *bia) {
     multiboot_tag_t *tag;
     //指向最大地址
     pointer_t tail = (pointer_t) bia + bia->total;
@@ -28,10 +43,10 @@ void parse_boot_info(multiboot_info_t *bia) {
     while ((pointer_t) tag < tail) {
         switch (tag->type) {
             case MULTIBOOT_TAG_TYPE_MMAP:
-                mmap = (multiboot_tag_mmap_t *) tag;
+                g_mmap = (multiboot_tag_mmap_t *) tag;
                 break;
             case MULTIBOOT_TAG_TYPE_APM:
-                apm = (multiboot_tag_apm_t *) tag;
+                g_apm = (multiboot_tag_apm_t *) tag;
                 break;
         }
         //Boot information 的 tags以 8 字节对齐
@@ -39,6 +54,7 @@ void parse_boot_info(multiboot_info_t *bia) {
         tag = tag + divUc(tag->size, 8);
     }
 
-    assertk(mmap->entry_version == 0);
-    assertk(apm->type == MULTIBOOT_TAG_TYPE_APM);
+    assertk(g_mmap->entry_version == 0);
+    assertk(g_apm->type == MULTIBOOT_TAG_TYPE_APM);
+    parse_memory_map();
 }

@@ -42,7 +42,7 @@ void kernel_main(multiboot_info_t *mba, uint32_t magic) {
     vga_init();
     assertk(magic == 0x36d76289);
     assertk(mba->zero == 0);
-    parse_boot_info(mba);
+    multiboot_init(mba);
     hello();
     gdt_init();
     idt_init();

@@ -6,22 +6,15 @@
 #include "types.h"
 #include "mm.h"
 #include "physical_mm.h"
-#include "link_list.h"
+#include "free_list.h"
 #include "qstring.h"
 
-//TODO: 使用伙伴管理空闲内存而不是链表
+//TODO: 使用buddy/slab
 
 //修改/访问页目录: k_pde[index] = xxx
 //修改/访问页表项: pointer_t *pte = PTE_ADDR(pde_index); pte[index]=xxx
 static pde_t _Alignas(PAGE_SIZE) k_pde[] = {[0 ...PAGE_SIZE - 1]=(VM_KR | VM_NPRES)};
 //内核虚拟页目录
-
-static list_t free_list = {
-        .addr=0,
-        .end_addr = PHYMM - 1,
-        .size = PHYMM,
-        .next = MM_NULL
-};
 
 
 // 三个参数分别为:
@@ -57,9 +50,9 @@ static bool mm_map(pointer_t va, pointer_t pa, uint32_t size) {
 
 // 初始化内核页表
 void vmm_init() {
-    uint32_t size = SIZE_ALIGN(K_END);
     cr3_t cr3 = CR3_CTRL | ((pointer_t) &k_pde);
-    assertk(list_split(&free_list, 0, size));
+    uint32_t size = SIZE_ALIGN(K_END);
+    free_list_init(size);
     assertk(list_split(&free_list, PTE_VA, ENTRY_SIZE));
     // 页目录最后一项映射到 pde 首地址(即内核结束地址)
     k_pde[N_PDE - 1] = size | VM_KW | VM_PRES;

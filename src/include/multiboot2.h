@@ -347,15 +347,18 @@ struct multiboot_tag_load_base_addr {
 }__attribute__((packed));
 
 //解析 multiboot2 info struct
-void parse_boot_info(multiboot_info_t *bia);
-
-void parse_memory_map(void (*alloc)(pointer_t start, pointer_t length));
+void multiboot_init(multiboot_info_t *bia);
 
 typedef struct multiboot_tag_mmap multiboot_tag_mmap_t;
 typedef struct multiboot_tag_apm multiboot_tag_apm_t;
 typedef struct multiboot_tag multiboot_tag_t;
 typedef struct multiboot_mmap_entry multiboot_mmap_entry_t;
-extern multiboot_tag_mmap_t *mmap;
-extern multiboot_tag_apm_t *apm;
+
+void parse_memory_map();
+
+extern multiboot_tag_mmap_t *g_mmap;
+extern multiboot_tag_apm_t *g_apm;
+extern uint32_t g_mem_total;
+
 
 #endif //QUARKOS_MULTIBOOT2_H
