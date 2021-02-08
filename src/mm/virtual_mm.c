@@ -9,9 +9,10 @@
 #include "free_list.h"
 #include "qstring.h"
 #include "multiboot2.h"
+#include "heap.h"
 
 //TODO: 使用buddy/slab
-
+//TODO: 添加测试
 //修改/访问页目录方法: k_pde[i] = xxx;
 //修改/访问页表方法:  pde_t *pte = PTE_ADDR(pde_index), pte 为页表索引对应的页目录首地址
 static pde_t _Alignas(PAGE_SIZE) k_pde[] = {[0 ...PAGE_SIZE - 1]=(VM_KR | VM_NPRES)};
@@ -19,7 +20,7 @@ static pde_t _Alignas(PAGE_SIZE) k_pde[] = {[0 ...PAGE_SIZE - 1]=(VM_KR | VM_NPR
 
 // 三个参数分别为:
 // 需要映射的虚拟地址,物理地址, 需要映射的内存大小
-static bool vmm_map(pointer_t va, pointer_t pa, uint32_t size, uint32_t flags) {
+void vmm_map(pointer_t va, pointer_t pa, uint32_t size, uint32_t flags) {
     uint32_t pdeI = PDE_INDEX(va), pteI = PTE_INDEX(va);
     bool paging = isPaging();
 
@@ -40,9 +41,7 @@ static bool vmm_map(pointer_t va, pointer_t pa, uint32_t size, uint32_t flags) {
             pa += PAGE_SIZE;
         }
     }
-    return true;
 }
-
 
 // 初始化内核页表
 void vmm_init() {
@@ -50,6 +49,7 @@ void vmm_init() {
     free_list_init(SIZE_ALIGN(g_vmm_start));
     //留出页表的虚拟内存
     assertk(list_split(PTE_VA, PT_SIZE));
+    assertk(list_split(HEAP_START, HEAP_SIZE));
     k_pde[N_PDE - 1] = (pointer_t) k_pde | VM_KW | VM_PRES;
 
     // g_vmm_start 以下部分直接映射
@@ -59,9 +59,9 @@ void vmm_init() {
 
 
 // size 为 PAGE_SIZE 的整数倍
-void vmm_free(pointer_t va, uint32_t size) {
+void vmm_unmap(void *va, uint32_t size) {
     assertk((size & ALIGN_MASK) == 0);
-    uint32_t pdeI = PDE_INDEX(va), pteI = PTE_INDEX(va);
+    uint32_t pdeI = PDE_INDEX((pointer_t) va), pteI = PTE_INDEX((pointer_t) va);
     for (; size > 0 && pdeI < N_PDE; pdeI++, pteI = 0) {
         uint32_t start = pteI;
         pte_t *pte = (pte_t *) PTE_ADDR(pdeI);
@@ -75,20 +75,28 @@ void vmm_free(pointer_t va, uint32_t size) {
             k_pde[pdeI] = VM_NPRES;
         }
     }
-    list_free(va, size);
+    list_free((pointer_t) va, size);
 }
 
 
+// va 为虚拟内存首地址
 // size 为需要分配的虚拟内存内存大小
-void *vmm_alloc(uint32_t size) {
-    size = SIZE_ALIGN(size);
-    void *addr = list_split_ff(size);
-    if (addr == MM_NULL)return MM_NULL;
-    pointer_t phy_addr = phymm_alloc();
-    if (!vmm_map((pointer_t) addr, phy_addr, size, VM_KW | VM_PRES)) {
-        phymm_free(phy_addr);
-        list_free((pointer_t) addr, size);
-        return MM_NULL;
-    };
-    return addr;
+// 开启分页后才能使用
+void vmm_mapv(pointer_t va, uint32_t size, uint32_t flags) {
+    uint32_t pdeI = PDE_INDEX(va), pteI = PTE_INDEX(va);
+
+    for (; size > 0 && pdeI < N_PDE - 1; pdeI++, pteI = 0) {
+        pde_t *pde = &k_pde[pdeI];
+        pte_t *pte = (pte_t *) PTE_ADDR(pdeI);
+
+        if (!(*pde & VM_PRES)) {
+            *pde = phymm_alloc() | flags;
+            q_memset(pte, 0, PAGE_SIZE);
+        }
+
+        for (; pteI < N_PTE && size > 0; pteI++) {
+            pte[pteI] = phymm_alloc() | flags;
+            size -= PAGE_SIZE;
+        }
+    }
 }

@@ -10,6 +10,7 @@
 #include "multiboot2.h"
 #include "qmath.h"
 
+//TODO: 物理内存不足返回 false? NULL?
 static struct stack {
     pointer_t *page;
     uint32_t top;

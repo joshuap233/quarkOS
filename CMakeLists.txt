@@ -56,6 +56,12 @@ target_include_directories(
         "${PROJECT_SOURCE_DIR}/src/mm"
 )
 
+add_subdirectory(${PROJECT_SOURCE_DIR}/src/sched)
+target_link_libraries(${KERNEL_BIN} PUBLIC sched)
+target_include_directories(
+        ${KERNEL_BIN} PUBLIC
+        "${PROJECT_SOURCE_DIR}/src/sched"
+)
 
 ## 生成 iso
 add_custom_target(
