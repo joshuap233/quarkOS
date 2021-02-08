@@ -19,7 +19,8 @@
 #define VM_UR            0b000  // 用户可读页
 #define VM_UW            0b010
 
-//使用页目录递归映射,页表虚拟地址为 PTD_VA ~ PTD_VA + N_PDE*ENTRY_SIZE
+//使用页目录递归映射,页表虚拟地址为 PTD_VA ~ PTD_VA + PT_SIZE
+//分配新页表时不需要再额外映射页表地址
 #define PTE_VA          0xffc00000 //PDE 虚拟地址
 //返回页目录索引为index的页表项首地址
 #define PTE_ADDR(pde_index) (PTE_VA + (pde_index)*PAGE_SIZE)
@@ -28,7 +29,7 @@ void vmm_init();
 
 void *vmm_alloc(uint32_t size);
 
-bool vmm_free(pointer_t va, uint32_t size);
+void vmm_free(pointer_t va, uint32_t size);
 
 extern void cr3_set(pointer_t);
 

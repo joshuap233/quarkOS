@@ -355,10 +355,11 @@ typedef struct multiboot_tag multiboot_tag_t;
 typedef struct multiboot_mmap_entry multiboot_mmap_entry_t;
 
 void parse_memory_map();
-
+pointer_t split_mmap(uint32_t size);
 extern multiboot_tag_mmap_t *g_mmap;
 extern multiboot_tag_apm_t *g_apm;
 extern uint32_t g_mem_total;
-
+extern pointer_t g_mmap_tail;
+extern pointer_t g_vmm_start;
 
 #endif //QUARKOS_MULTIBOOT2_H

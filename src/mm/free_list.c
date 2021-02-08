@@ -56,6 +56,9 @@ static void list_destroy(free_list_t *node) {
 
 //size 为内核以下占用的虚拟内存
 void free_list_init(uint32_t size) {
+    for (int i = 0; i < LIST_COUNT; ++i) {
+        push(&free_list[i]);
+    }
     free_list_t *list = list_alloc();
     list->addr = size;
     list->next = MM_NULL;
@@ -71,7 +74,7 @@ bool list_split(pointer_t va, uint32_t size) {
     pointer_t end = va + size;
     free_list_t *temp = header;
     while (temp != MM_NULL) {
-        if (temp->addr <= va && (temp->addr + temp->size) >= end) {
+        if (temp->addr <= va && (temp->addr + temp->size - 1) >= end) {
             temp->size -= size;
             temp->addr = end;
             if (temp->size == 0) {

@@ -20,8 +20,8 @@ set(KERNEL_ISO ${CMAKE_PROJECT_NAME}.iso)
 include_directories("${PROJECT_SOURCE_DIR}/src/include")
 #AUX_SOURCE_DIRECTORY("${PROJECT_SOURCE_DIR}/src/" C_SOURCE)
 
-set(S_SOURCE src/boot.s src/gdt.s src/mm/paging.s)
-set(C_SOURCE src/kernel.c src/gdt.c src/multiboot2.c src/queue.c src/mm/mm.c src/mm/physical_mm.c src/mm/virtual_mm.c src/mm/heap.c src/mm/free_list.c)
+set(S_SOURCE src/boot.s src/gdt.s)
+set(C_SOURCE src/kernel.c src/gdt.c src/multiboot2.c)
 
 add_executable(${KERNEL_BIN} ${S_SOURCE} ${C_SOURCE} ${mylib} ${drivers})
 set_target_properties(${KERNEL_BIN} PROPERTIES LINK_FLAGS "-T ${CMAKE_SOURCE_DIR}/linker.ld -ffreestanding -O0 -nostdlib")
@@ -47,6 +47,13 @@ target_link_libraries(${KERNEL_BIN} PUBLIC idt)
 target_include_directories(
         ${KERNEL_BIN} PUBLIC
         "${PROJECT_SOURCE_DIR}/src/idt"
+)
+
+add_subdirectory(${PROJECT_SOURCE_DIR}/src/mm)
+target_link_libraries(${KERNEL_BIN} PUBLIC mm)
+target_include_directories(
+        ${KERNEL_BIN} PUBLIC
+        "${PROJECT_SOURCE_DIR}/src/mm"
 )
 
 

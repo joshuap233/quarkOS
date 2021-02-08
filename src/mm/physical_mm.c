@@ -33,15 +33,12 @@ static inline pointer_t pop() {
 
 //空闲页入栈
 static void push_free_page() {
-    multiboot_mmap_entry_t *entry;
-    pointer_t tail = (pointer_t) g_mmap + g_mmap->size;
-
     // 空闲内存入栈
-    for (entry = g_mmap->entries; (pointer_t) entry < tail; entry++) {
+    for (multiboot_mmap_entry_t *entry = g_mmap->entries; (pointer_t) entry < g_mmap_tail; entry++) {
         assertk(entry->zero == 0);
         if (entry->type == MULTIBOOT_MEMORY_AVAILABLE) {
             uint64_t length = entry->len;
-            uint64_t start = entry->addr;
+            uint64_t start = SIZE_ALIGN(entry->addr);
             //遇到小于 4k 的内存块直接舍弃
             while (length >= PAGE_SIZE) {
                 push(start);
@@ -50,26 +47,12 @@ static void push_free_page() {
             }
         }
     }
-
 }
 
-//初始 mm_page 内的栈
+//初始化 mm_page,为 mm_page.page 分配内存
 static void page_stack_init() {
-    multiboot_mmap_entry_t *entry;
-    pointer_t tail = (pointer_t) g_mmap + g_mmap->size;
-    uint32_t stack_total = divUc(g_mem_total, PAGE_SIZE) * sizeof(pointer_t);
-    for (entry = g_mmap->entries; (pointer_t) entry < tail; entry++)
-        if (entry->type == MULTIBOOT_MEMORY_AVAILABLE && entry->len > stack_total) {
-            uint64_t addr = entry->addr;
-
-            entry->addr = SIZE_ALIGN(addr + stack_total);
-            entry->len -= (entry->addr - addr);
-
-            mm_page.page = (pointer_t *) addr;
-            mm_page.size = (entry->addr - addr) / sizeof(pointer_t);
-            break;
-        }
-    assertk(mm_page.page != NULL);
+    mm_page.size = divUc(g_mem_total, PAGE_SIZE) * sizeof(pointer_t);
+    mm_page.page = (pointer_t *) split_mmap(mm_page.size);
 }
 
 void phymm_init() {

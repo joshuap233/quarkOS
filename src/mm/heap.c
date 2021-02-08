@@ -57,7 +57,7 @@ void *mallocK(size_t size) {
         if (!chunk->used && chunk->size >= size) {
             heap_ptr_t *alloc = chunk;
 
-            if (size + sizeof(heap_ptr_t) > chunk->size) {
+            if (chunk->size - size < sizeof(heap_ptr_t)) {
                 //剩余空间无法容纳新头块,将剩余空间全都分配出去
                 size = chunk->size;
                 alloc->next = MM_NULL;
@@ -71,13 +71,13 @@ void *mallocK(size_t size) {
             alloc->used = true;
             alloc->size = size;
 
-            return (void *) alloc + sizeof(heap_ptr_t);
+            return ALLOC_ADDR((void *) alloc);
         }
     }
     return MM_NULL;
 }
 
-pointer_t *freeK(void *addr) {
+void freeK(void *addr) {
     heap_ptr_t *alloc = CHUNK_HEADER(addr);
     assertk(alloc->magic = HEAP_MAGIC);
     alloc->used = false;

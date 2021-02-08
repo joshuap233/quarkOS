@@ -67,5 +67,10 @@ static inline void panic() {
     halt();
 }
 
+static inline bool isPaging() {
+    uint32_t cr0;
+    asm volatile("mov %%cr0, %0":"=a"(cr0));
+    return (cr0 >> 31) == 1;
+}
 
 #endif //QUARKOS_X86_H
