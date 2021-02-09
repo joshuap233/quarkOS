@@ -14,7 +14,7 @@ typedef struct free_list {
     struct free_list *next, *prev;
 } free_list_t;
 
-//用于管理空闲列表
+//用于管理空闲列表节点
 typedef struct stack {
 #define LIST_COUNT 64
 #define STACK_SIZE 128
@@ -22,6 +22,11 @@ typedef struct stack {
     uint32_t top;
     uint32_t size;
 } stack_t;
+
+typedef struct vmm_list {
+    free_list_t *header; //header 指向空闲链表首部
+    uint32_t size;       //剩余总虚拟内存
+} vmm_list_t;
 
 bool list_split(pointer_t va, uint32_t size);
 

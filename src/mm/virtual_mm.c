@@ -18,11 +18,12 @@
 static pde_t _Alignas(PAGE_SIZE) k_pde[] = {[0 ...PAGE_SIZE - 1]=(VM_KR | VM_NPRES)};
 
 
-// 三个参数分别为:
-// 需要映射的虚拟地址,物理地址, 需要映射的内存大小
+// 用于直接线性映射
+// 三个参数分别为: 需要映射的虚拟地址,物理地址, 需要映射的内存大小
 void vmm_map(pointer_t va, pointer_t pa, uint32_t size, uint32_t flags) {
+    assertk((va & ALIGN_MASK) == 0);
     uint32_t pdeI = PDE_INDEX(va), pteI = PTE_INDEX(va);
-    bool paging = isPaging();
+    bool paging = is_paging();
 
     for (; size > 0 && pdeI < N_PDE - 1; pdeI++, pteI = 0) {
         pde_t *pde = &k_pde[pdeI];  //页目录项
@@ -47,7 +48,7 @@ void vmm_map(pointer_t va, pointer_t pa, uint32_t size, uint32_t flags) {
 void vmm_init() {
     cr3_t cr3 = CR3_CTRL | ((pointer_t) k_pde);
     free_list_init(SIZE_ALIGN(g_vmm_start));
-    //留出页表的虚拟内存
+    //留出页表与堆的虚拟内存
     assertk(list_split(PTE_VA, PT_SIZE));
     assertk(list_split(HEAP_START, HEAP_SIZE));
     k_pde[N_PDE - 1] = (pointer_t) k_pde | VM_KW | VM_PRES;
@@ -79,10 +80,10 @@ void vmm_unmap(void *va, uint32_t size) {
 }
 
 
-// va 为虚拟内存首地址
-// size 为需要分配的虚拟内存内存大小
+// 映射虚拟地址 va ~ va+size-1
 // 开启分页后才能使用
 void vmm_mapv(pointer_t va, uint32_t size, uint32_t flags) {
+    assertk((va & ALIGN_MASK) == 0);
     uint32_t pdeI = PDE_INDEX(va), pteI = PTE_INDEX(va);
 
     for (; size > 0 && pdeI < N_PDE - 1; pdeI++, pteI = 0) {

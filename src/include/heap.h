@@ -35,10 +35,11 @@ typedef struct heap {
     heap_ptr_t *tail;   //tail 指向最后一个非空闲块
     uint32_t size;      //已分配虚拟内存
     uint32_t free;      //空闲虚拟内存
-#define HEAP_START 0x1fffffff
-#define HEAP_END   0x2fffffff
-#define HEAP_SIZE  (HEAP_END - HEAP_START)
-#define LIMIT      2.5 * PAGE_SIZE  //空闲堆空间大于 LIMIT 时,释放多余的页,2.5?瞎选的.....
+#define HEAP_START           0x20000000
+#define HEAP_END             0x2fffffff
+#define HEAP_SIZE            (HEAP_END - HEAP_START + 1)
+#define HEAP_FREE_LIMIT      (2.5 * PAGE_SIZE)
+//空闲堆空间大于 LIMIT 时,释放多余的页
 } heap_t;
 
 //返回当前堆末尾地址

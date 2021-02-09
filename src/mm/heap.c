@@ -2,7 +2,7 @@
 // Created by pjs on 2021/2/3.
 //
 // 内核堆
-
+//TODO: 测试!!!
 #include "heap.h"
 #include "types.h"
 #include "mm.h"
@@ -25,8 +25,8 @@ void heap_init() {
     heap.header = (heap_ptr_t *) HEAP_START;
     heap.tail = MM_NULL;
     heap.free = HEAP_SIZE - heap.size;
-    chunk_init(heap.header, MM_NULL, PAGE_SIZE);
     vmm_mapv((pointer_t) heap.header, heap.size, VM_KW | VM_PRES);
+    chunk_init(heap.header, MM_NULL, PAGE_SIZE);
 }
 
 // size 为还需要的内存块大小
@@ -36,11 +36,12 @@ static bool expend(uint32_t size) {
     vmm_mapv(heap_tail(heap), size, VM_KW | VM_PRES);
     heap.free -= size;
     heap.size += size;
+    return true;
 }
 
 static void shrink() {
     pointer_t free = heap_tail(heap) - (pointer_t) heap.tail;
-    if (free > LIMIT) {
+    if (free > HEAP_FREE_LIMIT) {
         uint32_t size = free / PAGE_SIZE;
         vmm_unmap((void *) (heap_tail(heap) - size), size);
     }

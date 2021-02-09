@@ -28,7 +28,7 @@
 #define PDE_SIZE            sizeof(pde_t)
 #define N_PTE              (PAGE_SIZE/PTE_SIZE)  //每个页面的表项数
 #define N_PDE              (PAGE_SIZE/PDE_SIZE)
-#define PT_SIZE             N_PDE * N_PTE * PAGE_SIZE // 页表项总大小
+#define PT_SIZE             N_PDE * N_PTE * PTE_SIZE // 页表项总大小
 // 使 a 页对齐(向上)
 #define ADDR_ALIGN(a)      (((a) & ALIGN_MASK) ?((a)&(~ALIGN_MASK)):(a))
 
@@ -51,5 +51,18 @@ extern char _endKernel[], _startKernel[];
 #define K_START ((pointer_t) _startKernel)
 #define K_END   ((pointer_t) _endKernel)
 #define K_SIZE  (K_END - K_START)
+
+//页错误错误码
+typedef struct pf_error_code {
+    uint16_t p: 1;   //置 0 则异常由页不存在引起,否则由特权级保护引起
+    uint16_t w: 1;   //置 0 则访问是读取
+    uint16_t u: 1;   //置 0 则特权模式下发生的异常
+    uint16_t r: 1;
+    uint16_t i: 1;
+    uint16_t pk: 1;
+    uint16_t zero: 10;
+    uint16_t sgx: 1;
+    uint16_t zero1: 15;
+}__attribute__((packed)) pf_error_code_t;
 
 #endif //QUARKOS_MM_H

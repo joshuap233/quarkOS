@@ -7,7 +7,7 @@
 #include "ps2.h"
 #include "keyboard.h"
 #include "timer.h"
-
+#include "mm.h"
 // 忽略 -Wunused-parameter
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-parameter"
@@ -93,7 +93,11 @@ void ISR(13)(interrupt_frame_t *frame, uint32_t error_code) {
 __attribute__((interrupt))
 void ISR(14)(interrupt_frame_t *frame, uint32_t error_code) {
 //页错误
-    printfk("page fault\n");
+    pf_error_code_t *ec = (pf_error_code_t *) (&error_code);
+    assertk(ec->zero == 0);
+    assertk(ec->zero1 == 0);
+    printfk("page fault, error code: %x\n", error_code);
+    printfk("page fault addr: %x\n", pf_addr());
     panic();
 }
 

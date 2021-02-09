@@ -1,17 +1,20 @@
 //
 // Created by pjs on 2021/2/6.
 //
-// 用于管理空闲虚拟内存
+//TODO: 测试!!!
+
+//freelist 用于管理空闲虚拟内存
+//静态分配一页的内存用于空闲链表,使用栈管理链表节点
+//需要更多链表节点时,动态分配链表(堆)
+//栈满时, 释放动态分配的空闲链表节点
 
 #include "free_list.h"
 #include "mm.h"
 #include "heap.h"
 
 static free_list_t free_list[LIST_COUNT];
-static free_list_t *header;
-//静态分配一页的内存用于空闲链表,
-//需要更多空闲链表使,动态分配链表(堆)
-//栈满时,释放动态分配的空闲链表
+static vmm_list_t vmm_list;
+
 static stack_t stack = {
         .top = 0,
         .size = STACK_SIZE
@@ -64,26 +67,40 @@ void free_list_init(uint32_t size) {
     list->next = MM_NULL;
     list->prev = MM_NULL;
     list->size = PHYMM - size;
-    header = list;
+    vmm_list.header = list;
+    vmm_list.size = list->size;
 }
 
 
 bool list_split(pointer_t va, uint32_t size) {
     //查找空闲列表是否有满足大小的空闲空间并切割
     va = PAGE_ADDR(va);
-    pointer_t end = va + size;
-    free_list_t *temp = header;
+    if (vmm_list.size < size) return false;
+    pointer_t va_end = va + size - 1;
+    free_list_t *temp = vmm_list.header;
     while (temp != MM_NULL) {
-        if (temp->addr <= va && (temp->addr + temp->size - 1) >= end) {
-            temp->size -= size;
-            temp->addr = end;
-            if (temp->size == 0) {
-                if (temp->prev != MM_NULL)
-                    temp->prev->next = temp->next;
+        uint32_t list_end = temp->addr + temp->size - 1;
+        if (temp->addr <= va && list_end >= va_end) {
+            if (temp->addr == va && list_end == va_end) {
+                if (temp == vmm_list.header)
+                    vmm_list.header = temp->next;
                 else
-                    header = temp->next;
+                    temp->prev->next = temp->next;
+                temp->next->prev = temp->prev;
                 list_destroy(temp);
+            } else if (temp->addr == va || list_end == va_end) {
+                if (temp->addr == va) temp->addr = va_end;
+                temp->size -= size;
+            }else {
+                temp->size = va - temp->addr;
+                free_list_t *new = list_alloc();
+                new->next = temp->next;
+                new->prev = temp;
+                temp->next = new;
+                new->addr = va_end;
+                new->size = list_end - va_end;
             }
+            vmm_list.size -= size;
             return true;
         }
         temp = temp->next;
@@ -93,7 +110,7 @@ bool list_split(pointer_t va, uint32_t size) {
 
 //first fit
 void *list_split_ff(uint32_t size) {
-    free_list_t *temp = header;
+    free_list_t *temp = vmm_list.header;
     while (temp != MM_NULL) {
         if (temp->size >= size) {
             void *temp_addr = (void *) temp->addr;
@@ -101,12 +118,13 @@ void *list_split_ff(uint32_t size) {
                 if (temp->prev != MM_NULL)
                     temp->prev->next = temp->next;
                 else
-                    header = temp->next;
+                    vmm_list.header = temp->next;
                 list_destroy(temp);
             } else {
                 temp->addr = temp->addr + size;
                 temp->size -= size;
             }
+            vmm_list.size -= size;
             return temp_addr;
         }
         temp = temp->next;
@@ -127,7 +145,6 @@ static void list_merge(free_list_t *alloc) {
     while (t->next != MM_NULL && (t->addr + t->size >= t->next->addr)) {
         t = t->next;
         if (t->prev != alloc) list_destroy(t->prev);
-
     }
     bool equal = false;
     if (h != t) {
@@ -142,7 +159,7 @@ static void list_merge(free_list_t *alloc) {
 
 //释放空闲空间
 void list_free(pointer_t va, uint32_t size) {
-    free_list_t *temp = header;
+    free_list_t *temp = vmm_list.header;
     free_list_t *new = list_alloc();
     new->addr = va;
     new->size = size;
@@ -151,14 +168,15 @@ void list_free(pointer_t va, uint32_t size) {
     while (temp != MM_NULL && temp->addr <= va)
         temp = temp->next;
 
-    if (temp == header) {
+    if (temp == vmm_list.header) {
         new->prev = MM_NULL;
-        header = new;
+        vmm_list.header = new;
     } else {
         new->prev = temp->prev;
         temp->prev->next = new;
     }
 
     new->next = temp;
+    vmm_list.size += size;
     list_merge(new);
 }

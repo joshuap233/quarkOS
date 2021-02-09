@@ -67,10 +67,18 @@ static inline void panic() {
     halt();
 }
 
-static inline bool isPaging() {
+static inline bool is_paging() {
     uint32_t cr0;
     asm volatile("mov %%cr0, %0":"=a"(cr0));
     return (cr0 >> 31) == 1;
 }
+
+//获取产生错误的虚拟地址
+static inline pointer_t pf_addr() {
+    uint32_t cr2;
+    asm volatile("mov %%cr2, %0":"=a"(cr2));
+    return cr2;
+}
+
 
 #endif //QUARKOS_X86_H
