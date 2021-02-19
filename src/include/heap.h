@@ -44,7 +44,7 @@ typedef struct heap {
 
 //返回当前堆末尾地址
 static inline pointer_t heap_tail(heap_t heap) {
-    return HEAP_SIZE + heap.size;
+    return HEAP_START + heap.size - 1;
 }
 
 #endif //QUARKOS_HEAP_H

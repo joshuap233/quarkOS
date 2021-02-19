@@ -41,23 +41,11 @@ reqinfoEnd:
 
 headerEnd:
 
-/*
-The multiboot standard does not define the value of the stack pointer register
-(esp) and it is up to the kernel to provide a stack. This allocates room for a
-small stack by creating a symbol at the bottom of it, then allocating 16384
-bytes for it, and finally creating a symbol at the top. The stack grows
-downwards on x86. The stack is in its own section so it can be marked nobits,
-which means the kernel file is smaller because it does not contain an
-uninitialized stack. The stack on x86 must be 16-byte aligned according to the
-System V ABI standard and de-facto extensions. The compiler will assume the
-stack is properly aligned and failure to align the stack will result in
-undefined behavior.
-*/
+/*system V ABI 规定 x86 函数调用时,函数栈必须 16 字节对齐(gcc4.5以后)*/
 .section .bss
-.align 16
-stack_bottom:
-.skip 16384 # 16 KiB
 stack_top:
+.skip 16384 # 16 KiB
+stack_bottom:
 
 /*
 linker 脚本指定 _start symbol 为内核开始处,bootloader 会跳转到这里
@@ -69,31 +57,13 @@ linker 脚本指定 _start symbol 为内核开始处,bootloader 会跳转到这�
 _start:
 
 	/* 设置内核栈, x86 栈向低地址扩展, c 函数执行需要栈 */
-	mov $stack_top, %esp
-	/*
-	Enter the high-level kernel. The ABI requires the stack is 16-byte
-	aligned at the time of the call instruction (which afterwards pushes
-	the return pointer of size 4 bytes). The stack was originally 16-byte
-	aligned above and we've pushed a multiple of 16 bytes to the
-	stack since (pushed 0 bytes so far), so the alignment has thus been
-	preserved and the call is well defined.
-	*/
+	mov $stack_bottom, %esp
+    sub $8, %esp
+
 	push %eax
 	push %ebx
 	call kernel_main
 
-	/*
-	If the system has nothing more to do, put the computer into an
-	infinite loop. To do that:
-	1) Disable interrupts with cli (clear interrupt enable in eflags).
-	   They are already disabled by the bootloader, so this is not needed.
-	   Mind that you might later enable interrupts and return from
-	   kernel_main (which is sort of nonsensical to do).
-	2) Wait for the next interrupt to arrive with hlt (halt instruction).
-	   Since they are disabled, this will lock up the computer.
-	3) Jump to the hlt instruction if it ever wakes up due to a
-	   non-maskable interrupt occurring or due to system management mode.
-	*/
 	cli
 1:	hlt
 	jmp 1b

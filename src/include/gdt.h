@@ -25,6 +25,7 @@ typedef struct gdt_entry {
 #define GDT_USR_CODE     0xfa    // 用户代码段
 #define GDT_USR_DATA     0xf2    // 用户数据段
 #define GDT_USR_RODATA   0xf0    // 用户只读数据段
+#define GDT_COUNT 20
 } __attribute__((packed)) gdt_entry_t;
 //一定要加上  __attribute__((packed)), 否则这些值不会紧挨在一起
 
@@ -33,10 +34,17 @@ typedef struct gdtr {
     uint32_t address;
 } __attribute__((packed)) gdtr_t;
 
-void gdt_set(gdt_entry_t *gdt, uint32_t base, uint32_t limit, uint8_t flag, uint8_t access);
+void gdt_set(uint32_t index, pointer_t value_addr);
 
 extern void gdtr_set(uint32_t gdtr);
 
+
 void gdt_init();
+
+static inline int32_t get_free_gdt_index() {
+    extern uint32_t gdt_index;
+    assertk(gdt_index != GDT_COUNT);
+    return gdt_index++;
+}
 
 #endif //QUARKOS_GDT_H

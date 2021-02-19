@@ -8,6 +8,8 @@
 #include "keyboard.h"
 #include "timer.h"
 #include "mm.h"
+#include "kthread.h"
+
 // 忽略 -Wunused-parameter
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-parameter"
@@ -87,7 +89,9 @@ void ISR(12)(interrupt_frame_t *frame, uint32_t error_code) {
 
 __attribute__((interrupt))
 void ISR(13)(interrupt_frame_t *frame, uint32_t error_code) {
-
+    error_code_t *ec = (error_code_t *) (&error_code);
+    printfk("GP exception");
+    panic();
 }
 
 __attribute__((interrupt))
@@ -131,6 +135,7 @@ void ISR(20)(interrupt_frame_t *frame) {
 __attribute__((interrupt))
 void ISR(32)(interrupt_frame_t *frame) {
     tick++;
+    schedule();
     pic1_eoi();
 }
 

@@ -10,6 +10,7 @@
 #include "x86.h"
 #include "keyboard.h"
 #include "mm.h"
+#include "kthread.h"
 
 #if defined(__linux__)
 #warning "你没有使用跨平台编译器进行编译"
@@ -37,6 +38,11 @@ void hello() {
     printfk("\n");
 }
 
+void *worker(void *args) {
+    printfk("hello\n");
+    return NULL;
+}
+
 //mba 为 multiboot info struct 首地址
 void kernel_main(multiboot_info_t *mba, uint32_t magic) {
     vga_init();
@@ -47,6 +53,8 @@ void kernel_main(multiboot_info_t *mba, uint32_t magic) {
     gdt_init();
     idt_init();
     mm_init();
+    sched_init();
+    kthread_create(worker, NULL);
     while (1) {
         kb_getchar();
     }

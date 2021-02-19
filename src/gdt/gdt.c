@@ -3,27 +3,40 @@
 //
 #include "gdt.h"
 
-#define GDT_COUNT 7
+#include "qstring.h"
 
+uint32_t gdt_index = 1; //第一个空闲gdt索引
+static gdt_entry_t _Alignas(8) gdt[GDT_COUNT] = {0};
+
+//用于设置全局描述符
+void gdt_set_(gdt_entry_t *_gdt, uint32_t base, uint32_t limit, uint8_t flag, uint8_t access) {
+    // 设置基地址
+    _gdt->base_l = base & (MASK_U32(16));
+    _gdt->base_m = (base >> 16) & (MASK_U32(8));
+    _gdt->base_h = base >> 24;
+
+    // 设置 limit
+    _gdt->limit = limit & (MASK_U32(16));
+    _gdt->limit_h = limit >> 16;
+    // 设置 G,D/B,L,AVL 四个 FLAG
+    _gdt->flag = flag;
+
+    // 设置访问位
+    _gdt->access = access;
+}
 
 void gdt_init() {
     // 使用平坦模型,
-    // 第 0 个 gdt 为 NULL,
-    // 1-3 gdt 为内核段: text,data,rodata
-    // 4-6 gdt 为用户段: text,data,rodata
-    static gdt_entry_t _Alignas(8) gdt[GDT_COUNT] = {0};
     gdtr_t gdtr = {
             .limit = GDT_COUNT * GDT_SIZE - 1,
             .address = (pointer_t) gdt
     };
-
-    gdt_set(&gdt[1], 0, GDT_LIMIT, GDT_FLAG, GDT_SYS_CODE);
-    gdt_set(&gdt[2], 0, GDT_LIMIT, GDT_FLAG, GDT_SYS_DATA);
-    gdt_set(&gdt[3], 0, GDT_LIMIT, GDT_FLAG, GDT_SYS_RODATA);
-    gdt_set(&gdt[4], 0, GDT_LIMIT, GDT_FLAG, GDT_USR_CODE);
-    gdt_set(&gdt[5], 0, GDT_LIMIT, GDT_FLAG, GDT_USR_DATA);
-    gdt_set(&gdt[6], 0, GDT_LIMIT, GDT_FLAG, GDT_USR_RODATA);
-
+    // 第 0 个 gdt 为 NULL(0)
+    gdt_set_(&gdt[1], 0, GDT_LIMIT, GDT_FLAG, GDT_SYS_CODE); //内核代码段
+    gdt_set_(&gdt[2], 0, GDT_LIMIT, GDT_FLAG, GDT_SYS_DATA); //内核数据段
+    gdt_set_(&gdt[3], 0, GDT_LIMIT, GDT_FLAG, GDT_USR_CODE); //用户代码段
+    gdt_set_(&gdt[4], 0, GDT_LIMIT, GDT_FLAG, GDT_USR_DATA); //用户数据段
+    gdt_index = 5;
 
     assertk(gdt[1].limit == 0xffff)
     assertk(gdt[1].base_l == 0)
@@ -36,18 +49,7 @@ void gdt_init() {
     gdtr_set((pointer_t) &gdtr);
 }
 
-void gdt_set(gdt_entry_t *gdt, uint32_t base, uint32_t limit, uint8_t flag, uint8_t access) {
-    // 设置基地址
-    gdt->base_l = base & (MASK_U32(16));
-    gdt->base_m = (base >> 16) & (MASK_U32(8));
-    gdt->base_h = base >> 24;
-
-    // 设置 limit
-    gdt->limit = limit & (MASK_U32(16));
-    gdt->limit_h = limit >> 16;
-    // 设置 G,D/B,L,AVL 四个 FLAG
-    gdt->flag = flag;
-
-    // 设置访问位
-    gdt->access = access;
+//可以用于设置 tss ldt 等
+void gdt_set(uint32_t index, pointer_t value_addr) {
+    q_memcpy(&gdt[index], (void *) value_addr, sizeof(uint64_t));
 }

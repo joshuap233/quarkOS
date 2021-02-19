@@ -1,1 +1,1 @@
-add_library(sched OBJECT sched.c)
+add_library(sched OBJECT tss.c tss.s kthread.c switch.s)

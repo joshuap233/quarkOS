@@ -48,7 +48,7 @@ typedef struct error_code {
     uint16_t ext: 1;
     uint16_t idt: 1;
     uint16_t ti: 1;
-    uint16_t ssi: 13;
+    uint16_t segment_selector_index: 13;
     uint16_t zero;
 }__attribute__((packed)) error_code_t;
 
