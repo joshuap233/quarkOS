@@ -53,7 +53,7 @@ void vmm_init() {
     assertk(list_split(HEAP_START, HEAP_SIZE));
     k_pde[N_PDE - 1] = (pointer_t) k_pde | VM_KW | VM_PRES;
 
-    // g_vmm_start 以下部分直接映射
+    // _vmm_start 以下部分直接映射
     vmm_map(0, 0, SIZE_ALIGN(g_vmm_start), VM_KW | VM_PRES);
     cr3_set(cr3);
 }

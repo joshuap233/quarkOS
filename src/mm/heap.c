@@ -29,11 +29,11 @@ void heap_init() {
     chunk_init(heap.header, MM_NULL, PAGE_SIZE);
 }
 
-// size 为还需要的内存块大小
+// size 为需要扩展的内存块大小
 static bool expend(uint32_t size) {
     size = SIZE_ALIGN(size);
     if (heap.free < size) return false;
-    vmm_mapv(heap_tail(heap), size, VM_KW | VM_PRES);
+    vmm_mapv(heap_tail(heap) + 1, size, VM_KW | VM_PRES);
     heap.free -= size;
     heap.size += size;
     return true;
@@ -76,7 +76,7 @@ static void merge(heap_ptr_t *alloc) {
 void *mallocK(size_t size) {
     size = CHUNK_SIZE(size);
     if (heap.size < size) {
-        if (!expend(heap.size - size))
+        if (!expend(size - heap.size))
             return MM_NULL;
     }
     heap_ptr_t *header = heap.header;
