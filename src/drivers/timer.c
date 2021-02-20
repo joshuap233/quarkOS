@@ -29,10 +29,13 @@ void ssleep(mseconds_t ms) {
  * 内核睡眠函数
  * 不精确的睡眠，睡眠时间（毫秒）为 10 的整数倍,ms<10 取 10
  */
+    asm volatile ("pushf":::"memory");
+    //保存eflags, 可能在执行下面的禁用中断语句时,中断已经被禁用
     disable_interrupt();
     tick = 0;
-    uint32_t end = divUc(ms, 1000 / PIT_TIMER_FREQUENCY);
+    uint32_t end = DIV_CEIL(ms, 1000 / PIT_TIMER_FREQUENCY);
     enable_interrupt();
+    asm volatile ("popf":::"memory");
     while (tick < end)
         halt();
 }
