@@ -90,7 +90,9 @@ void ISR(12)(interrupt_frame_t *frame, uint32_t error_code) {
 __attribute__((interrupt))
 void ISR(13)(interrupt_frame_t *frame, uint32_t error_code) {
     error_code_t *ec = (error_code_t *) (&error_code);
-    printfk("GP exception");
+    assertk(ec->zero == 0);
+    printfk("GP exception\n");
+    printfk("gp error code: %u\n", error_code);
     panic();
 }
 

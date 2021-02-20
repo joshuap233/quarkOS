@@ -28,13 +28,13 @@ void ssleep(mseconds_t ms) {
 /*
  * 内核睡眠函数
  * 不精确的睡眠，睡眠时间（毫秒）为 10 的整数倍,ms<10 取 10
+ * 不能在多线程中使用!!否则在获取 eflags 后切换线程可能导致 eflags 陈旧
  */
-    asm volatile ("pushf":::"memory");
-    //保存eflags, 可能在执行下面的禁用中断语句时,中断已经被禁用
+    uint32_t eflags = get_eflags();
     disable_interrupt();
     tick = 0;
     uint32_t end = DIV_CEIL(ms, 1000 / PIT_TIMER_FREQUENCY);
-    asm volatile ("popf":::"memory");
+    set_eflags(eflags);
     while (tick < end)
         halt();
 }

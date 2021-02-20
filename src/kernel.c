@@ -38,8 +38,12 @@ void hello() {
     printfk("\n");
 }
 
-void *worker(void *args) {
-    printfk("hello\n");
+void *workerA(void *args) {
+    printfk("a\n");
+    return NULL;
+}
+void *workerB(void *args) {
+    printfk("b\n");
     return NULL;
 }
 
@@ -54,7 +58,10 @@ void kernel_main(multiboot_info_t *mba, uint32_t magic) {
     idt_init();
     mm_init();
     sched_init();
-    kthread_create(worker, NULL);
+    kthread_create(workerA, NULL);
+    kthread_create(workerA, NULL);
+    kthread_create(workerA, NULL);
+    kthread_create(workerB, NULL);
     while (1) {
         kb_getchar();
     }
