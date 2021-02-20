@@ -10,7 +10,7 @@
 #define PIT_C2_DAT 0x42
 #define PIT_CMD    0x43
 #define PIT_OSC_FREQUENCY   1193182
-#define PIT_TIMER_FREQUENCY 100  //10ms 中断一次
+#define PIT_TIMER_FREQUENCY 1000  //10ms 中断一次
 #define PIT_CHANNEL0        (0b00  << 6)
 #define PIT_LH_MODE         (0b11  << 4)
 #define PIT_MODE3           (0b011 << 1)

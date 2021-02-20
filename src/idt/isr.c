@@ -135,8 +135,8 @@ void ISR(20)(interrupt_frame_t *frame) {
 __attribute__((interrupt))
 void ISR(32)(interrupt_frame_t *frame) {
     tick++;
-    schedule();
     pic1_eoi();
+    schedule();
 }
 
 // PIC 1 号中断,键盘输入

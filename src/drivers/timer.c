@@ -34,7 +34,6 @@ void ssleep(mseconds_t ms) {
     disable_interrupt();
     tick = 0;
     uint32_t end = DIV_CEIL(ms, 1000 / PIT_TIMER_FREQUENCY);
-    enable_interrupt();
     asm volatile ("popf":::"memory");
     while (tick < end)
         halt();

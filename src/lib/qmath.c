@@ -2,6 +2,7 @@
 #include "qlib.h"
 #include "qstring.h"
 #include "limits.h"
+#include "qmath.h"
 
 float _q_ceilf(float _arg) {
     uint32_t be_mask = BIT_MASK(uint32_t ,8);
@@ -35,9 +36,4 @@ float q_ceilf(float _arg) {
         return _arg == t ? _arg : (float) (t + 1);
     }
     return _q_ceilf(_arg);
-}
-
-// unsigned 32 位除法,取 ceil, 第一个参数为被除数
-uint32_t divUc(uint32_t dividend, uint32_t divider) {
-    return (uint32_t) q_ceilf((float) dividend / divider);
 }

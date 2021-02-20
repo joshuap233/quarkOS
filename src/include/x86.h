@@ -38,6 +38,10 @@ static inline void io_wait(void) {
 }
 
 // 设置 if 位
+// 注意,如果需要将 enable/disable 当成锁一样使用
+// 比如 disable_interrupt(); do_something...; enable_interrupt();
+// 需要保存/还原 eflags,因为调用 enable/disable 前可能中断已经被禁用
+// 或者使用 counter 计算中断被禁用次数,当被禁用次数为0 时再启用中断
 static inline void enable_interrupt() {
     asm volatile ("sti");
 }

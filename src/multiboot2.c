@@ -76,7 +76,7 @@ void multiboot_init(multiboot_info_t *bia) {
         }
         //Boot information 的 tags以 8 字节对齐
         // multiboot_tag 大小为 8 字节
-        tag = tag + divUc(tag->size, 8);
+        tag = tag + DIV_CEIL(tag->size, 8);
     }
 
     assertk(g_mmap->entry_version == 0);

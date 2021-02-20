@@ -52,7 +52,7 @@ static void push_free_page() {
 
 //初始化 mm_page,为 mm_page.page 分配内存
 static void page_stack_init() {
-    mm_page.size = divUc(g_mem_total, PAGE_SIZE) * sizeof(pointer_t);
+    mm_page.size = DIV_CEIL(g_mem_total, PAGE_SIZE) * sizeof(pointer_t);
     mm_page.page = (pointer_t *) split_mmap(mm_page.size);
 }
 

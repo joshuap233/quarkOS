@@ -14,7 +14,7 @@ float _q_ceilf(float _arg);
 
 float q_floorf(float _arg);
 
-// unsigned 32 位除法,取 ceil, 第一个参数为被除数
-uint32_t divUc(uint32_t dividend, uint32_t divider);
+// 向上取整除法,可能溢出, y 为被除数
+#define DIV_CEIL(x, y)  (((x) + (y) - 1) / (y))
 
 #endif //QUARKOS_QMATH_H
