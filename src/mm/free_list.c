@@ -8,9 +8,9 @@
 //需要更多链表节点时,动态分配链表(堆)
 //栈满时, 释放动态分配的空闲链表节点
 
-#include "free_list.h"
-#include "mm.h"
-#include "heap.h"
+#include "mm/free_list.h"
+#include "mm/mm.h"
+#include "mm/heap.h"
 
 static free_list_t free_list[LIST_COUNT];
 static vmm_list_t vmm_list;

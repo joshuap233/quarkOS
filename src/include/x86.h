@@ -101,5 +101,5 @@ static inline pointer_t pf_addr() {
     return cr2;
 }
 
-
+#define INTERRUPT_MASK 0x200
 #endif //QUARKOS_X86_H

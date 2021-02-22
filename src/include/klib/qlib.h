@@ -9,9 +9,9 @@
 #include <stdbool.h>
 #include <stdarg.h>
 #include "types.h"
-#include "vga.h"
+#include "drivers/vga.h"
 #include "x86.h"
-#include "timer.h"
+#include "drivers/timer.h"
 
 #ifdef __i386__
 #define assertk(condition) {\

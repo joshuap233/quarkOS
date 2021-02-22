@@ -1,16 +1,16 @@
 #include <stddef.h> // size_t and NULL
 #include "types.h" // ntx_t and uintx_t
-#include "qstring.h"
-#include "qlib.h"
+#include "klib/qstring.h"
+#include "klib/qlib.h"
 #include "multiboot2.h"
-#include "qmath.h"
+#include "klib/qmath.h"
 #include "gdt.h"
 #include "idt.h"
-#include "vga.h"
+#include "drivers/vga.h"
 #include "x86.h"
-#include "keyboard.h"
-#include "mm.h"
-#include "kthread.h"
+#include "drivers/keyboard.h"
+#include "mm/mm.h"
+#include "sched/kthread.h"
 
 #if defined(__linux__)
 #warning "你没有使用跨平台编译器进行编译"
@@ -61,11 +61,11 @@ void kernel_main(multiboot_info_t *mba, uint32_t magic) {
     gdt_init();
     idt_init();
     mm_init();
-//    sched_init();
-//    kthread_create(workerA, NULL);
-//    kthread_create(workerA, NULL);
-//    kthread_create(workerA, NULL);
-//    kthread_create(workerB, NULL);
+    sched_init();
+    kthread_create(workerA, NULL);
+    kthread_create(workerA, NULL);
+    kthread_create(workerA, NULL);
+    kthread_create(workerB, NULL);
     while (1) {
         kb_getchar();
     }

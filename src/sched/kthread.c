@@ -1,23 +1,14 @@
 //
 // Created by pjs on 2021/2/19.
 //
-#include "kthread.h"
-#include "heap.h"
-#include "qlib.h"
-#include "qmath.h"
+#include "sched/kthread.h"
+#include "sched//klock.h"
+#include "mm/heap.h"
+#include "klib/qlib.h"
+#include "klib/qmath.h"
 
-//使用这种方式会导致中断丢失,即无论调用 kLock 前是否开启中断
-//调用 kRelease 后都会开启中断
-static inline void k_lock() {
-    disable_interrupt();
-}
-
-static inline void k_lock_release() {
-    enable_interrupt();
-}
-
-_Noreturn static inline void Idle(){
-    while (1){
+_Noreturn static inline void Idle() {
+    while (1) {
         halt();
     }
 }
@@ -32,12 +23,34 @@ static struct kthread_map {
 };
 
 
-//需要等待的线程
-tcb_t *join_task = NULL;
-//已执行完成等待销毁的线程
-tcb_t *finish_task = NULL;
-//正在运行或已经运行完成的线程
-tcb_t *cur_task = NULL;
+//cur_task 为循环链表, join_task 与 finish_task 不是
+tcb_t *join_task = NULL; //需要等待的线程
+
+tcb_t *finish_task = NULL; //已执行完成等待销毁的线程
+
+tcb_t *cur_task = NULL; //正在运行或已经运行完成的线程
+
+
+
+// dest->prev 插入src节点
+static inline void list_inert_p(tcb_t *src, tcb_t *dest) {
+    src->prev = dest->prev;
+    src->next = dest;
+    if (dest->prev != NULL) dest->prev->next = src;
+    dest->prev = src;
+}
+
+// dest->next 插入src节点
+static inline void list_inert_n(tcb_t *src, tcb_t *dest) {
+    src->prev = dest;
+    src->next = dest->next;
+    if (dest->next != NULL) dest->next->prev = src;
+    dest->next = src;
+}
+
+static inline void list_delete(tcb_t *node) {
+    node->prev = node->next;
+}
 
 
 static kthread_t alloc_tid() {
@@ -87,10 +100,11 @@ void sched_init() {
 
 
 //void kthread_exit(void *ret)
-static void kthread_exit_(tcb_t *tcb) {
+void kthread_exit_(tcb_t *tcb) {
     k_lock();
     finish_task->next = tcb;
     tcb->prev = tcb->next;
+    tcb->state = TASK_ZOMBIE;
     if (join_task == NULL) {
         thread_recycle();
     }
@@ -98,44 +112,33 @@ static void kthread_exit_(tcb_t *tcb) {
     Idle();
 }
 
-static void kthread_worker(void *(worker)(void *), void *args, tcb_t *tcb) {
-    //传入 tcb 而不是使用 r_task.cur_thread,
-    //防止 调用 kthread_exit_ 前,当前线程已经被切换
-    k_lock_release();
-    worker(args);
-    kthread_exit_(tcb);
-}
+//传入 tcb 而不是使用 r_task.cur_thread, 防止 调用 kthread_exit_ 前,当前线程已经被切换
+extern void kthread_worker(void *(worker)(void *), void *args, tcb_t *tcb);
 
 
 // 成功返回 0,否则返回错误码
 int kthread_create(void *(worker)(void *), void *args) {
-    tcb_t *thread = mallocK(sizeof(tcb_t));
+    //tcb 结构放到栈底
+    void *stack = mallocK(KTHREAD_STACK_SIZE);
+    assertk(stack != NULL);
+    tcb_t *thread = stack + KTHREAD_STACK_SIZE - sizeof(tcb_t);
     thread->state = TASK_RUNNING_OR_RUNNABLE;
-    thread->stack = mallocK(KTHREAD_STACK_SIZE);
+    thread->stack = stack;
 
-    pointer_t *stack = thread->stack + KTHREAD_STACK_SIZE - sizeof(pointer_t);
-    *stack = (pointer_t) thread;
-    stack--;
-    *stack = (pointer_t) args;
-    stack--;
-    *stack = (pointer_t) worker;    //kthread_worker 函数参数
-    stack--;
-    *stack = (pointer_t) schedule;  //worker 函数返回地址
-    stack--;
-    *stack = (pointer_t) kthread_worker;  //switch_to ret 指令会 pop worker 开始地址到 eip
+    pointer_t *esp = (void *) thread - sizeof(pointer_t) * 5;
+    esp[4] = (pointer_t) thread;
+    esp[3] = (pointer_t) args;
+    esp[2] = (pointer_t) worker;    //kthread_worker 参数
+    esp[1] = (pointer_t) NULL;      //kthread_worker 返回地址
+    esp[0] = (pointer_t) kthread_worker;
 
-    thread->context.esp = (pointer_t) stack;
-    thread->context.eflags = 0x200; //开启中断
+    thread->context.esp = (pointer_t) esp;
+    thread->context.eflags = get_eflags() | INTERRUPT_MASK; // 开启中断
     thread->tid = alloc_tid();
     assertk(thread->tid != 0);
 
-
-    //将线程插入到当前线程前
     k_lock();
-    thread->next = cur_task;
-    thread->prev = cur_task->prev;
-    cur_task->prev->next = thread;
-    cur_task->prev = thread;
+    list_inert_p(thread, cur_task);
     k_lock_release();
     return 0;
 }
@@ -146,10 +149,22 @@ void schedule() {
     if (cur_task != NULL && cur_task->next != cur_task) {
         cur_task = cur_task->next;
         switch_to(&cur_task->prev->context, &cur_task->context);
+    } else {
+        k_lock_release();
     }
 }
 
 // 成功返回0,否则返回错误码
 int kthread_join(kthread_t tid, void **value_ptr) {
-    return 0;
+    k_lock();
+    uint8_t error = 1;
+    for (tcb_t *header = cur_task; header != NULL; header = header->next) {
+        if (header->tid == tid) {
+            list_delete(header);
+            list_inert_n(header, join_task);
+            break;
+        }
+    }
+    k_lock_release();
+    return error;
 }

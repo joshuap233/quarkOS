@@ -2,11 +2,10 @@
 // Created by pjs on 2021/2/1.
 //
 
-#include "mm.h"
-#include "multiboot2.h"
-#include "physical_mm.h"
-#include "virtual_mm.h"
-#include "heap.h"
+#include "mm/mm.h"
+#include "mm/physical_mm.h"
+#include "mm/virtual_mm.h"
+#include "mm/heap.h"
 
 void mm_init() {
     phymm_init();

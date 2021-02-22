@@ -51,7 +51,7 @@ int kthread_create(void *(worker)(void *args), void *args);
 void schedule();
 
 int kthread_join(kthread_t tid, void **value_ptr);
-
+void kthread_exit_(tcb_t *tcb);
 //void kthread_exit();
 
 extern void switch_to(context_t *cur_context, context_t *next_context);

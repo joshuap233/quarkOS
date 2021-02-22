@@ -2,14 +2,14 @@
 // Created by pjs on 2021/2/1.
 //
 //虚拟内存管理
-#include "virtual_mm.h"
+#include "mm/virtual_mm.h"
 #include "types.h"
-#include "mm.h"
-#include "physical_mm.h"
-#include "free_list.h"
-#include "qstring.h"
+#include "mm/mm.h"
+#include "mm/physical_mm.h"
+#include "mm/free_list.h"
+#include "klib/qstring.h"
 #include "multiboot2.h"
-#include "heap.h"
+#include "mm/heap.h"
 
 //TODO: 使用buddy/slab
 //TODO: 添加测试

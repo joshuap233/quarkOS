@@ -2,13 +2,13 @@
 // Created by pjs on 2021/1/25.
 //
 #include "idt.h"
-#include "pic.h"
-#include "qlib.h"
-#include "ps2.h"
-#include "keyboard.h"
-#include "timer.h"
-#include "mm.h"
-#include "kthread.h"
+#include "drivers/pic.h"
+#include "klib/qlib.h"
+#include "drivers/ps2.h"
+#include "drivers/keyboard.h"
+#include "drivers/timer.h"
+#include "mm/mm.h"
+#include "sched/kthread.h"
 
 // 忽略 -Wunused-parameter
 #pragma GCC diagnostic push

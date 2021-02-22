@@ -4,10 +4,10 @@
 // 内核堆
 //TODO: 测试!!!
 // 线程安全?
-#include "heap.h"
+#include "mm/heap.h"
 #include "types.h"
-#include "mm.h"
-#include "virtual_mm.h"
+#include "mm/mm.h"
+#include "mm/virtual_mm.h"
 
 static heap_t heap;
 
@@ -124,7 +124,7 @@ void *mallocK(size_t size) {
     for (heap_ptr_t *header = heap.header; header != MM_NULL; header = header->next)
         if (!header->used && header->size >= size)
             return alloc_chunk(header, size);
-    if (!expend(size)) return MM_NULL;
+    if (!expend(size)) return NULL;
     return alloc_chunk(heap.tail, size);
 }
 

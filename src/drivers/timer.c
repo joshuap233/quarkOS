@@ -3,9 +3,9 @@
 //
 #include "types.h"
 #include "x86.h"
-#include "timer.h"
-#include "qlib.h"
-#include "qmath.h"
+#include "drivers/timer.h"
+#include "klib/qlib.h"
+#include "klib/qmath.h"
 
 // 时钟中断
 void pit_init(uint32_t frequency) {

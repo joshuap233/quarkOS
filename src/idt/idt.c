@@ -5,10 +5,10 @@
 #include "types.h"
 
 #include "idt.h"
-#include "qlib.h"
-#include "pic.h"
+#include "klib/qlib.h"
+#include "drivers/pic.h"
 #include "isr.h"
-#include "ps2.h"
+#include "drivers/ps2.h"
 
 // 设置 interrupt gate
 static void idt_set_ig(idt_t *idt, uint32_t offset, uint16_t selector, uint8_t type) {

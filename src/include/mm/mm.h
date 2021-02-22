@@ -6,7 +6,7 @@
 #define QUARKOS_MM_H
 
 #include "types.h"
-#include "qlib.h"
+#include "klib/qlib.h"
 
 
 #define K                   1024

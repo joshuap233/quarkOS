@@ -3,7 +3,7 @@
 //
 #include "gdt.h"
 
-#include "qstring.h"
+#include "klib/qstring.h"
 
 uint32_t gdt_index = 1; //第一个空闲gdt索引
 static gdt_entry_t _Alignas(8) gdt[GDT_COUNT] = {0};

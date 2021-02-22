@@ -5,7 +5,7 @@
 #include "types.h"
 #include "elf.h"
 #include "multiboot2.h"
-#include "qlib.h"
+#include "klib/qlib.h"
 
 struct stack_frame {
     struct stack_frame *ebp;

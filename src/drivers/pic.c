@@ -4,9 +4,9 @@
 
 #include "types.h"
 #include "x86.h"
-#include "qlib.h"
-#include "pic.h"
-#include "timer.h"
+#include "klib/qlib.h"
+#include "drivers/pic.h"
+#include "drivers/timer.h"
 
 
 static inline void outb_wait(uint16_t port, uint8_t value) {

@@ -2,11 +2,11 @@
 // Created by pjs on 2021/1/28.
 //
 // 使用 scancode 2
-#include "keyboard.h"
+#include "drivers/keyboard.h"
 #include "types.h"
-#include "ps2.h"
-#include "qlib.h"
-#include "qlib.h"
+#include "drivers/ps2.h"
+#include "klib/qlib.h"
+#include "klib/qlib.h"
 
 
 static device_status_t ds = {

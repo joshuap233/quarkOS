@@ -1,9 +1,9 @@
-#include "vga.h"
+#include "drivers/vga.h"
 #include "x86.h"
 #include "types.h"
 #include <stddef.h>
-#include "qstring.h"
-#include "qlib.h"
+#include "klib/qstring.h"
+#include "klib/qlib.h"
 
 //即将读写的行与列,不要直接修改
 static cursor_t cursor;

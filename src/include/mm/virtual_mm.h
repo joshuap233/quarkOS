@@ -6,7 +6,7 @@
 #define QUARKOS_VIRTUAL_MM_H
 
 #include "types.h"
-#include "mm.h"
+#include "mm/mm.h"
 #include "free_list.h"
 
 

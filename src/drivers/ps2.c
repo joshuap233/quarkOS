@@ -3,11 +3,11 @@
 //
 
 #include <stdbool.h>
-#include "ps2.h"
+#include "drivers/ps2.h"
 #include "types.h"
 #include "x86.h"
-#include "qlib.h"
-#include "keyboard.h"
+#include "klib/qlib.h"
+#include "drivers/keyboard.h"
 
 bool poll_status(uint8_t bit, status_t expect) {
 /*

@@ -2,13 +2,13 @@
 // Created by pjs on 2021/2/1.
 //
 // 使用栈结构管理物理内存
-#include "physical_mm.h"
+#include "mm/physical_mm.h"
 #include "types.h"
-#include "qlib.h"
+#include "klib/qlib.h"
 #include "types.h"
-#include "mm.h"
+#include "mm/mm.h"
 #include "multiboot2.h"
-#include "qmath.h"
+#include "klib/qmath.h"
 
 //TODO: 物理内存不足返回 false? NULL?
 static struct stack {
