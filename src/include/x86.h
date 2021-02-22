@@ -52,6 +52,10 @@ static inline void disable_interrupt() {
 static inline void halt() {
     asm volatile ("hlt");
 }
+static inline void pause(){
+    //停止固定的指令周期
+    asm volatile ("pause");
+}
 
 static inline uint32_t get_eflags() {
     uint32_t eflags;

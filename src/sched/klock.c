@@ -19,14 +19,16 @@ void lock_init() {
 }
 
 
-
 void spinlock_init(spinlock_t *lock) {
     lock->flag = 0;
 }
 
 
 void spinlock_lock(spinlock_t *lock) {
-    while (test_and_set(&lock->flag, 1) == 1)halt();
+    while (test_and_set(&lock->flag, 1) == 1) {
+//        halt();
+        pause();
+    }
 }
 
 void spinlock_unlock(spinlock_t *lock) {
