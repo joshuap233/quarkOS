@@ -4,7 +4,7 @@
 /*https://www.gnu.org/software/grub/manual/multiboot2/html_node/multiboot2_002eh.html#multiboot2_002eh*/
 
 #include "types.h"
-
+#include "elf.h"
 
 #define MULTIBOOT_TAG_ALIGN                  8
 #define MULTIBOOT_TAG_TYPE_END               0
@@ -266,6 +266,15 @@ struct multiboot_tag_elf_sections {
     multiboot_uint32_t shndx;
     char sections[0];
 }__attribute__((packed));
+//struct multiboot_tag_elf_sections {
+//    multiboot_uint32_t type;
+//    multiboot_uint32_t size;
+//    multiboot_uint16_t num;
+//    multiboot_uint16_t entsize;
+//    multiboot_uint16_t shndx;
+//    multiboot_uint16_t zero;
+//    char sections[0];
+//}__attribute__((packed));
 
 struct multiboot_tag_apm {
     multiboot_uint32_t type;
@@ -353,13 +362,17 @@ typedef struct multiboot_tag_mmap multiboot_tag_mmap_t;
 typedef struct multiboot_tag_apm multiboot_tag_apm_t;
 typedef struct multiboot_tag multiboot_tag_t;
 typedef struct multiboot_mmap_entry multiboot_mmap_entry_t;
+typedef struct multiboot_tag_elf_sections multiboot_tag_elf_sections_t;
 
-void parse_memory_map();
 pointer_t split_mmap(uint32_t size);
+
 extern multiboot_tag_mmap_t *g_mmap;
 extern multiboot_tag_apm_t *g_apm;
+
+extern elf_string_table_t g_shstrtab, g_strtab;
+extern elf_symbol_table_t g_symtab;
+
 extern uint32_t g_mem_total;
 extern pointer_t g_mmap_tail;
 extern pointer_t g_vmm_start;
-
 #endif //QUARKOS_MULTIBOOT2_H

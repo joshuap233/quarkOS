@@ -5,6 +5,7 @@
 #ifndef QUARKOS_X86_H
 #define QUARKOS_X86_H
 
+#include "stack_trace.h"
 #include "types.h"
 
 // 读一个字节
@@ -71,15 +72,6 @@ static inline void set_eflags(uint32_t eflags) {
     );
 }
 
-//static inline void kLock(){
-//    asm volatile ("pushf":::"memory");
-//    disable_interrupt();
-//}
-//
-//static inline void kRelease(){
-//    asm volatile ("popf":::"memory");
-//}
-
 static inline void enable_paging() {
     asm volatile (
     "mov %%cr0, %%eax       \n\t"
@@ -92,6 +84,7 @@ static inline void enable_paging() {
 // 内核异常,停止运行
 static inline void panic() {
     disable_interrupt();
+    stack_trace();
     halt();
 }
 

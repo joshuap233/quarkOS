@@ -12,7 +12,7 @@ set(CMAKE_C_COMPILER ${TOOLS}/bin/i686-elf-gcc)
 set(CMAKE_ASM_COMPILER ${TOOLS}/bin/i686-elf-as)
 
 set(CMAKE_C_STANDARD 11)
-set(CMAKE_C_FLAGS "-ffreestanding -O0 -Wall -Wextra")
+set(CMAKE_C_FLAGS "-ffreestanding -O0 -Wall -Wextra -g")
 
 set(KERNEL_BIN ${CMAKE_PROJECT_NAME}.bin)
 set(KERNEL_ISO ${CMAKE_PROJECT_NAME}.iso)
@@ -68,6 +68,13 @@ target_link_libraries(${KERNEL_BIN} PUBLIC gdt)
 target_include_directories(
         ${KERNEL_BIN} PUBLIC
         "${PROJECT_SOURCE_DIR}/src/gdt"
+)
+
+add_subdirectory(${PROJECT_SOURCE_DIR}/src/debug)
+target_link_libraries(${KERNEL_BIN} PUBLIC debug_)
+target_include_directories(
+        ${KERNEL_BIN} PUBLIC
+        "${PROJECT_SOURCE_DIR}/src/debug"
 )
 
 ## 生成 iso

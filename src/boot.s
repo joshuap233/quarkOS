@@ -41,7 +41,6 @@ reqinfoEnd:
 
 headerEnd:
 
-/*system V ABI 规定 x86 函数调用时,函数栈必须 16 字节对齐(gcc4.5以后)*/
 .section .bss
 stack_top:
 .skip 16384 # 16 KiB
@@ -58,7 +57,7 @@ _start:
 
 	/* 设置内核栈, x86 栈向低地址扩展, c 函数执行需要栈 */
 	mov $stack_bottom, %esp
-    sub $8, %esp
+    xor %ebp, %ebp # 用于追踪栈底
 
 	push %eax
 	push %ebx

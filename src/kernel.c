@@ -39,11 +39,15 @@ void hello() {
 }
 
 void *workerA(void *args) {
+    disable_interrupt();
     printfk("a\n");
+    enable_interrupt();
     return NULL;
 }
 void *workerB(void *args) {
+    disable_interrupt();
     printfk("b\n");
+    enable_interrupt();
     return NULL;
 }
 
@@ -57,11 +61,11 @@ void kernel_main(multiboot_info_t *mba, uint32_t magic) {
     gdt_init();
     idt_init();
     mm_init();
-    sched_init();
-    kthread_create(workerA, NULL);
-    kthread_create(workerA, NULL);
-    kthread_create(workerA, NULL);
-    kthread_create(workerB, NULL);
+//    sched_init();
+//    kthread_create(workerA, NULL);
+//    kthread_create(workerA, NULL);
+//    kthread_create(workerA, NULL);
+//    kthread_create(workerB, NULL);
     while (1) {
         kb_getchar();
     }

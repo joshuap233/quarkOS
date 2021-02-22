@@ -14,7 +14,7 @@ typedef struct context {
     //根据x86 systemV ABI eax, ecx, edx 是临时寄存器,使用函数手动切换时无需保存,
     //使用中断切换时, __attribute__((interrupt)) 会保存 eax ecx, edx
     //段选择子固定, 不使用 ldt, 都无需保存
-    //内核线程不需要保存 cr3, 调用 switch 函数时会自动保存 eip
+    //内核线程不需要保存 cr3, call 指令保存 eip
     uint32_t esp;
     uint32_t eflags;
     uint32_t ebx;
