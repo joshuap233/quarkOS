@@ -17,7 +17,7 @@ bool poll_status(uint8_t bit, status_t expect) {
 */
     for (int i = 0; i < N_POLL; ++i)
         if (ps2_cs(bit, expect)) {
-            ssleep(10);
+            assertk(ssleep(10));
             return true;
         }
     return false;

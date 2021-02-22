@@ -20,23 +20,31 @@ void pit_init(uint32_t frequency) {
     outb(PIT_C0_DAT, (uint8_t) (divisor >> 8));
 }
 
-//每个时钟中断加一
-volatile uint32_t tick = 0;
+volatile timer_t g_timer[TIMER_COUNT] = {0};
+
+static inline volatile mseconds_t *find_free_timer() {
+    for (int i = 0; i < TIMER_COUNT; ++i) {
+        if (g_timer[i].countdown == 0)
+            return &g_timer[i].countdown;
+    }
+    return NULL;
+}
 
 
-void ssleep(mseconds_t ms) {
+bool ssleep(mseconds_t ms) {
 /*
- * 内核睡眠函数
- * 不精确的睡眠，睡眠时间（毫秒）为 10 的整数倍,ms<10 取 10
+ * 睡眠时间（毫秒）为 10 的整数倍,ms<10 取 10
  * 不能在多线程中使用!!否则在获取 eflags 后切换线程可能导致 eflags 陈旧
  */
-    uint32_t eflags = get_eflags();
-    disable_interrupt();
-    tick = 0;
-    uint32_t end = DIV_CEIL(ms, 1000 / PIT_TIMER_FREQUENCY);
-    set_eflags(eflags);
-    while (tick < end)
+    volatile mseconds_t *countdown;
+    //lock
+    if ((countdown = find_free_timer()) == NULL)
+        return false;
+    *countdown = DIV_CEIL(ms, PIT_TIME_SLICE);
+    //unlock
+    while (*countdown > 0)
         halt();
+    return true;
 }
 
 

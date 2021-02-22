@@ -64,7 +64,7 @@ char kb_getchar() {
     q_clear(&kb_buf);
     do {
         c = q_pop(&kb_buf);
-        ssleep(10);
+        assertk(ssleep(10));
     } while (c == KB_NULL);
     vga_put_char(c);
     return c;

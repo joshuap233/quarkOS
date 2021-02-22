@@ -63,7 +63,7 @@ static kthread_t alloc_tid() {
                 return index * 8 + bit;
             }
         }
-        k_lock_release();
+        k_unlock();
     }
     // 0 号线程始终被内核占用
     return 0;
@@ -72,7 +72,7 @@ static kthread_t alloc_tid() {
 static void free_tid(kthread_t tid) {
     k_lock();
     clear_bit(&tid_map.map[tid / 8], tid % 8);
-    k_lock_release();
+    k_unlock();
 }
 
 
@@ -108,7 +108,7 @@ void kthread_exit_(tcb_t *tcb) {
     if (join_task == NULL) {
         thread_recycle();
     }
-    k_lock_release();
+    k_unlock();
     Idle();
 }
 
@@ -139,7 +139,7 @@ int kthread_create(void *(worker)(void *), void *args) {
 
     k_lock();
     list_inert_p(thread, cur_task);
-    k_lock_release();
+    k_unlock();
     return 0;
 }
 
@@ -150,7 +150,7 @@ void schedule() {
         cur_task = cur_task->next;
         switch_to(&cur_task->prev->context, &cur_task->context);
     } else {
-        k_lock_release();
+        k_unlock();
     }
 }
 
@@ -165,6 +165,6 @@ int kthread_join(kthread_t tid, void **value_ptr) {
             break;
         }
     }
-    k_lock_release();
+    k_unlock();
     return error;
 }

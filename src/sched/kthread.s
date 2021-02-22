@@ -1,11 +1,11 @@
-    .extern k_lock_release
+    .extern k_unlock
     .extern kthread_exit_
 
     .global kthread_worker
     .type   kthread_worker, @function
     .text
 kthread_worker:
-    call  k_lock_release
+    call  k_unlock
     pushl 8(%esp)
     movl  8(%esp), %eax
     call  *%eax

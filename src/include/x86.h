@@ -7,6 +7,7 @@
 
 #include "stack_trace.h"
 #include "types.h"
+#include "klib/qlib.h"
 
 // 读一个字节
 static inline uint8_t inb(uint16_t port) {
@@ -101,5 +102,6 @@ static inline pointer_t pf_addr() {
     return cr2;
 }
 
-#define INTERRUPT_MASK 0x200
+
+#define INTERRUPT_MASK (0b1 << 9)
 #endif //QUARKOS_X86_H

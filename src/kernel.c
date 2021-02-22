@@ -1,9 +1,7 @@
 #include <stddef.h> // size_t and NULL
 #include "types.h" // ntx_t and uintx_t
-#include "klib/qstring.h"
 #include "klib/qlib.h"
 #include "multiboot2.h"
-#include "klib/qmath.h"
 #include "gdt.h"
 #include "idt.h"
 #include "drivers/vga.h"
@@ -11,6 +9,7 @@
 #include "drivers/keyboard.h"
 #include "mm/mm.h"
 #include "sched/kthread.h"
+#include "sched/klock.h"
 
 #if defined(__linux__)
 #warning "你没有使用跨平台编译器进行编译"
@@ -39,15 +38,25 @@ void hello() {
 }
 
 void *workerA(void *args) {
-    disable_interrupt();
+//    disable_interrupt();
+    spinlock_t lock;
+    spinlock_init(&lock);
+    spinlock_lock(&lock);
     printfk("a\n");
-    enable_interrupt();
+    spinlock_unlock(&lock);
+//    enable_interrupt();
     return NULL;
 }
+
 void *workerB(void *args) {
-    disable_interrupt();
+    spinlock_t lock;
+    spinlock_init(&lock);
+    spinlock_lock(&lock);
     printfk("b\n");
-    enable_interrupt();
+    spinlock_unlock(&lock);
+//    disable_interrupt();
+//    printfk("b\n");
+//    enable_interrupt();
     return NULL;
 }
 
@@ -61,6 +70,7 @@ void kernel_main(multiboot_info_t *mba, uint32_t magic) {
     gdt_init();
     idt_init();
     mm_init();
+    lock_init();
     sched_init();
     kthread_create(workerA, NULL);
     kthread_create(workerA, NULL);
