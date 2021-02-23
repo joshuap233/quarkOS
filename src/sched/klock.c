@@ -8,14 +8,10 @@
 
 uint32_t irq_disable_counter;
 
-__attribute__((always_inline))
-static inline void irq_lock_init() {
+
+void irq_lock_init() {
     assertk(get_eflags() & INTERRUPT_MASK);
     irq_disable_counter = 0;
-}
-
-void lock_init() {
-    irq_lock_init();
 }
 
 
@@ -30,6 +26,18 @@ void irq_unlock() {
         enable_interrupt();
     }
 }
+
+//void futex_wait(){
+//
+//}
+//
+//void mutex_lock(int *mutex) {
+//
+//}
+//
+//void mutex_unlock(int *mutex) {
+//
+//}
 
 
 

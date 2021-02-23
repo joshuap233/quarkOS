@@ -6,6 +6,7 @@
 #include "mm/heap.h"
 #include "klib/qlib.h"
 #include "klib/qmath.h"
+#include "sched/timer.h"
 
 __attribute__((always_inline))
 _Noreturn static inline void Idle() {
@@ -24,18 +25,19 @@ static struct kthread_map {
 };
 
 
-//cur_task 为循环链表, join_task 与 finish_task 不是
+//cur_task 为循环链表
 tcb_t *join_task = NULL; //需要等待的线程
 
 tcb_t *finish_task = NULL; //已执行完成等待销毁的线程
 
-tcb_t *cur_task = NULL; //正在运行或已经运行完成的线程
+tcb_t *runnable_task = NULL; //正在运行或已经运行完成的线程
+tcb_t *block_task = NULL; //阻塞中的线程
 
-
+spinlock_t block_lock;
+spinlock_t unblock_lock;
 
 // dest->prev 插入src节点
-__attribute__((always_inline))
-static inline void list_inert_p(tcb_t *src, tcb_t *dest) {
+void list_inert_p(tcb_t *src, tcb_t *dest) {
     src->prev = dest->prev;
     src->next = dest;
     if (dest->prev != NULL) dest->prev->next = src;
@@ -43,8 +45,7 @@ static inline void list_inert_p(tcb_t *src, tcb_t *dest) {
 }
 
 // dest->next 插入src节点
-__attribute__((always_inline))
-static inline void list_inert_n(tcb_t *src, tcb_t *dest) {
+void list_inert_n(tcb_t *src, tcb_t *dest) {
     src->prev = dest;
     src->next = dest->next;
     if (dest->next != NULL) dest->next->prev = src;
@@ -52,10 +53,31 @@ static inline void list_inert_n(tcb_t *src, tcb_t *dest) {
 }
 
 __attribute__((always_inline))
-static inline void list_delete(tcb_t *node) {
-    node->prev = node->next;
+static inline void list_delete(tcb_t **header, tcb_t *node) {
+    if (*header == node) *header = node->next;
+    else node->prev = node->next;
 }
 
+//在 target 中查找 node
+tcb_t *list_find(tcb_t *target, kthread_t tid) {
+    while (target != NULL) {
+        if (target->tid == tid) return target;
+        target = target->next;
+    }
+    return NULL;
+}
+
+//node 添加到 target 末尾
+void list_append(tcb_t **target, tcb_t *node) {
+    if (*target == NULL) {
+        *target = node;
+    } else {
+        node->prev = *target;
+        node->next = (*target)->next;
+        (*target)->next = node;
+        if ((*target)->next != NULL) (*target)->next->prev = node;
+    }
+}
 
 static kthread_t alloc_tid() {
     for (uint32_t index = 0; index < tid_map.len; ++index) {
@@ -89,10 +111,14 @@ static void thread_recycle() {
         freeK(temp->stack);
         freeK(temp);
     }
+    finish_task = NULL;
 }
 
 //初始化内核主线程
 void sched_init() {
+    thread_timer_init();
+    spinlock_init(&block_lock);
+    spinlock_init(&unblock_lock);
     register uint32_t esp asm("esp");
     cur_task = mallocK(sizeof(tcb_t));
     cur_task->prev = cur_task;
@@ -120,7 +146,7 @@ void kthread_exit_(tcb_t *tcb) {
 extern void kthread_worker(void *(worker)(void *), void *args, tcb_t *tcb);
 
 
-// 成功返回 0,否则返回错误码
+// 成功返回 0,否则返回错误码(<0)
 int kthread_create(void *(worker)(void *), void *args) {
     //tcb 结构放到栈底
     void *stack = mallocK(KTHREAD_STACK_SIZE);
@@ -133,7 +159,7 @@ int kthread_create(void *(worker)(void *), void *args) {
     esp[4] = (pointer_t) thread;
     esp[3] = (pointer_t) args;
     esp[2] = (pointer_t) worker;    //kthread_worker 参数
-    esp[1] = (pointer_t) NULL;      //kthread_worker 返回地址
+    // esp[1] 为返回地址
     esp[0] = (pointer_t) kthread_worker;
 
     thread->context.esp = (pointer_t) esp;
@@ -147,16 +173,36 @@ int kthread_create(void *(worker)(void *), void *args) {
     return 0;
 }
 
-
 void schedule() {
-    k_lock();
-    if (cur_task != NULL && cur_task->next != cur_task) {
-        cur_task = cur_task->next;
-        switch_to(&cur_task->prev->context, &cur_task->context);
-    } else {
-        k_unlock();
+    //多 cpu 需要在这里加锁
+    if (cur_task != NULL) {
+        if (cur_task->next != cur_task) {
+            cur_task = cur_task->next;
+            switch_to(&cur_task->prev->context, &cur_task->context);
+        }
+    } else if (block_task != NULL) {
+        // 所有线程都被阻塞
+        halt();
     }
 }
+
+// 阻塞线程
+void block_thread() {
+    //TODO: cur_task 可能已经不是当前线程了??
+    spinlock_lock(&block_lock);
+    cur_task->state = TASK_SLEEPING;
+    list_delete(&runnable_task, cur_task);
+    list_append(&block_task, cur_task);
+    schedule();
+    spinlock_unlock(&block_lock);
+}
+
+void unblock_thread(tcb_t *thread) {
+    spinlock_lock(&unblock_lock);
+    list_delete(&block_task, thread);
+    spinlock_unlock(&unblock_lock);
+}
+
 
 // 成功返回0,否则返回错误码
 int kthread_join(kthread_t tid, void **value_ptr) {
@@ -164,8 +210,9 @@ int kthread_join(kthread_t tid, void **value_ptr) {
     uint8_t error = 1;
     for (tcb_t *header = cur_task; header != NULL; header = header->next) {
         if (header->tid == tid) {
-            list_delete(header);
-            list_inert_n(header, join_task);
+            list_delete(&join_task, header);
+            list_append(&join_task, header);
+            error = 0;
             break;
         }
     }

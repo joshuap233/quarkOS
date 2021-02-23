@@ -9,12 +9,19 @@
 
 //使用这种方式会导致中断丢失,即无论调用 kLock 前是否开启中断
 //调用 kRelease 后都会开启中断
-extern void k_lock();
+__attribute__((always_inline))
+static inline void k_lock(){
+    disable_interrupt();
+}
 
-extern void k_unlock();
+__attribute__((always_inline))
+static inline void k_unlock(){
+    enable_interrupt();
+}
 
 
-void lock_init();
+//需要在中断开启后初始化该锁
+void irq_lock_init();
 
 void irq_lock();
 

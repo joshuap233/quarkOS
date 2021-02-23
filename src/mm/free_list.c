@@ -32,7 +32,7 @@ static inline pointer_t pop() {
 
 //分配一个链表节点
 __attribute__((always_inline))
-static free_list_t *list_alloc() {
+static inline free_list_t *list_alloc() {
     if (stack.top == stack.size) {
         return mallocK(sizeof(free_list_t));
     }

@@ -9,6 +9,7 @@
 #include "drivers/timer.h"
 #include "mm/mm.h"
 #include "sched/kthread.h"
+#include "sched/timer.h"
 
 // 忽略 -Wunused-parameter
 #pragma GCC diagnostic push
@@ -134,6 +135,7 @@ void ISR(20)(interrupt_frame_t *frame) {
 // PIC 0 号中断,PIT 时钟中断
 __attribute__((interrupt))
 void ISR(32)(interrupt_frame_t *frame) {
+    g_tick++;
     timer_handle();
     pic1_eoi();
     schedule();

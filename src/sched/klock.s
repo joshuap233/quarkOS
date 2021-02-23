@@ -1,18 +1,3 @@
-    .global k_unlock
-    .type   k_unlock, @function
-    .text
-k_unlock:
-    sti
-    ret
-
-    .global k_lock
-    .type   k_lock, @function
-    .text
-k_lock:
-    cli
-    ret
-
-
     .global spinlock_lock
     .type   spinlock_lock, @function
     .text

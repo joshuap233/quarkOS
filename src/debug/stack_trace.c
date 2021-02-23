@@ -17,7 +17,8 @@ void stack_trace() {
     struct stack_frame *stk;
     asm ("movl %%ebp,%0":"=r"(stk));
     while (stk->ebp) {
-        printfk("ip: [%x], func: [%s]\n", stk->eip, cur_func_name((pointer_t) stk->eip));
+        char *name = cur_func_name((pointer_t) stk->eip);
+        printfk("ip: [%x], func: [%s]\n", stk->eip, name == NULL ? "NULL" : name);
         stk = stk->ebp;
     }
 }
@@ -32,4 +33,5 @@ char *cur_func_name(pointer_t addr) {
             }
         }
     }
+    return NULL;
 }

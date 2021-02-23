@@ -36,20 +36,15 @@ void hello() {
     printfk("%s************************************************\n", space);
     printfk("\n");
 }
-spinlock_t lock;
 
 
 void *workerA(void *args) {
-    spinlock_lock(&lock);
     printfk("a\n");
-    spinlock_unlock(&lock);
     return NULL;
 }
 
 void *workerB(void *args) {
-    spinlock_lock(&lock);
     printfk("b\n");
-    spinlock_unlock(&lock);
     return NULL;
 }
 
@@ -63,9 +58,8 @@ void kernel_main(multiboot_info_t *mba, uint32_t magic) {
     gdt_init();
     idt_init();
     mm_init();
-    lock_init();
+    irq_lock_init();
     sched_init();
-    spinlock_lock(&lock);
     for (int i = 0; i < 10; ++i) {
         kthread_create(workerA, NULL);
         kthread_create(workerB, NULL);
