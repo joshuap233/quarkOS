@@ -36,27 +36,20 @@ void hello() {
     printfk("%s************************************************\n", space);
     printfk("\n");
 }
+spinlock_t lock;
+
 
 void *workerA(void *args) {
-//    disable_interrupt();
-    spinlock_t lock;
-    spinlock_init(&lock);
     spinlock_lock(&lock);
     printfk("a\n");
     spinlock_unlock(&lock);
-//    enable_interrupt();
     return NULL;
 }
 
 void *workerB(void *args) {
-    spinlock_t lock;
-    spinlock_init(&lock);
     spinlock_lock(&lock);
     printfk("b\n");
     spinlock_unlock(&lock);
-//    disable_interrupt();
-//    printfk("b\n");
-//    enable_interrupt();
     return NULL;
 }
 
@@ -72,10 +65,12 @@ void kernel_main(multiboot_info_t *mba, uint32_t magic) {
     mm_init();
     lock_init();
     sched_init();
-    kthread_create(workerA, NULL);
-    kthread_create(workerA, NULL);
-    kthread_create(workerA, NULL);
-    kthread_create(workerB, NULL);
+    spinlock_lock(&lock);
+    for (int i = 0; i < 10; ++i) {
+        kthread_create(workerA, NULL);
+        kthread_create(workerB, NULL);
+    }
+
     while (1) {
         kb_getchar();
     }

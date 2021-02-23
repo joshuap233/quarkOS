@@ -6,6 +6,7 @@
 #include "drivers/timer.h"
 #include "klib/qlib.h"
 #include "klib/qmath.h"
+#include "sched/klock.h"
 
 // 时钟中断
 void pit_init(uint32_t frequency) {
@@ -35,14 +36,17 @@ static inline volatile mseconds_t *find_free_timer() {
 bool ssleep(mseconds_t ms) {
 /*
  * 睡眠时间（毫秒）为 10 的整数倍,ms<10 取 10
- * 不能在多线程中使用!!否则在获取 eflags 后切换线程可能导致 eflags 陈旧
  */
     volatile mseconds_t *countdown;
-    //lock
+    spinlock_t lock;
+    spinlock_init(&lock);
+
+    spinlock_lock(&lock);
     if ((countdown = find_free_timer()) == NULL)
         return false;
     *countdown = DIV_CEIL(ms, PIT_TIME_SLICE);
-    //unlock
+    spinlock_unlock(&lock);
+
     while (*countdown > 0)
         halt();
     return true;

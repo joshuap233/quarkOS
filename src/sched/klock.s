@@ -18,11 +18,24 @@ k_lock:
     .text
 spinlock_lock:
     movl  $1,%eax
-    jmp   .condition
-.loop:
-    pause
-.condition:
+
     xchg  %eax,4(%esp)
     cmpl  $1,%eax
-    je    .loop
+    jne   2f
+
+1:  pause
+    xchg  %eax,4(%esp)
+    cmpl  $1,%eax
+    je    1b
+2:  ret
+
+
+
+    .global fetch_and_add
+    .type   fetch_and_add, @function
+    .text
+fetch_and_add:
+    movl $1, %eax
+    movl 4(%esp), %ecx
+    xadd %eax, (%ecx)
     ret
