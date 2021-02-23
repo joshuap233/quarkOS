@@ -7,6 +7,7 @@
 #include "klib/qlib.h"
 #include "klib/qmath.h"
 
+__attribute__((always_inline))
 _Noreturn static inline void Idle() {
     while (1) {
         halt();
@@ -33,6 +34,7 @@ tcb_t *cur_task = NULL; //正在运行或已经运行完成的线程
 
 
 // dest->prev 插入src节点
+__attribute__((always_inline))
 static inline void list_inert_p(tcb_t *src, tcb_t *dest) {
     src->prev = dest->prev;
     src->next = dest;
@@ -41,6 +43,7 @@ static inline void list_inert_p(tcb_t *src, tcb_t *dest) {
 }
 
 // dest->next 插入src节点
+__attribute__((always_inline))
 static inline void list_inert_n(tcb_t *src, tcb_t *dest) {
     src->prev = dest;
     src->next = dest->next;
@@ -48,6 +51,7 @@ static inline void list_inert_n(tcb_t *src, tcb_t *dest) {
     dest->next = src;
 }
 
+__attribute__((always_inline))
 static inline void list_delete(tcb_t *node) {
     node->prev = node->next;
 }

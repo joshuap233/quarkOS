@@ -40,28 +40,33 @@ uint8_t ps2_prd();
 
 
 //读取状态寄存器
+__attribute__((always_inline))
 static inline uint8_t ps2_rs() {
     return inb(PS2_CMD);
 }
 
-
+__attribute__((always_inline))
 static inline uint8_t ps2_rd() {
     return inb(PS2_DAT);
 }
 
+__attribute__((always_inline))
 static inline void ps2_wd(uint8_t value) {
     outb(PS2_DAT, value);
 }
 
+__attribute__((always_inline))
 static inline void ps2_wc(uint8_t value) {
     outb(PS2_CMD, value);
 }
 
 //检测状态位
+__attribute__((always_inline))
 static inline bool ps2_cs(uint8_t bit, status_t expect) {
     return ((ps2_rs() >> bit) & 0b1) == expect;
 }
 
+__attribute__((always_inline))
 static inline bool ps2_full_output() {
     return ps2_cs(0, NZ);
 }

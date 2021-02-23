@@ -20,15 +20,18 @@ static stack_t stack = {
         .size = STACK_SIZE
 };
 
+__attribute__((always_inline))
 static inline void push(free_list_t *addr) {
     stack.list[stack.top++] = (pointer_t) addr;
 }
 
+__attribute__((always_inline))
 static inline pointer_t pop() {
     return stack.list[--stack.top];
 }
 
 //分配一个链表节点
+__attribute__((always_inline))
 static free_list_t *list_alloc() {
     if (stack.top == stack.size) {
         return mallocK(sizeof(free_list_t));

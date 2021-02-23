@@ -41,6 +41,7 @@ extern void gdtr_set(uint32_t gdtr);
 
 void gdt_init();
 
+__attribute__((always_inline))
 static inline int32_t get_free_gdt_index() {
     extern uint32_t gdt_index;
     assertk(gdt_index != GDT_COUNT);

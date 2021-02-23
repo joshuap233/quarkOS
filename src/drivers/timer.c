@@ -22,6 +22,7 @@ void pit_init(uint32_t frequency) {
 
 volatile timer_t g_timer[TIMER_COUNT] = {0};
 
+__attribute__((always_inline))
 static inline volatile mseconds_t *find_free_timer() {
     for (int i = 0; i < TIMER_COUNT; ++i) {
         if (g_timer[i].countdown == 0)

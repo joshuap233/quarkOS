@@ -12,44 +12,52 @@ static uint16_t *terminal_buffer;
 
 
 // fg，bg 为前景色与背景色
+__attribute__((always_inline))
 static inline uint8_t vga_entry_color(enum vga_color fg, enum vga_color bg) {
     return fg | (bg << 4);
 }
 
 // 拼接 ascii 字符与显示属性
+__attribute__((always_inline))
 static inline uint16_t vga_entry(unsigned char uc, uint8_t color) {
     return (uint16_t) uc | (uint16_t) color << 8;
 }
 
 #define VGA_SPACE vga_entry(' ', terminal_color)
 
+__attribute__((always_inline))
 static inline void vga_set_buf(char c, uint8_t color, cursor_t cur) {
     // 根据行列设置buffer
     const size_t index = BUF_INDEX(cur.col, cur.row);
     terminal_buffer[index] = vga_entry(c, color);
 }
 
+__attribute__((always_inline))
 static inline void vga_clean_line(uint8_t row) {
     q_memset16(&terminal_buffer[BUF_INDEX(0, row)], VGA_SPACE, VGA_WIDTH);
 }
 
+__attribute__((always_inline))
 static inline void vga_scroll_up() {
     q_memcpy(terminal_buffer, &terminal_buffer[BUF_INDEX(0, 1)], (VGA_HEIGHT - 1) * VGA_WIDTH * 2);
     vga_clean_line(VGA_HEIGHT - 1);
 }
 
 
+__attribute__((always_inline))
 static inline void vga_clean() {
     // 清屏为空格
     q_memset16(terminal_buffer, VGA_SPACE, VGA_WIDTH * VGA_HEIGHT);
 }
 
+__attribute__((always_inline))
 static inline void vga_cleanc(cursor_t c) {
     //清除一个字符
     q_memset16(&terminal_buffer[BUF_INDEX(c.col, c.row)], VGA_SPACE, 1);
 }
 
 
+__attribute__((always_inline))
 static inline void set_cursor(uint8_t row, uint8_t col) {
     cursor.row = row;
     cursor.col = col;
@@ -57,23 +65,27 @@ static inline void set_cursor(uint8_t row, uint8_t col) {
 
 
 //指针向上平移
+__attribute__((always_inline))
 static inline void cursor_up() {
     cursor.row = cursor.row == 0 ? 0 : cursor.row - 1;
 }
 
 //指针向下平移
+__attribute__((always_inline))
 static inline void cursor_down() {
     uint8_t nr = cursor.row + 1;
     cursor.row = nr >= VGA_HEIGHT ? cursor.row : nr;
 }
 
 // 移动到下一行行首
+__attribute__((always_inline))
 static inline void inc_row() {
     cursor.row + 1 == VGA_HEIGHT ? vga_scroll_up() : cursor.row++;
     cursor.col = 0;
 }
 
 // 移动到上一行行尾
+__attribute__((always_inline))
 static inline void dec_row() {
     if (cursor.row != 0) {
         cursor.row--;
@@ -82,11 +94,13 @@ static inline void dec_row() {
 }
 
 // cursor.col + 1
+__attribute__((always_inline))
 static inline void inc_col() {
     cursor.col + 1 == VGA_WIDTH ? inc_row() : cursor.col++;
 }
 
 // cursor.col - 1
+__attribute__((always_inline))
 static inline void dec_col() {
     cursor.col == 0 ? dec_row() : cursor.col--;
 }

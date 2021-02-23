@@ -55,6 +55,7 @@ char q_pop(kb_queue_t *q) {
     return res;
 }
 
+__attribute__((always_inline))
 static inline void q_clear(kb_queue_t *q) {
     q->tail = q->header;
 }

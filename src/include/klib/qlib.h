@@ -45,11 +45,13 @@ void printfk(char *__restrict str, ...);
 #define MASK_U8(n)  BIT_MASK(uint8_t, n)
 
 // bit 为 0-7
+__attribute__((always_inline))
 static inline void set_bit(uint8_t *value, uint8_t bit) {
     *value |= (0b1 << bit);
 }
 
 // bit 为 0-7
+__attribute__((always_inline))
 static inline void clear_bit(uint8_t *value, uint8_t bit) {
     *value &= (~(0b1 << bit));
 }

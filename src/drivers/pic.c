@@ -8,7 +8,7 @@
 #include "drivers/pic.h"
 #include "drivers/timer.h"
 
-
+__attribute__((always_inline))
 static inline void outb_wait(uint16_t port, uint8_t value) {
     outb(port, value);
     // 等待 PIC 写入完成

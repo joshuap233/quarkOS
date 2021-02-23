@@ -28,11 +28,13 @@ void pic_init(uint32_t offset1, uint32_t offset2);
 static uint8_t pic2_offset = 40;
 
 // 通知 pic1 结束中断
+__attribute__((always_inline))
 static inline void pic1_eoi(){
     outb(PIC1_CMD, PIC_EOI);
 }
 
 // 通知 PIC 结束中断
+__attribute__((always_inline))
 static inline void pic_eoi(uint8_t pic_offset) {
     if (pic_offset >= pic2_offset)
         outb(PIC2_CMD, PIC_EOI);

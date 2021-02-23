@@ -28,7 +28,7 @@ typedef struct timer {
 } timer_t;
 extern volatile timer_t g_timer[TIMER_COUNT];
 
-
+__attribute__((always_inline))
 static inline void timer_handle() {
     for (int i = 0; i < TIMER_COUNT; ++i) {
         if (g_timer[i].countdown > 0)

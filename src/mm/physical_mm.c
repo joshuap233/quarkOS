@@ -21,12 +21,13 @@ static struct stack {
         .size = 0
 };
 
-
+__attribute__((always_inline))
 static inline void push(pointer_t addr) {
     assertk(mm_page.top != mm_page.size);
     mm_page.page[mm_page.top++] = addr;
 }
 
+__attribute__((always_inline))
 static inline pointer_t pop() {
     assertk(mm_page.top != 0);
     return mm_page.page[--mm_page.top];
