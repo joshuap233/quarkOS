@@ -26,12 +26,12 @@ static struct kthread_map {
 
 
 //cur_task 为循环链表
-tcb_t *join_task = NULL; //需要等待的线程
+tcb_t *join_task = NULL;      //需要等待的线程
 
-tcb_t *finish_task = NULL; //已执行完成等待销毁的线程
+tcb_t *finish_task = NULL;   //已执行完成等待销毁的线程
 
 tcb_t *runnable_task = NULL; //正在运行或已经运行完成的线程
-tcb_t *block_task = NULL; //阻塞中的线程
+tcb_t *block_task = NULL;    //阻塞中的线程
 
 spinlock_t block_lock;
 spinlock_t unblock_lock;
@@ -130,11 +130,12 @@ void sched_init() {
 
 
 //void kthread_exit(void *ret)
-void kthread_exit_(tcb_t *tcb) {
+void kthread_exit() {
     k_lock();
-    finish_task->next = tcb;
-    tcb->prev = tcb->next;
-    tcb->state = TASK_ZOMBIE;
+    //TODO: cur_task ->prev ==NULL?
+    finish_task->next = cur_task;
+    cur_task->prev = cur_task->next;
+    cur_task->state = TASK_ZOMBIE;
     if (join_task == NULL) {
         thread_recycle();
     }
@@ -142,7 +143,6 @@ void kthread_exit_(tcb_t *tcb) {
     Idle();
 }
 
-//传入 tcb 而不是使用 r_task.cur_thread, 防止 调用 kthread_exit_ 前,当前线程已经被切换
 extern void kthread_worker(void *(worker)(void *), void *args, tcb_t *tcb);
 
 
@@ -155,11 +155,10 @@ int kthread_create(void *(worker)(void *), void *args) {
     thread->state = TASK_RUNNING_OR_RUNNABLE;
     thread->stack = stack;
 
-    pointer_t *esp = (void *) thread - sizeof(pointer_t) * 5;
-    esp[4] = (pointer_t) thread;
+    pointer_t *esp = (void *) thread - sizeof(pointer_t) * 4;
     esp[3] = (pointer_t) args;
     esp[2] = (pointer_t) worker;    //kthread_worker 参数
-    // esp[1] 为返回地址
+    esp[1] = (pointer_t) NULL;      //kthread_worker 返回地址
     esp[0] = (pointer_t) kthread_worker;
 
     thread->context.esp = (pointer_t) esp;
@@ -188,7 +187,6 @@ void schedule() {
 
 // 阻塞线程
 void block_thread() {
-    //TODO: cur_task 可能已经不是当前线程了??
     spinlock_lock(&block_lock);
     cur_task->state = TASK_SLEEPING;
     list_delete(&runnable_task, cur_task);

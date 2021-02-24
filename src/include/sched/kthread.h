@@ -35,9 +35,10 @@ typedef struct tcb {
 #define KTHREAD_NAME_LEN   16
 #define KTHREAD_STACK_SIZE 4096
 #define KTHREAD_NUM        65536
+//#define K_DAT(ptr)   ((tcb_t*)(prt))
+//    list_ptr_t list;
     kthread_t tid;
     kthread_state_t state;
-//    char name[KTHREAD_NAME_LEN];
     void *stack;       //指向栈首地址,用于回收
     context_t context; //上下文信息
     struct tcb *next, *prev;
@@ -52,8 +53,7 @@ void schedule();
 
 int kthread_join(kthread_t tid, void **value_ptr);
 
-void kthread_exit_(tcb_t *tcb);
-//void kthread_exit();
+void kthread_exit();
 
 void block_thread();
 

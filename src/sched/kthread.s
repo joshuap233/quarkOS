@@ -1,12 +1,11 @@
-    .extern kthread_exit_
+    .extern kthread_exit
 
     .global kthread_worker
     .type   kthread_worker, @function
     .text
 kthread_worker:
+    movl  4(%esp), %eax
     pushl 8(%esp)
-    movl  8(%esp), %eax
     call  *%eax
-    pushl 16(%esp)
-    call  kthread_exit_
+    call  kthread_exit
     ret
