@@ -7,12 +7,14 @@
 
 #include "types.h"
 
-//mem_size 为可用内存总大小
+#define PAGE_NULL 0xffffffff
+
 void phymm_init();
 
 pointer_t phymm_alloc();
 
 void phymm_free(pointer_t addr);
 
+void test_physical_mm();
 
 #endif //QUARKOS_PHYSICAL_MM_H

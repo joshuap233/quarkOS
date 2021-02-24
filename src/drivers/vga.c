@@ -1,7 +1,6 @@
 #include "drivers/vga.h"
 #include "x86.h"
 #include "types.h"
-#include <stddef.h>
 #include "klib/qstring.h"
 #include "klib/qlib.h"
 

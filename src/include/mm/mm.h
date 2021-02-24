@@ -29,10 +29,8 @@
 #define N_PTE              (PAGE_SIZE/PTE_SIZE)  //每个页面的表项数
 #define N_PDE              (PAGE_SIZE/PDE_SIZE)
 #define PT_SIZE             N_PDE * N_PTE * PTE_SIZE // 页表项总大小
-// 使 a 页对齐(向上)
 #define ADDR_ALIGN(a)      (((a) & ALIGN_MASK) ?((a)&(~ALIGN_MASK)):(a))
 
-// 使 s 页对齐(向下)
 #define SIZE_ALIGN(s)       (((s) & ALIGN_MASK) ?(((s)&(~ALIGN_MASK))+PAGE_SIZE):(s))
 
 

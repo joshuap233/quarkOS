@@ -5,11 +5,12 @@
 #include "mm/mm.h"
 #include "klib/qstring.h"
 #include "elf.h"
-#include "stack_trace.h"
+
+
+multiboot_tag_elf_sections_t *elf_symbols;
 
 multiboot_tag_mmap_t *g_mmap;
 multiboot_tag_apm_t *g_apm;
-multiboot_tag_elf_sections_t *elf_symbols;
 elf_string_table_t g_shstrtab = {0}, g_strtab = {0};
 elf_symbol_table_t g_symtab = {0};
 
@@ -34,16 +35,52 @@ pointer_t split_mmap(uint32_t size) {
     return 0;
 }
 
-//移动 memory map 结构移动到可用内存块开头
-static void reload_mmap() {
-    //如果 g_mmap 在 1M 内存以下,则不移动
-    if (g_mmap > (multiboot_tag_mmap_t *) (1 * M)) {
-        multiboot_tag_mmap_t *new_g_map = (multiboot_tag_mmap_t *) split_mmap(g_mmap->size);
-        assertk((pointer_t) new_g_map != 0);
-        q_memcpy(new_g_map, g_mmap, g_mmap->size);
-        g_mmap = new_g_map;
-        g_mmap_tail = (pointer_t) g_mmap + g_mmap->size - 1;
+
+//移动 信息块
+static void *move(void *addr, size_t size) {
+    //如果需要移动的内存在 1M 以下,则不移动
+    if (addr > (void *) (1 * M)) {
+        void *new = (void *) split_mmap(size);
+        assertk(new != 0);
+        q_memcpy(new, addr, size);
+        return new;
     }
+    return addr;
+}
+
+
+//移动 memory map, shstrtab, strtab, symtab 结构到空闲内存块头
+//先移动地址最小的结构,防止覆盖其他结构
+static void reload() {
+    void *addr[4] = {g_mmap, g_shstrtab.addr, g_strtab.addr, g_symtab.header};
+
+    //排序
+    for (int j = 0; j < 3; ++j) {
+        for (int i = j + 1; i < 4; ++i) {
+            if (addr[i] < addr[j]) {
+                void *temp = addr[i];
+                addr[i] = addr[j];
+                addr[j] = temp;
+            };
+        }
+    }
+
+    for (int i = 0; i < 4; ++i) {
+        if (addr[i] == g_mmap) {
+            g_mmap = move(g_mmap, g_mmap->size);
+            g_mmap_tail = (pointer_t) g_mmap + g_mmap->size - 1;
+        } else if (addr[i] == g_shstrtab.addr) {
+            g_shstrtab.addr = move(g_shstrtab.addr, g_shstrtab.size);
+            assertk(g_shstrtab.addr != 0);
+        } else if (addr[i] == g_strtab.addr) {
+            g_strtab.addr = move(g_strtab.addr, g_strtab.size);
+            assertk(g_strtab.addr != 0);
+        } else {
+            g_symtab.header = move(g_symtab.header, g_symtab.size);
+            assertk(g_symtab.header != 0);
+        }
+    }
+
 }
 
 //计算所有可用物理内存大小(不包括内核以下部分)
@@ -66,6 +103,18 @@ static void parse_mmap() {
         }
     }
 
+}
+
+//移动 memory map 结构移动到可用内存块开头
+static void reload_mmap() {
+    //如果 g_mmap 在 1M 内存以下,则不移动
+    if (g_mmap > (multiboot_tag_mmap_t *) (1 * M)) {
+        multiboot_tag_mmap_t *new_g_map = (multiboot_tag_mmap_t *) split_mmap(g_mmap->size);
+        assertk((pointer_t) new_g_map != 0);
+        q_memcpy(new_g_map, g_mmap, g_mmap->size);
+        g_mmap = new_g_map;
+        g_mmap_tail = (pointer_t) g_mmap + g_mmap->size - 1;
+    }
 }
 
 static void parse_elf_section() {
@@ -129,6 +178,6 @@ void multiboot_init(multiboot_info_t *bia) {
     g_vmm_start = K_END;
     parse_elf_section();
     parse_mmap();
-    //最后调用 reload_mmap, 防止 mmap 覆盖其他 multiboot 信息
-    reload_mmap();
+    reload();
+//    reload_mmap();
 }

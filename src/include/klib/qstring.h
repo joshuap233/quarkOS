@@ -5,7 +5,6 @@
 #ifndef QUARKOS_QSTRING_H
 #define QUARKOS_QSTRING_H
 
-#include <stddef.h>
 #include <stdbool.h>
 #include "types.h"
 

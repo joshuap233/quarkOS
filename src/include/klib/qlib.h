@@ -5,7 +5,6 @@
 #ifndef QUARKOS_QLIB_H
 #define QUARKOS_QLIB_H
 
-#include <stddef.h> // size_t and NULL
 #include <stdbool.h>
 #include <stdarg.h>
 #include "types.h"
@@ -14,6 +13,7 @@
 #include "drivers/timer.h"
 
 #ifdef __i386__
+
 #define assertk(condition) {\
     if (!(condition)) {     \
         printfk("\nassert error: %s: %s: %u\n",__FILE__,__FUNCTION__,__LINE__); \
@@ -21,20 +21,18 @@
     }\
 }
 
-#else
-#include <assert.h>
-#define assertk(condition) assert(condition);
-#endif
-
-
-#ifdef __i386__
-
 void printfk(char *__restrict str, ...);
 
 #else
+
+#include <assert.h>
 #include <stdio.h>
+
+#define assertk(condition) assert(condition);
 #define printfk printf
+
 #endif
+
 
 // 生成掩码
 #define BIT_MASK(__type__, n) ((sizeof(__type__)*8==(n))? \
@@ -56,6 +54,13 @@ static inline void clear_bit(uint8_t *value, uint8_t bit) {
     *value &= (~(0b1 << bit));
 }
 
+char *cur_func_name(pointer_t addr);
+
+void stack_trace();
+void panic();
+
+
+#define test_pass   printfk("test pass: %s: %s: %u\n",__FILE__,__FUNCTION__,__LINE__);
 
 
 #endif //QUARKOS_QLIB_H

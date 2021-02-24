@@ -1,11 +1,9 @@
 //
 // Created by pjs on 2021/1/25.
 //
-// 常用内联汇编
 #ifndef QUARKOS_X86_H
 #define QUARKOS_X86_H
 
-#include "stack_trace.h"
 #include "types.h"
 #include "klib/qlib.h"
 
@@ -97,13 +95,7 @@ static inline void enable_paging() {
 }
 
 
-// 内核异常,停止运行
-__attribute__((always_inline))
-static inline void panic() {
-    disable_interrupt();
-    stack_trace();
-    halt();
-}
+
 
 __attribute__((always_inline))
 static inline bool is_paging() {

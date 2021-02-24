@@ -1,7 +1,6 @@
 //
 // Created by pjs on 2021/2/6.
 //
-//TODO: 测试!!!
 
 //freelist 用于管理空闲虚拟内存
 //静态分配一页的内存用于空闲链表,使用栈管理链表节点
@@ -14,19 +13,15 @@
 
 static free_list_t free_list[LIST_COUNT];
 static vmm_list_t vmm_list;
-
-static stack_t stack = {
-        .top = 0,
-        .size = STACK_SIZE
-};
+static free_stack_t stack;
 
 __attribute__((always_inline))
 static inline void push(free_list_t *addr) {
-    stack.list[stack.top++] = (pointer_t) addr;
+    stack.list[stack.top++] = addr;
 }
 
 __attribute__((always_inline))
-static inline pointer_t pop() {
+static inline free_list_t *pop() {
     return stack.list[--stack.top];
 }
 
@@ -45,7 +40,7 @@ static void list_destroy(free_list_t *node) {
         //栈满则释放栈内动态分配的链表
         uint32_t count = 0;
         free_list_t *start = &free_list[0], *end = &free_list[LIST_COUNT - 1];
-        //循环结束可以空出至少 STACK_SIZE-LIST_COUNT 个节点,且不会被经常调用,理论上不会有性能问题 ?
+        //循环结束可以空出至少 STACK_SIZE-LIST_COUNT 个节点,且不会被经常调用,理论上不会有性能问题 ??
         for (uint32_t i = 0; i < stack.size; ++i) {
             free_list_t *item = (free_list_t *) stack.list[i];
             if (item < start || item > end) {
@@ -56,12 +51,16 @@ static void list_destroy(free_list_t *node) {
                 stack.list[i - count] = stack.list[i];
             }
         }
+        stack.top -= count;
     }
     push(node);
 }
 
 //size 为内核以下占用的虚拟内存
 void free_list_init(uint32_t size) {
+    size = SIZE_ALIGN(size);
+    stack.top = 0;
+    stack.size = STACK_SIZE;
     for (int i = 0; i < LIST_COUNT; ++i) {
         push(&free_list[i]);
     }
@@ -72,6 +71,7 @@ void free_list_init(uint32_t size) {
     list->size = PHYMM - size;
     vmm_list.header = list;
     vmm_list.size = list->size;
+    test_list_stack();
 }
 
 
@@ -94,7 +94,7 @@ bool list_split(pointer_t va, uint32_t size) {
             } else if (temp->addr == va || list_end == va_end) {
                 if (temp->addr == va) temp->addr = va_end;
                 temp->size -= size;
-            }else {
+            } else {
                 temp->size = va - temp->addr;
                 free_list_t *new = list_alloc();
                 new->next = temp->next;
@@ -113,6 +113,7 @@ bool list_split(pointer_t va, uint32_t size) {
 
 //first fit
 void *list_split_ff(uint32_t size) {
+    size = SIZE_ALIGN(size);
     free_list_t *temp = vmm_list.header;
     while (temp != MM_NULL) {
         if (temp->size >= size) {
@@ -182,4 +183,32 @@ void list_free(pointer_t va, uint32_t size) {
     new->next = temp;
     vmm_list.size += size;
     list_merge(new);
+}
+
+void test_list_stack() {
+    free_list_t *addr[3];
+    size_t size = stack.top;
+    addr[0] = list_alloc();
+    assertk(stack.top == size - 1);
+    list_destroy(addr[0]);
+    assertk(stack.top == size);
+
+    addr[1] = list_alloc();
+    assertk(addr[1] == addr[0]);
+    test_pass;
+}
+
+//需要在堆初始化后调用
+void test_list_stack2() {
+    size_t size = STACK_SIZE + 6;
+    free_list_t *list[size];
+    uint32_t top = stack.top;
+    for (uint32_t i = 0; i < size; i++) {
+        list[i] = list_alloc();
+        assertk(list[i]!=NULL);
+    }
+    for (uint32_t i = size; i > 0; --i) {
+        list_destroy(list[i]);
+    }
+    test_pass;
 }

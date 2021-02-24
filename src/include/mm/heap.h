@@ -5,7 +5,6 @@
 #ifndef QUARKOS_HEAP_H
 #define QUARKOS_HEAP_H
 
-#include <stddef.h>
 #include "types.h"
 
 void *mallocK(size_t size);

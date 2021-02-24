@@ -8,7 +8,6 @@
 
 #include <stdbool.h>
 #include "types.h"
-#include <stddef.h>
 //状态读取
 #define KB_ACK     0xFA
 #define KB_RESEND  0xFE

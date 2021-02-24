@@ -70,12 +70,6 @@ target_include_directories(
         "${PROJECT_SOURCE_DIR}/src/gdt"
 )
 
-add_subdirectory(${PROJECT_SOURCE_DIR}/src/debug)
-target_link_libraries(${KERNEL_BIN} PUBLIC debug_)
-target_include_directories(
-        ${KERNEL_BIN} PUBLIC
-        "${PROJECT_SOURCE_DIR}/src/debug"
-)
 
 ## 生成 iso
 add_custom_target(

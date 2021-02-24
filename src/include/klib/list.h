@@ -5,7 +5,6 @@
 #ifndef QUARKOS_LIST_H
 #define QUARKOS_LIST_H
 
-#include <stddef.h>
 #include "types.h"
 
 //双向链表指针域
@@ -46,8 +45,7 @@ static inline void list_add_tail(list_ptr_t *new, list_ptr_t *target) {
 
 __attribute__((always_inline))
 static inline void list_del(list_ptr_t *list) {
-    list->prev = list->next;
-    list->next = list->prev;
+    list->prev->next = list->next;
 }
 
 

@@ -15,13 +15,13 @@ typedef struct free_list {
 } free_list_t;
 
 //用于管理空闲列表节点
-typedef struct stack {
+typedef struct free_stack {
 #define LIST_COUNT 64
 #define STACK_SIZE 128
-    pointer_t list[STACK_SIZE];
+    free_list_t *list[STACK_SIZE];
     uint32_t top;
     uint32_t size;
-} stack_t;
+} free_stack_t;
 
 typedef struct vmm_list {
     free_list_t *header; //header 指向空闲链表首部
@@ -37,5 +37,10 @@ void list_free(pointer_t va, uint32_t size);
 
 
 void free_list_init(uint32_t size);
+
+
+void test_list_stack();
+
+void test_list_stack2();
 
 #endif //QUARKOS_FREE_LIST_H

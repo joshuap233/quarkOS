@@ -38,4 +38,8 @@ void vmm_map(pointer_t va, pointer_t pa, uint32_t size, uint32_t flags);
 
 extern void cr3_set(pointer_t);
 
+
+void test_vmm_map();
+void test_vmm_map2();
+void test_vmm_mapv();
 #endif //QUARKOS_VIRTUAL_MM_H

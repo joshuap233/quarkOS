@@ -58,13 +58,13 @@ void kernel_main(multiboot_info_t *mba, uint32_t magic) {
     gdt_init();
     idt_init();
     mm_init();
-    irq_lock_init();
+//    irq_lock_init();
     sched_init();
 
-    for (int i = 0; i < 10; ++i) {
-        kthread_create(workerA, NULL);
-        kthread_create(workerB, NULL);
-    }
+//    for (int i = 0; i < 10; ++i) {
+//        kthread_create(workerA, NULL);
+//        kthread_create(workerB, NULL);
+//    }
 
     while (1) {
         kb_getchar();

@@ -8,6 +8,7 @@
 
 #include <stdint.h>
 #include <stdbool.h>
+#include <stddef.h> // size_t and NULL
 
 typedef uint32_t pointer_t; //pointer_t 存地址值
 
