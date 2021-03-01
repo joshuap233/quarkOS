@@ -14,18 +14,22 @@ typedef struct free_list {
     struct free_list *next, *prev;
 } free_list_t;
 
+typedef free_list_t free_list_header;
+
 //用于管理空闲列表节点
 typedef struct free_stack {
 #define LIST_COUNT 64
 #define STACK_SIZE 128
+#define STACK_EMPTY(stack) ((stack).top == 0)
+#define STACK_FULL(stack)  ((stack).top == (stack).size)
     free_list_t *list[STACK_SIZE];
-    uint32_t top;
+    uint32_t top;    //始终指向空元素
     uint32_t size;
 } free_stack_t;
 
 typedef struct vmm_list {
-    free_list_t *header; //header 指向空闲链表首部
-    uint32_t size;       //剩余总虚拟内存
+    free_list_header header; //数据域始终为空
+    uint32_t size;           //剩余总虚拟内存
 } vmm_list_t;
 
 bool list_split(pointer_t va, uint32_t size);
@@ -39,8 +43,15 @@ void list_free(pointer_t va, uint32_t size);
 void free_list_init(uint32_t size);
 
 
+//=============== 测试 ================
 void test_list_stack();
 
 void test_list_stack2();
 
+void test_list_split_ff();
+
+void test_list_mem_split();
+
+void test_list_split();
+//=========
 #endif //QUARKOS_FREE_LIST_H

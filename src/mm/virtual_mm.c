@@ -109,6 +109,7 @@ static uint16_t *test_va;
 
 // 需要在开启分页前调用
 void test_vmm_map() {
+    test_start;
     //测试直接映射函数
     test_pa = (uint16_t *) phymm_alloc();
     for (uint64_t i = 0; i < PAGE_SIZE / sizeof(uint16_t); ++i) {
@@ -121,6 +122,7 @@ void test_vmm_map() {
 
 // 开启分页后调用
 void test_vmm_map2() {
+    test_start;
     for (uint64_t i = 0; i < PAGE_SIZE / sizeof(uint16_t); ++i) {
         assertk(test_va[i] == i);
     }
@@ -129,6 +131,7 @@ void test_vmm_map2() {
 }
 
 void test_vmm_mapv() {
+    test_start;
     test_va = list_split_ff(PAGE_SIZE);
     vmm_mapv((pointer_t) test_va, PAGE_SIZE, VM_KW | VM_PRES);
     for (uint64_t i = 0; i < PAGE_SIZE / sizeof(uint16_t); ++i) {

@@ -10,6 +10,8 @@
 #include "klib/qmath.h"
 
 static struct mm_stack {
+#define STACK_EMPTY(stack) ((stack).top == 0)
+#define STACK_FULL(stack) ((stack).top == (stack).size)
     pointer_t *page;
     uint32_t top;
     uint32_t size; //page 大小+1
@@ -21,13 +23,13 @@ static struct mm_stack {
 
 __attribute__((always_inline))
 static inline void push(pointer_t addr) {
-    assertk(mm_page.top != mm_page.size);
+    assertk(!STACK_FULL(mm_page));
     mm_page.page[mm_page.top++] = addr;
 }
 
 __attribute__((always_inline))
 static inline pointer_t pop() {
-    if (mm_page.top == 0) return PAGE_NULL;
+    if (STACK_EMPTY(mm_page)) return PAGE_NULL;
     return mm_page.page[--mm_page.top];
 }
 
@@ -72,6 +74,7 @@ void phymm_free(pointer_t addr) {
 
 
 void test_physical_mm() {
+    test_start;
     pointer_t addr[3];
     size_t size = mm_page.top;
     addr[0] = phymm_alloc();

@@ -2,8 +2,6 @@
 // Created by pjs on 2021/2/3.
 //
 // 内核堆
-//TODO: 测试!!!
-// 线程安全?
 #include "mm/heap.h"
 #include "types.h"
 #include "mm/mm.h"
@@ -139,4 +137,23 @@ void freeK(void *addr) {
     alloc->used = false;
     merge(alloc);
     shrink();
+}
+
+//=============== 测试 ================
+
+void test_alloc_chunk() {
+
+}
+
+void test_mallocK() {
+
+}
+
+void test_freeK() {
+
+}
+
+
+void test_shrink_and_expand() {
+
 }

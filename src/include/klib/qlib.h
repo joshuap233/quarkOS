@@ -60,7 +60,8 @@ void stack_trace();
 void panic();
 
 
-#define test_pass   printfk("test pass: %s: %s: %u\n",__FILE__,__FUNCTION__,__LINE__);
+#define test_start   printfk("test start: %s\n",__FUNCTION__);
+#define test_pass    printfk("test pass : %s: %s: %u\n",__FILE__,__FUNCTION__,__LINE__);
 
 
 #endif //QUARKOS_QLIB_H

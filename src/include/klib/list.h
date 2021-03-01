@@ -46,6 +46,7 @@ static inline void list_add_tail(list_ptr_t *new, list_ptr_t *target) {
 __attribute__((always_inline))
 static inline void list_del(list_ptr_t *list) {
     list->prev->next = list->next;
+    list->next->prev = list->prev;
 }
 
 

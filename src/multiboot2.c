@@ -105,18 +105,6 @@ static void parse_mmap() {
 
 }
 
-//移动 memory map 结构移动到可用内存块开头
-static void reload_mmap() {
-    //如果 g_mmap 在 1M 内存以下,则不移动
-    if (g_mmap > (multiboot_tag_mmap_t *) (1 * M)) {
-        multiboot_tag_mmap_t *new_g_map = (multiboot_tag_mmap_t *) split_mmap(g_mmap->size);
-        assertk((pointer_t) new_g_map != 0);
-        q_memcpy(new_g_map, g_mmap, g_mmap->size);
-        g_mmap = new_g_map;
-        g_mmap_tail = (pointer_t) g_mmap + g_mmap->size - 1;
-    }
-}
-
 static void parse_elf_section() {
     elf32_sh_t *sh = (elf32_sh_t *) elf_symbols->sections;
     // 第一个 section header 为空,所有字段都是 0
@@ -179,5 +167,4 @@ void multiboot_init(multiboot_info_t *bia) {
     parse_elf_section();
     parse_mmap();
     reload();
-//    reload_mmap();
 }
