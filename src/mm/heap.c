@@ -111,6 +111,7 @@ static inline void shrink() {
         if (size>HEAP_FREE_LIMIT){
             pointer_t free_size = size / PAGE_SIZE * PAGE_SIZE;
             tail->size -= free_size;
+            heap.size -= free_size;
             vmm_unmap(addr, free_size);
         }
     }
@@ -219,6 +220,7 @@ void test_mallocK_and_freeK() {
     freeK(addr[2]);
     assertk(unused == get_unused_space());
     assertk(used == get_used_space());
+    assertk(heap.header->size  == heap.size);
     test_pass;
 }
 
@@ -245,5 +247,6 @@ void test_shrink_and_expand() {
 
     assertk(unused == get_unused_space());
     assertk(used == get_used_space());
+    assertk(heap.header->size  == heap.size);
     test_pass;
 }

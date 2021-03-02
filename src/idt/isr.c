@@ -26,7 +26,6 @@ void ISR(0)(interrupt_frame_t *frame) {
 __attribute__((interrupt))
 void ISR(1)(interrupt_frame_t *frame) {
     panic();
-
 }
 
 __attribute__((interrupt))

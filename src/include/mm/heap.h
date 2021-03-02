@@ -14,14 +14,13 @@ void freeK(void *addr);
 void heap_init();
 
 // 堆内存块头块结构
-// 修改结构后可能需要添加 __attribute__((packed)) 属性
 typedef struct heap_chunk_ptr {
     struct heap_chunk_ptr *next, *prev;
     uint32_t size; //当前内存块长度,包括头块
-    uint8_t magic: 7;
-    uint8_t used: 1;  //当前内存块是否被使用
-#define HEAP_MAGIC 0x76
-}__attribute__((packed)) heap_ptr_t;
+    uint32_t magic: 31;
+    uint32_t used: 1;  //当前内存块是否被使用
+#define HEAP_MAGIC 0x35e92b2e
+} heap_ptr_t;
 
 typedef struct heap {
     heap_ptr_t *header; //header指向第一个头块

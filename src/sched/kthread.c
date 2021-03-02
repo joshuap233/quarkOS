@@ -15,6 +15,36 @@ _Noreturn static inline void Idle() {
     }
 }
 
+static void _list_header_init(tcb_t *header) {
+    header->next = header;
+    header->prev = header;
+}
+
+__attribute__((always_inline))
+static inline void _list_add(tcb_t *new, tcb_t *prev, tcb_t *next) {
+    new->prev = prev;
+    new->next = next;
+    next->prev = new;
+    prev->next = new;
+}
+
+__attribute__((always_inline))
+static inline void _list_add_next(tcb_t *new, tcb_t *target) {
+    _list_add(new, target, target->next);
+}
+
+__attribute__((always_inline))
+static inline void _list_add_prev(tcb_t *new, tcb_t *target) {
+    _list_add(new, target->prev, target);
+}
+
+
+__attribute__((always_inline))
+static inline void _list_del(tcb_t *list) {
+    list->prev->next = list->next;
+    list->next->prev = list->prev;
+}
+
 //用于管理空闲 tid
 static struct kthread_map {
     uint8_t map[DIV_CEIL(KTHREAD_NUM, 8)];
@@ -132,7 +162,6 @@ void sched_init() {
 //void kthread_exit(void *ret)
 void kthread_exit() {
     k_lock();
-    //TODO: cur_task ->prev ==NULL?
     finish_task->next = cur_task;
     cur_task->prev = cur_task->next;
     cur_task->state = TASK_ZOMBIE;
