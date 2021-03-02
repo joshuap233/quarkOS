@@ -8,6 +8,7 @@
 
 #include "types.h"
 #include "klib/list.h"
+#include "klib/qlib.h"
 
 typedef struct context {
     //线程切换时需要保存的上下文
@@ -49,8 +50,6 @@ int kthread_create(void *(worker)(void *args), void *args);
 
 void schedule();
 
-int kthread_join(kthread_t tid, void **value_ptr);
-
 void kthread_exit();
 
 void block_thread();
@@ -61,5 +60,12 @@ extern void switch_to(context_t *cur_context, context_t *next_context);
 
 extern tcb_t *runnable_task;
 #define cur_task runnable_task
+
+__attribute__((always_inline))
+_Noreturn static inline void idle() {
+    while (1) {
+        halt();
+    }
+}
 
 #endif //QUARKOS_KTHREAD_H

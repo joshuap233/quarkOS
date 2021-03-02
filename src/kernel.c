@@ -69,4 +69,5 @@ void kernel_main(multiboot_info_t *mba, uint32_t magic) {
     while (1) {
         kb_getchar();
     }
+    idle();
 }

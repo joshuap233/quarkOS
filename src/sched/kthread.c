@@ -8,42 +8,37 @@
 #include "klib/qmath.h"
 #include "sched/timer.h"
 
-__attribute__((always_inline))
-_Noreturn static inline void Idle() {
-    while (1) {
-        halt();
-    }
-}
-
-static void _list_header_init(tcb_t *header) {
-    header->next = header;
-    header->prev = header;
-}
-
-__attribute__((always_inline))
-static inline void _list_add(tcb_t *new, tcb_t *prev, tcb_t *next) {
-    new->prev = prev;
-    new->next = next;
-    next->prev = new;
-    prev->next = new;
-}
-
-__attribute__((always_inline))
-static inline void _list_add_next(tcb_t *new, tcb_t *target) {
-    _list_add(new, target, target->next);
-}
-
-__attribute__((always_inline))
-static inline void _list_add_prev(tcb_t *new, tcb_t *target) {
-    _list_add(new, target->prev, target);
-}
 
 
-__attribute__((always_inline))
-static inline void _list_del(tcb_t *list) {
-    list->prev->next = list->next;
-    list->next->prev = list->prev;
-}
+//static void _list_header_init(tcb_t *header) {
+//    header->next = header;
+//    header->prev = header;
+//}
+//
+//__attribute__((always_inline))
+//static inline void _list_add(tcb_t *new, tcb_t *prev, tcb_t *next) {
+//    new->prev = prev;
+//    new->next = next;
+//    next->prev = new;
+//    prev->next = new;
+//}
+//
+//__attribute__((always_inline))
+//static inline void _list_add_next(tcb_t *new, tcb_t *target) {
+//    _list_add(new, target, target->next);
+//}
+//
+//__attribute__((always_inline))
+//static inline void _list_add_prev(tcb_t *new, tcb_t *target) {
+//    _list_add(new, target->prev, target);
+//}
+//
+//
+//__attribute__((always_inline))
+//static inline void _list_del(tcb_t *list) {
+//    list->prev->next = list->next;
+//    list->next->prev = list->prev;
+//}
 
 //用于管理空闲 tid
 static struct kthread_map {
@@ -56,12 +51,12 @@ static struct kthread_map {
 
 
 //cur_task 为循环链表
-tcb_t *join_task = NULL;      //需要等待的线程
 
 tcb_t *finish_task = NULL;   //已执行完成等待销毁的线程
 
 tcb_t *runnable_task = NULL; //正在运行或已经运行完成的线程
 tcb_t *block_task = NULL;    //阻塞中的线程
+tcb_t *cleaner_task = NULL;  //清理线程,用于清理其他线程
 
 spinlock_t block_lock;
 spinlock_t unblock_lock;
@@ -131,18 +126,16 @@ static void free_tid(kthread_t tid) {
     k_unlock();
 }
 
-
-// 回收 finish_task 链表中的线程
-static void thread_recycle() {
+static void *cleaner_worker(){
+    // 主线程不会被添加到 finish_task
     while (finish_task != NULL) {
-        tcb_t *temp = finish_task;
-        finish_task = finish_task->next;
-        free_tid(temp->tid);
-        freeK(temp->stack);
-        freeK(temp);
+        tcb_t *next = finish_task->next;
+        free_tid(finish_task->tid);
+        freeK(finish_task->stack);
+        finish_task = next;
     }
-    finish_task = NULL;
 }
+
 
 //初始化内核主线程
 void sched_init() {
@@ -156,6 +149,9 @@ void sched_init() {
     cur_task->context.esp = esp;
     cur_task->tid = alloc_tid();
     cur_task->state = TASK_RUNNING_OR_RUNNABLE;
+
+    kthread_create(cleaner_worker,NULL);
+    cleaner_task = cur_task ->prev;
 }
 
 
@@ -165,11 +161,10 @@ void kthread_exit() {
     finish_task->next = cur_task;
     cur_task->prev = cur_task->next;
     cur_task->state = TASK_ZOMBIE;
-    if (join_task == NULL) {
-        thread_recycle();
-    }
+    block_thread(cur_task);
+    unblock_thread(cleaner_task);
     k_unlock();
-    Idle();
+    idle();
 }
 
 extern void kthread_worker(void *(worker)(void *), void *args, tcb_t *tcb);
@@ -198,6 +193,7 @@ int kthread_create(void *(worker)(void *), void *args) {
     k_lock();
     list_inert_p(thread, cur_task);
     k_unlock();
+
     return 0;
 }
 
@@ -228,21 +224,4 @@ void unblock_thread(tcb_t *thread) {
     spinlock_lock(&unblock_lock);
     list_delete(&block_task, thread);
     spinlock_unlock(&unblock_lock);
-}
-
-
-// 成功返回0,否则返回错误码
-int kthread_join(kthread_t tid, void **value_ptr) {
-    k_lock();
-    uint8_t error = 1;
-    for (tcb_t *header = cur_task; header != NULL; header = header->next) {
-        if (header->tid == tid) {
-            list_delete(&join_task, header);
-            list_append(&join_task, header);
-            error = 0;
-            break;
-        }
-    }
-    k_unlock();
-    return error;
 }
