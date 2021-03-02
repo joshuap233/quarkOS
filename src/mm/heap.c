@@ -34,11 +34,37 @@ static inline size_t chunk_size(size_t size) {
     return size + sizeof(heap_ptr_t);
 }
 
+__attribute__((always_inline))
+static inline void _list_add(heap_ptr_t *new, heap_ptr_t *prev, heap_ptr_t *next) {
+    new->prev = prev;
+    new->next = next;
+    next->prev = new;
+    prev->next = new;
+}
 
-//初始化一个新块
-static void chunk_init(heap_ptr_t *c, heap_ptr_t *prev, heap_ptr_t *next, uint32_t size) {
-    c->next = next;
-    c->prev = prev;
+// new 节点添加到 target 后
+__attribute__((always_inline))
+static inline void _list_add_next(heap_ptr_t *new, heap_ptr_t *target) {
+    _list_add(new, target, target->next);
+}
+
+
+__attribute__((always_inline))
+static inline void _list_link(heap_ptr_t *header, heap_ptr_t *tail) {
+    header->next = tail;
+    tail->prev = header;
+}
+
+
+__attribute__((always_inline))
+static inline void list_header_init(heap_ptr_t *header) {
+    header->next = header;
+    header->prev = header;
+}
+
+
+//初始化一个新头块
+static void chunk_init(heap_ptr_t *c, uint32_t size) {
     c->size = size;
     c->used = false;
     c->magic = HEAP_MAGIC;
@@ -47,35 +73,46 @@ static void chunk_init(heap_ptr_t *c, heap_ptr_t *prev, heap_ptr_t *next, uint32
 void heap_init() {
     heap.size = PAGE_SIZE;
     heap.header = (heap_ptr_t *) HEAP_START;
-    heap.tail = heap.header;
     vmm_mapv((pointer_t) heap.header, heap.size, VM_KW | VM_PRES);
-    chunk_init(heap.header, MM_NULL, MM_NULL, PAGE_SIZE);
+    list_header_init(heap.header);
+    chunk_init(heap.header, PAGE_SIZE);
+
+    test_mallocK_and_freeK();
+    test_shrink_and_expand();
 }
 
 // size 为需要扩展的内存块大小
 static bool expend(uint32_t size) {
     size = SIZE_ALIGN(size);
     if (HEAP_VMM_FREE < size) return false;
+    heap_ptr_t *tail = heap.header->prev;
     vmm_mapv(HEAP_TAIL + 1, size, VM_KW | VM_PRES);
-    if (heap.tail->used) {
+    if (tail->used) {
         heap_ptr_t *new = (heap_ptr_t *) (HEAP_TAIL + 1);
-        chunk_init(new, heap.tail, MM_NULL, size);
-        heap.tail = new;
+        _list_add_next(new, tail);
+        chunk_init(new, size);
     } else {
-        heap.tail->size += size;
+        tail->size += size;
     }
     heap.size += size;
     return true;
 }
 
-__attribute__((always_inline))
 static inline void shrink() {
-    if (heap.tail->used) return;
-    pointer_t free = heap.tail->size;
-    if (free > HEAP_FREE_LIMIT) {
-        pointer_t free_size = free / PAGE_SIZE;
-        heap.tail->size -= free_size;
-        vmm_unmap((void *) heap.tail + heap.tail->size, free_size);
+    heap_ptr_t *tail = heap.header->prev;
+    if (tail->used) return;
+
+    // 保留堆的第一页
+    if (tail->size > HEAP_FREE_LIMIT) {
+        void *fhp = (void *) (HEAP_START + PAGE_SIZE);
+        void *addr = (fhp > (void *) tail) ? fhp : tail;
+        int64_t size = ((void*)tail + tail->size) - addr;
+
+        if (size>HEAP_FREE_LIMIT){
+            pointer_t free_size = size / PAGE_SIZE * PAGE_SIZE;
+            tail->size -= free_size;
+            vmm_unmap(addr, free_size);
+        }
     }
 }
 
@@ -84,50 +121,50 @@ static void merge(heap_ptr_t *alloc) {
     heap_ptr_t *header = alloc, *tail = alloc;
     uint32_t size = alloc->size;
     //向前合并
-    while (header->prev != MM_NULL && !header->prev->used) {
+    while (header->prev != heap.header->prev && !header->prev->used) {
         header = header->prev;
         size += header->size;
     }
     //向后合并
-    while (tail->next != MM_NULL && !tail->next->used) {
+    while (tail->next != heap.header && !tail->next->used) {
         tail = tail->next;
         size += tail->size;
     }
 
     if (header != tail) {
-        header->next = tail->next;
+        _list_link(header, tail->next);
         header->size = size;
     }
-    if (heap.tail == tail) heap.tail = header;
 }
 
 // chunk 为可用空闲块, size 为需要分割的大小
 static void *alloc_chunk(heap_ptr_t *chunk, size_t size) {
-    heap_ptr_t *alloc = chunk;
-    if (chunk->size - size < sizeof(heap_ptr_t)) {
+    size_t free_size = chunk->size - size;
+    if (free_size < sizeof(heap_ptr_t)) {
         //剩余空间无法容纳新头块,将剩余空间全都分配出去
         size = chunk->size;
-        alloc->next = MM_NULL;
     } else {
         heap_ptr_t *new = (void *) chunk + size;
-        //初始化下一个内存块
-        chunk_init(new, alloc, alloc->next, chunk->size - size);
-        alloc->next = new;
+        _list_add_next(new, chunk);
+        chunk_init(new, free_size);
     }
-    alloc->used = true;
-    alloc->size = size;
-    if (heap.tail == alloc && alloc->next != MM_NULL)
-        heap.tail = alloc->next;
-    return alloc_addr(alloc);
+    chunk->used = true;
+    chunk->size = size;
+    return alloc_addr(chunk);
 }
 
 void *mallocK(size_t size) {
     size = chunk_size(size);
-    for (heap_ptr_t *header = heap.header; header != MM_NULL; header = header->next)
+    heap_ptr_t *header = heap.header;
+    do {
         if (!header->used && header->size >= size)
             return alloc_chunk(header, size);
-    if (!expend(size)) return NULL;
-    return alloc_chunk(heap.tail, size);
+        header = header->next;
+    } while (header != heap.header);
+
+    heap_ptr_t *tail = heap.header->prev;
+    if (!expend(tail->used ? size : size - tail->size)) return NULL;
+    return alloc_chunk(tail, size);
 }
 
 
@@ -141,19 +178,72 @@ void freeK(void *addr) {
 
 //=============== 测试 ================
 
-void test_alloc_chunk() {
-
+static size_t get_unused_space() {
+    size_t size = 0;
+    heap_ptr_t *header = heap.header;
+    do {
+        if (!header->used) size += header->size;
+        header = header->next;
+    } while (header != heap.header);
+    return size;
 }
 
-void test_mallocK() {
-
+static size_t get_used_space() {
+    size_t size = 0;
+    heap_ptr_t *header = heap.header;
+    do {
+        if (header->used) size += header->size;
+        header = header->next;
+    } while (header != heap.header);
+    return size;
 }
 
-void test_freeK() {
+void test_mallocK_and_freeK() {
+    test_start;
+    size_t unused = get_unused_space();
+    size_t used = get_used_space();
+    void *addr[3];
 
+    addr[0] = mallocK(20);
+    assertk(addr[0] != NULL);
+    addr[1] = mallocK(40);
+    assertk(addr[1] != NULL);
+    addr[2] = mallocK(30);
+    assertk(addr[2] != NULL);
+    assertk(get_unused_space() == unused - (3 * sizeof(heap_ptr_t) + 20 + 40 + 30));
+
+    freeK(addr[0]);
+    assertk(get_unused_space() == unused - (2 * sizeof(heap_ptr_t) + 40 + 30));
+    freeK(addr[1]);
+    assertk(get_unused_space() == unused - (sizeof(heap_ptr_t) + 30));
+    freeK(addr[2]);
+    assertk(unused == get_unused_space());
+    assertk(used == get_used_space());
+    test_pass;
 }
 
 
 void test_shrink_and_expand() {
+    test_start;
+    size_t unused = get_unused_space();
+    size_t used = get_used_space();
+    void *addr[3];
 
+    addr[0] = mallocK(PAGE_SIZE);
+    assertk(get_unused_space() == unused - sizeof(heap_ptr_t));
+    assertk(addr[0] != NULL);
+    addr[1] = mallocK(PAGE_SIZE);
+    assertk(addr[1] != NULL);
+    assertk(get_unused_space() == unused - sizeof(heap_ptr_t) * 2);
+    addr[2] = mallocK(PAGE_SIZE);
+    assertk(addr[2] != NULL);
+    assertk(get_unused_space() == unused - sizeof(heap_ptr_t) * 3);
+
+    freeK(addr[0]);
+    freeK(addr[1]);
+    freeK(addr[2]);
+
+    assertk(unused == get_unused_space());
+    assertk(used == get_used_space());
+    test_pass;
 }

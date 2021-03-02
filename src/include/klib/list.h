@@ -1,7 +1,7 @@
 //
 // Created by pjs on 2021/2/23.
 //
-// 双向循环链表,链表头节点数据域始终为空
+// 双向循环链表
 #ifndef QUARKOS_LIST_H
 #define QUARKOS_LIST_H
 
@@ -16,8 +16,8 @@ typedef struct link_list_ptr {
 
 __attribute__((always_inline))
 static inline void list_header_init(list_header *header) {
-    header->next = NULL;
-    header->prev = NULL;
+    header->next = header;
+    header->prev = header;
 }
 
 __attribute__((always_inline))

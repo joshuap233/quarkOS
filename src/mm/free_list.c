@@ -61,6 +61,13 @@ static inline void _list_del(free_list_t *list) {
     list->next->prev = list->prev;
 }
 
+__attribute__((always_inline))
+static inline void _list_link(free_list_t *header, free_list_t *tail) {
+    header->next = tail;
+    tail->prev = header;
+}
+
+
 //分配一个链表节点
 __attribute__((always_inline))
 static inline free_list_t *list_alloc() {
@@ -69,6 +76,8 @@ static inline free_list_t *list_alloc() {
     }
     return (free_list_t *) pop();
 }
+
+
 
 // 销毁一个链表节点
 static void list_destroy(free_list_t *node) {
@@ -188,12 +197,11 @@ static void list_merge(free_list_t *alloc) {
     if (h->next != t) {
         free_list_t *hdr = h->next;
         h->size += size;
-        h->next = t;
         while (hdr != t) {
             hdr = hdr->next;
             list_destroy(hdr->prev);
         }
-        t->prev = h;
+        _list_link(h,t);
     }
 }
 

@@ -104,6 +104,8 @@ void vmm_mapv(pointer_t va, uint32_t size, uint32_t flags) {
 }
 
 
+// ======================== 测试 =====================
+
 static uint16_t *test_pa;
 static uint16_t *test_va;
 
