@@ -29,16 +29,22 @@
 #define N_PTE              (PAGE_SIZE/PTE_SIZE)  //每个页面的表项数
 #define N_PDE              (PAGE_SIZE/PDE_SIZE)
 #define PT_SIZE             N_PDE * N_PTE * PTE_SIZE // 页表项总大小
-#define ADDR_ALIGN(a)      (((a) & ALIGN_MASK) ?((a)&(~ALIGN_MASK)):(a))
-
 #define SIZE_ALIGN(s)       (((s) & ALIGN_MASK) ?(((s)&(~ALIGN_MASK))+PAGE_SIZE):(s))
 
+#define CR3_CTRL 0         //不使用 write-through,且页目录允许缓存
+#define PAGE_ENTRY_NUM     (PAGE_SIZE / sizeof(entry))
 
-#define CR3_CTRL 0       //不使用 write-through,且页目录允许缓存
-
+typedef uint32_t entry;
 typedef uint32_t cr3_t;
-typedef uint32_t pde_t;
-typedef uint32_t pte_t;
+typedef entry pde_t;
+typedef entry pte_t;
+
+typedef struct table {
+    entry entry[PAGE_ENTRY_NUM];
+} table_t;
+
+typedef table_t page_dir_t;
+typedef table_t page_table_t;
 
 
 void mm_init();

@@ -47,7 +47,6 @@ void pic_init(uint32_t offset1, uint32_t offset2) {
     outb(PIC1_DAT, m1);
     outb(PIC2_DAT, m2);
 
-    enable_interrupt();
     pit_init(PIT_TIMER_FREQUENCY);
 }
 

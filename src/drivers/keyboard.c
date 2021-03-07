@@ -6,8 +6,7 @@
 #include "types.h"
 #include "drivers/ps2.h"
 #include "klib/qlib.h"
-#include "klib/qlib.h"
-
+#include "sched/timer.h"
 
 static device_status_t ds = {
         .error  = KB_ERROR,
@@ -60,12 +59,13 @@ static inline void q_clear(kb_queue_t *q) {
     q->tail = q->header;
 }
 
+// sched_init 调用后才能使用
 char kb_getchar() {
     uint8_t c;
     q_clear(&kb_buf);
     do {
         c = q_pop(&kb_buf);
-        assertk(ssleep(10));
+        assertk(ms_sleep(10));
     } while (c == KB_NULL);
     vga_put_char(c);
     return c;

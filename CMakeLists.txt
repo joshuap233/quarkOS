@@ -13,18 +13,18 @@ set(CMAKE_ASM_COMPILER ${TOOLS}/bin/i686-elf-as)
 
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_FLAGS "-ffreestanding -O0 -Wall -Wextra -g")
+set(CMAKE_ASM_FLAGS "-g")
 
 set(KERNEL_BIN ${CMAKE_PROJECT_NAME}.bin)
 set(KERNEL_ISO ${CMAKE_PROJECT_NAME}.iso)
-
-include_directories("${PROJECT_SOURCE_DIR}/src/include")
-#AUX_SOURCE_DIRECTORY("${PROJECT_SOURCE_DIR}/src/" C_SOURCE)
+set(INCLUDE ${PROJECT_SOURCE_DIR}/src/include)
+include_directories(${INCLUDE})
 
 set(S_SOURCE src/boot.s)
 set(C_SOURCE src/kernel.c src/multiboot2.c)
 
-add_executable(${KERNEL_BIN} ${S_SOURCE} ${C_SOURCE} ${mylib} ${drivers})
-set_target_properties(${KERNEL_BIN} PROPERTIES LINK_FLAGS "-T ${CMAKE_SOURCE_DIR}/linker.ld -ffreestanding -O0 -nostdlib")
+add_executable(${KERNEL_BIN} ${C_SOURCE} ${S_SOURCE} ${mylib} ${drivers})
+set_target_properties(${KERNEL_BIN} PROPERTIES LINK_FLAGS "-T ${CMAKE_SOURCE_DIR}/linker.ld -ffreestanding -O0 -nostdlib -g")
 target_link_libraries(${KERNEL_BIN} PRIVATE gcc)
 
 # 添加库文件
@@ -79,7 +79,5 @@ add_custom_target(
         COMMENT "正在构建 iso 文件..."
         BYPRODUCTS ${KERNEL_ISO}
 )
-
-#add_dependencies(${KERNEL_ISO} ${KERNEL_BIN})
 
 add_custom_target(run ALL DEPENDS ${KERNEL_BIN} ${KERNEL_ISO})

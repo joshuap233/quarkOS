@@ -1,5 +1,4 @@
-#include <stddef.h> // size_t and NULL
-#include "types.h" // ntx_t and uintx_t
+#include "types.h"
 #include "klib/qlib.h"
 #include "multiboot2.h"
 #include "gdt.h"
@@ -37,19 +36,27 @@ void hello() {
     printfk("\n");
 }
 
+spinlock_t lock;
 
 void *workerA(void *args) {
+    spinlock_lock(&lock);
     printfk("a\n");
+    spinlock_unlock(&lock);
     return NULL;
 }
 
 void *workerB(void *args) {
+    spinlock_lock(&lock);
     printfk("b\n");
+    spinlock_unlock(&lock);
     return NULL;
 }
 
+extern multiboot_info_t *mba;
+extern uint32_t magic;
+
 //mba 为 multiboot info struct 首地址
-void kernel_main(multiboot_info_t *mba, uint32_t magic) {
+void kernel_main() {
     vga_init();
     assertk(magic == 0x36d76289);
     assertk(mba->zero == 0);
@@ -58,16 +65,11 @@ void kernel_main(multiboot_info_t *mba, uint32_t magic) {
     gdt_init();
     idt_init();
     mm_init();
-//    irq_lock_init();
     sched_init();
-    kthread_create(workerA, NULL);
-    kthread_create(workerB, NULL);
-//    for (int i = 0; i < 10; ++i) {
-
-//    }
-
-    while (1) {
-        kb_getchar();
-    }
-    idle();
+    spinlock_init(&lock);
+    kthread_t a, b;
+    kthread_create(&a, workerA, NULL);
+    kthread_create(&b, workerB, NULL);
+    enable_interrupt();
+    block_thread();
 }

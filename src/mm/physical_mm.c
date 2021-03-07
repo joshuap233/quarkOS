@@ -36,7 +36,7 @@ static inline pointer_t pop() {
 //空闲页入栈
 static void push_free_page() {
     // 空闲内存入栈
-    for (multiboot_mmap_entry_t *entry = g_mmap->entries; (pointer_t) entry < g_mmap_tail; entry++) {
+    for_each_mmap {
         assertk(entry->zero == 0);
         if (entry->type == MULTIBOOT_MEMORY_AVAILABLE) {
             uint64_t length = entry->len;

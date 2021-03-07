@@ -20,8 +20,6 @@
 
 void pit_init(uint32_t frequency);
 
-bool ssleep(mseconds_t ms);
-
 extern volatile uint64_t g_tick;
 #define TIME_SINCE_BOOT g_tick
 

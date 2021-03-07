@@ -32,10 +32,11 @@ typedef struct heap {
 //堆最后一个空闲块空闲空间大于 LIMIT 时,释放多余的页
 } heap_t;
 
+void *allocK_page();
 
 // =============== 测试 =================
 void test_mallocK_and_freeK();
 
 void test_shrink_and_expand();
-
+void test_allocK_page();
 #endif //QUARKOS_HEAP_H

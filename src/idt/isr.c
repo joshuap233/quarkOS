@@ -87,7 +87,7 @@ void ISR(12)(interrupt_frame_t *frame, uint32_t error_code) {
 
 __attribute__((interrupt))
 void ISR(13)(interrupt_frame_t *frame, uint32_t error_code) {
-    error_code_t *ec = (error_code_t *) (&error_code);
+    error_code_t *ec = (error_code_t *) &error_code;
     assertk(ec->zero == 0);
     printfk("GP exception\n");
     printfk("gp error code: %u\n", error_code);
@@ -97,7 +97,7 @@ void ISR(13)(interrupt_frame_t *frame, uint32_t error_code) {
 __attribute__((interrupt))
 void ISR(14)(interrupt_frame_t *frame, uint32_t error_code) {
 //页错误
-    pf_error_code_t *ec = (pf_error_code_t *) (&error_code);
+    pf_error_code_t *ec = (pf_error_code_t *) &error_code;
     assertk(ec->zero == 0);
     assertk(ec->zero1 == 0);
     printfk("page fault, error code: %x\n", error_code);

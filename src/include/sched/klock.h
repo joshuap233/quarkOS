@@ -7,25 +7,25 @@
 
 #include "x86.h"
 
-//使用这种方式会导致中断丢失,即无论调用 kLock 前是否开启中断
-//调用 kRelease 后都会开启中断
+typedef struct interrupt_lock {
+    bool ir_enable;
+} ir_lock_t;
+
+
 __attribute__((always_inline))
-static inline void k_lock(){
-    disable_interrupt();
+static inline void ir_lock(ir_lock_t *lock) {
+    lock->ir_enable = get_eflags() & INTERRUPT_MASK;
+    // 只会禁用当前线程中断
+    if (lock->ir_enable)
+        disable_interrupt();
 }
 
 __attribute__((always_inline))
-static inline void k_unlock(){
-    enable_interrupt();
+static inline void ir_unlock(ir_lock_t *lock) {
+    if (lock->ir_enable)
+        enable_interrupt();
 }
 
-
-//需要在中断开启后初始化该锁
-void irq_lock_init();
-
-void irq_lock();
-
-void irq_unlock();
 
 // 自旋锁不能保证公平性,即每个线程都能进入临界区
 // 可用于临界区较短的代码

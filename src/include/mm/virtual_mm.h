@@ -33,9 +33,6 @@ void vmm_unmap(void *va, uint32_t size);
 
 void vmm_map(pointer_t va, pointer_t pa, uint32_t size, uint32_t flags);
 
-//只分配虚拟地址
-#define vmm_alloc_vm list_split_ff
-
 extern void cr3_set(pointer_t);
 
 

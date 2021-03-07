@@ -48,6 +48,11 @@ static inline void _list_add_next(heap_ptr_t *new, heap_ptr_t *target) {
     _list_add(new, target, target->next);
 }
 
+__attribute__((always_inline))
+static inline void _list_add_prev(heap_ptr_t *new, heap_ptr_t *target) {
+    _list_add(new, target->prev, target);
+}
+
 
 __attribute__((always_inline))
 static inline void _list_link(heap_ptr_t *header, heap_ptr_t *tail) {
@@ -79,6 +84,8 @@ void heap_init() {
 
     test_mallocK_and_freeK();
     test_shrink_and_expand();
+    test_allocK_page();
+
 }
 
 // size 为需要扩展的内存块大小
@@ -106,9 +113,9 @@ static inline void shrink() {
     if (tail->size > HEAP_FREE_LIMIT) {
         void *fhp = (void *) (HEAP_START + PAGE_SIZE);
         void *addr = (fhp > (void *) tail) ? fhp : tail;
-        int64_t size = ((void*)tail + tail->size) - addr;
+        int64_t size = ((void *) tail + tail->size) - addr;
 
-        if (size>HEAP_FREE_LIMIT){
+        if (size > HEAP_FREE_LIMIT) {
             pointer_t free_size = size / PAGE_SIZE * PAGE_SIZE;
             tail->size -= free_size;
             heap.size -= free_size;
@@ -140,6 +147,7 @@ static void merge(heap_ptr_t *alloc) {
 
 // chunk 为可用空闲块, size 为需要分割的大小
 static void *alloc_chunk(heap_ptr_t *chunk, size_t size) {
+    assertk(!chunk->used);
     size_t free_size = chunk->size - size;
     if (free_size < sizeof(heap_ptr_t)) {
         //剩余空间无法容纳新头块,将剩余空间全都分配出去
@@ -165,7 +173,22 @@ void *mallocK(size_t size) {
 
     heap_ptr_t *tail = heap.header->prev;
     if (!expend(tail->used ? size : size - tail->size)) return NULL;
-    return alloc_chunk(tail, size);
+    // expand 后 tail 可能已经不指向最后一块,因此使用  heap.header->prev 访问
+    return alloc_chunk(heap.header->prev, size);
+}
+
+// 分配页对齐的一页(页内不包括头块)
+void *allocK_page() {
+    size_t size = chunk_size(PAGE_SIZE);
+    if (!expend(heap.header->prev->used ? PAGE_SIZE * 2 : PAGE_SIZE)) return NULL;
+
+    heap_ptr_t *new = (heap_ptr_t *) (HEAP_TAIL + 1 - size);
+    chunk_init(new, size);
+    new->used = true;
+
+    heap.header->prev->size -= size;
+    _list_add_prev(new, heap.header);
+    return alloc_addr(new);
 }
 
 
@@ -199,6 +222,7 @@ static size_t get_used_space() {
     return size;
 }
 
+
 void test_mallocK_and_freeK() {
     test_start;
     size_t unused = get_unused_space();
@@ -207,8 +231,10 @@ void test_mallocK_and_freeK() {
 
     addr[0] = mallocK(20);
     assertk(addr[0] != NULL);
+
     addr[1] = mallocK(40);
     assertk(addr[1] != NULL);
+
     addr[2] = mallocK(30);
     assertk(addr[2] != NULL);
     assertk(get_unused_space() == unused - (3 * sizeof(heap_ptr_t) + 20 + 40 + 30));
@@ -220,7 +246,7 @@ void test_mallocK_and_freeK() {
     freeK(addr[2]);
     assertk(unused == get_unused_space());
     assertk(used == get_used_space());
-    assertk(heap.header->size  == heap.size);
+    assertk(heap.header->size == heap.size);
     test_pass;
 }
 
@@ -234,9 +260,11 @@ void test_shrink_and_expand() {
     addr[0] = mallocK(PAGE_SIZE);
     assertk(get_unused_space() == unused - sizeof(heap_ptr_t));
     assertk(addr[0] != NULL);
+
     addr[1] = mallocK(PAGE_SIZE);
     assertk(addr[1] != NULL);
     assertk(get_unused_space() == unused - sizeof(heap_ptr_t) * 2);
+
     addr[2] = mallocK(PAGE_SIZE);
     assertk(addr[2] != NULL);
     assertk(get_unused_space() == unused - sizeof(heap_ptr_t) * 3);
@@ -247,6 +275,35 @@ void test_shrink_and_expand() {
 
     assertk(unused == get_unused_space());
     assertk(used == get_used_space());
-    assertk(heap.header->size  == heap.size);
+    assertk(heap.header->size == heap.size);
+    test_pass;
+}
+
+void test_allocK_page() {
+    test_start;
+    size_t unused = get_unused_space();
+    size_t used = get_used_space();
+    void *addr[3];
+
+    addr[0] = allocK_page();
+    assertk(addr[0] != NULL);
+    assertk(!((pointer_t) addr[0] & ALIGN_MASK));
+
+    addr[1] = allocK_page();
+    assertk(addr[1] != NULL);
+    assertk(!((pointer_t) addr[1] & ALIGN_MASK));
+
+    addr[2] = allocK_page();
+    assertk(addr[2] != NULL);
+    assertk(!((pointer_t) addr[2] & ALIGN_MASK));
+
+    freeK(addr[0]);
+    assertk(get_unused_space() == PAGE_SIZE * 3 + unused - sizeof(heap_ptr_t) * 2);
+    freeK(addr[1]);
+    assertk(get_unused_space() == PAGE_SIZE * 4 + unused - sizeof(heap_ptr_t));
+    freeK(addr[2]);
+    assertk(unused == get_unused_space());
+    assertk(used == get_used_space());
+    assertk(heap.header->size == heap.size);
     test_pass;
 }

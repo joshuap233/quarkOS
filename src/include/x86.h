@@ -96,7 +96,6 @@ static inline void enable_paging() {
 
 
 
-
 __attribute__((always_inline))
 static inline bool is_paging() {
     uint32_t cr0;

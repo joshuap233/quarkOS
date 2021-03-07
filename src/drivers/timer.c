@@ -26,17 +26,6 @@ void pit_init(uint32_t frequency) {
 }
 
 
-bool ssleep(mseconds_t ms) {
-/*
- * 睡眠时间（毫秒）为 10 的整数倍,ms<10 取 10
- * 启用多线程后不能使用,且非常不精确
- */
-    uint64_t end = TIME_SINCE_BOOT + DIV_CEIL(ms, PIT_TIME_SLICE);
-    while (end > TIME_SINCE_BOOT)
-        halt();
-    return true;
-}
-
 
 // rtc 实时时钟
 //void rtc_init(){

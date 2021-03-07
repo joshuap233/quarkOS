@@ -37,12 +37,25 @@ reqinfoEnd:
     .short 0
     .short 0
     .long 8
-
 headerEnd:
 
+
+    .section .data
+    .global mba
+mba:
+    .long 0
+
+
+    .section .data
+    .global magic
+magic:
+    .long 0
+
+
     .section .bss
+    .align   4096 //主线程栈页对齐
 stack_top:
-    .skip 16384 # 16 KiB
+    .skip    4096
 stack_bottom:
 
 /*
@@ -58,16 +71,13 @@ _start:
 	mov $stack_bottom, %esp
     xor %ebp, %ebp # 用于追踪栈底
 
-	push %eax
-	push %ebx
+    movl %eax, magic
+    movl %ebx, mba
 	call kernel_main
 
 	cli
 1:	hlt
 	jmp 1b
 
-/*
-Set the size of the _start symbol to the current location '.' minus its start.
-This is useful when debugging or when you implement call tracing.
-*/
+
 .size _start, . - _start

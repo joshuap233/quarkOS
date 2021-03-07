@@ -44,7 +44,7 @@ struct stack_frame {
 void stack_trace() {
     // 要求栈底为 caller 的 ebp 与 eip
     struct stack_frame *stk;
-    asm ("movl %%ebp,%0":"=r"(stk));
+    asm volatile("movl %%ebp,%0":"=r"(stk));
     while (stk->ebp) {
         char *name = cur_func_name((pointer_t) stk->eip);
         printfk("ip: [%x], func: [%s]\n", stk->eip, name == NULL ? "NULL" : name);
@@ -68,7 +68,7 @@ char *cur_func_name(pointer_t addr) {
 // 内核异常,停止运行
 void panic() {
     disable_interrupt();
-    stack_trace();
+//    stack_trace();
     halt();
 }
 

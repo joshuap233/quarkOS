@@ -14,15 +14,15 @@ multiboot_tag_apm_t *g_apm;
 elf_string_table_t g_shstrtab = {0}, g_strtab = {0};
 elf_symbol_table_t g_symtab = {0};
 
-uint32_t g_mem_total; // 可用物理内存大小
-pointer_t g_mmap_tail; //memory map 块末尾
-pointer_t g_vmm_start;//vmm 虚拟内存开始地址, vmm_start 以下的虚拟内存需要预留且与物理内存直接映射
+uint32_t g_mem_total;  // 可用物理内存大小
+pointer_t g_vmm_start; //vmm 虚拟内存开始地址, vmm_start 以下的虚拟内存需要预留且与物理内存直接映射
+
 
 //最原始的内存分配函数
 //切割内核后的空闲内存块, 被切割的物理内存与虚拟内存直接映射
 //内存不足返回 0
 pointer_t split_mmap(uint32_t size) {
-    for (multiboot_mmap_entry_t *entry = g_mmap->entries; (pointer_t) entry < g_mmap_tail; entry++) {
+    for_each_mmap {
         assertk(entry->zero == 0);
         if (entry->type == MULTIBOOT_MEMORY_AVAILABLE && entry->len >= size) {
             uint32_t addr = entry->addr;
@@ -68,7 +68,6 @@ static void reload() {
     for (int i = 0; i < 4; ++i) {
         if (addr[i] == g_mmap) {
             g_mmap = move(g_mmap, g_mmap->size);
-            g_mmap_tail = (pointer_t) g_mmap + g_mmap->size - 1;
         } else if (addr[i] == g_shstrtab.addr) {
             g_shstrtab.addr = move(g_shstrtab.addr, g_shstrtab.size);
             assertk(g_shstrtab.addr != 0);
@@ -86,7 +85,7 @@ static void reload() {
 //计算所有可用物理内存大小(不包括内核以下部分)
 //移除内核以下可用内存
 static void parse_mmap() {
-    for (multiboot_mmap_entry_t *entry = g_mmap->entries; (pointer_t) entry < g_mmap_tail; entry++) {
+    for_each_mmap {
         assertk(entry->zero == 0);
         if (entry->type == MULTIBOOT_MEMORY_AVAILABLE) {
             //移除内核以下可用内存
@@ -162,7 +161,6 @@ void multiboot_init(multiboot_info_t *bia) {
 
     assertk(g_mmap->entry_version == 0);
     assertk(g_apm->type == MULTIBOOT_TAG_TYPE_APM);
-    g_mmap_tail = (pointer_t) g_mmap + g_mmap->size - 1;
     g_vmm_start = K_END;
     parse_elf_section();
     parse_mmap();

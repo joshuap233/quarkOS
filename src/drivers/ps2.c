@@ -9,43 +9,74 @@
 #include "klib/qlib.h"
 #include "drivers/keyboard.h"
 
+typedef bool status_t;
+#define FULL     1
+#define EMPTY    0
+#define N_POLL     10  //轮询端口次数
+
+
+bool poll_status(uint8_t bit, status_t expect);
+
+void ps2_pwc(uint8_t value);
+
+//poll write data
+void ps2_pwd(uint8_t value);
+
+uint8_t ps2_prd();
+
+
+//读取状态寄存器
+__attribute__((always_inline))
+static inline uint8_t ps2_rs() {
+    return inb(PS2_CMD);
+}
+
+
+__attribute__((always_inline))
+static inline void ps2_wd(uint8_t value) {
+    outb(PS2_DAT, value);
+}
+
+__attribute__((always_inline))
+static inline void ps2_wc(uint8_t value) {
+    outb(PS2_CMD, value);
+}
+
+//检测状态位
+__attribute__((always_inline))
+static inline bool ps2_cs(uint8_t bit, status_t expect) {
+    return ((ps2_rs() >> bit) & 0b1) == expect;
+}
+
 bool poll_status(uint8_t bit, status_t expect) {
 /*
  *  轮询状态寄存器状态并等待,bit 为需要检查的位,expect 为期望值
  *  bit 范围: 0-7, 不会检查参数
- *  轮询结束没有达到期望值返回 False
 */
-    for (int i = 0; i < N_POLL; ++i)
+    for (int i = 0; i < N_POLL; ++i) {
         if (ps2_cs(bit, expect)) {
-            assertk(ssleep(10));
             return true;
         }
+        pause();
+    }
     return false;
 }
 
 // 轮询读取数据
 uint8_t ps2_prd() {
-    if (!poll_status(0, ZERO)) {
-        printfk("ps2_rd error\n");
-        panic();
-    }
+    assertk(poll_status(0, FULL));
     return ps2_rd();
 }
 
 // 轮询写数据
 void ps2_pwd(uint8_t value) {
-    if (!poll_status(1, ZERO)) {
-        printfk("ps2_rd error\n");
-        panic();
-    }
+    assertk(poll_status(1, EMPTY));
     ps2_wd(value);
 }
 
 // 轮询写指令
 void ps2_pwc(uint8_t value) {
-    if (!poll_status(1, ZERO)) {
-        printfk("ps2_rd error\n");
-    }
+    assertk(poll_status(1, EMPTY));
     ps2_wc(value);
 }
 
@@ -59,7 +90,7 @@ void ps2_init() {
     ps2_rd();
 
     //读取控制位
-    ps2_prd();
+    ps2_pwc(0x20);
     uint8_t config = ps2_prd();
     //开启键盘中断
     set_bit(&config, 0);

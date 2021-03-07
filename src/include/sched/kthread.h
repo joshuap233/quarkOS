@@ -9,6 +9,8 @@
 #include "types.h"
 #include "klib/list.h"
 #include "klib/qlib.h"
+#include "klib/qmath.h"
+#include "mm/mm.h"
 
 typedef struct context {
     //线程切换时需要保存的上下文
@@ -24,29 +26,31 @@ typedef struct context {
     uint32_t edi;
 } context_t;
 
-typedef enum kthread_state {
-    TASK_RUNNING_OR_RUNNABLE = 0,
-    TASK_SLEEPING = 1,
-    TASK_ZOMBIE = 2, //线程终止等待回收
-} kthread_state_t;
 
-typedef uint16_t kthread_t; //线程id
+typedef uint32_t kthread_state_t;
+#define TASK_RUNNING  0    //线程可运行或正在运行
+#define TASK_SLEEPING 1
+#define TASK_ZOMBIE   2     //线程终止等待回收
 
+typedef uint32_t kthread_t; //线程id
+
+//为了使 tcb_t 内元素对齐,kthread_state_t 不使用枚举
+//否则 tcb_t 需要添加 __attribute__((packed))  属性
 typedef struct tcb {
 #define KTHREAD_NAME_LEN   16
 #define KTHREAD_STACK_SIZE 4096
 #define KTHREAD_NUM        65536
-    struct tcb *next, *prev;
+    struct tcb *next, *prev; //运行队列
     kthread_t tid;
     kthread_state_t state;
-    void *stack;       //指向栈首地址,用于回收
-    context_t context; //上下文信息
+    char name[KTHREAD_NAME_LEN];
+    void *stack;             //指向栈首地址,用于回收
+    context_t context;       //上下文信息
 } tcb_t;
-
 
 void sched_init();
 
-int kthread_create(void *(worker)(void *args), void *args);
+int kthread_create(kthread_t *tid, void *(worker)(void *), void *args);
 
 void schedule();
 
@@ -58,14 +62,20 @@ void unblock_thread(tcb_t *thread);
 
 extern void switch_to(context_t *cur_context, context_t *next_context);
 
-extern tcb_t *runnable_task;
-#define cur_task runnable_task
-
 __attribute__((always_inline))
 _Noreturn static inline void idle() {
     while (1) {
         halt();
     }
 }
+
+__attribute__((always_inline))
+static inline tcb_t *_cur_tcb() {
+    tcb_t *tcb;
+    asm("andl %%esp,%0; ":"=r" (tcb): "0" (~ALIGN_MASK));
+    return tcb;
+}
+
+#define CUR_TCB _cur_tcb()
 
 #endif //QUARKOS_KTHREAD_H

@@ -8,25 +8,41 @@
 #include "sched/kthread.h"
 #include "drivers/timer.h"
 
+static void _list_header_init(timer_t *header) {
+    header->next = header;
+    header->prev = header;
+}
 
-timer_t timer_[TIMER_COUNT];
+__attribute__((always_inline))
+static inline void _list_add(timer_t *new, timer_t *prev, timer_t *next) {
+    new->prev = prev;
+    new->next = next;
+    next->prev = new;
+    prev->next = new;
+}
+
+__attribute__((always_inline))
+static inline void _list_add_prev(timer_t *new, timer_t *target) {
+    _list_add(new, target->prev, target);
+}
+
+
+__attribute__((always_inline))
+static inline void _list_del(timer_t *list) {
+    list->prev->next = list->next;
+    list->next->prev = list->prev;
+}
+
+
+static timer_t _timer[TIMER_COUNT];
 
 //用于管理计时器
 static struct timer_pool {
     timer_t *timer[TIMER_COUNT];
-    timer_t *header; //指向timer链表第一个节点
+    timer_t header; //头结点,始终为空
     size_t top; //指向栈顶空元素
     size_t size;
 } timer_pool;
-
-void thread_timer_init() {
-    timer_pool.top = 0;
-    timer_pool.size = TIMER_COUNT;
-    timer_pool.header = NULL;
-    for (int i = 0; i < TIMER_COUNT; ++i) {
-        timer_pool.timer[i] = &timer_[i];
-    }
-}
 
 __attribute__((always_inline))
 static inline timer_t *alloc_timer() {
@@ -41,17 +57,22 @@ static inline void free_timer(timer_t *t) {
         timer_pool.timer[timer_pool.top++] = t;
 }
 
+void thread_timer_init() {
+    timer_pool.top = 0;
+    timer_pool.size = TIMER_COUNT;
+    _list_header_init(&timer_pool.header);
+    for (int i = 0; i < TIMER_COUNT; ++i) {
+        timer_pool.timer[i] = &_timer[i];
+    }
+}
+
 bool ms_sleep_until(uint64_t msc) {
     timer_t *t = alloc_timer();
     if (t == NULL) return false;
     t->time = msc;
-    t->next = timer_pool.header;
-    t->prev = NULL;
-    t->thread = cur_task;
-    if (timer_pool.header != NULL) {
-        timer_pool.header->prev = t;
-    }
-    timer_pool.header = t;
+    t->thread = CUR_TCB;
+
+    _list_add_prev(t, &timer_pool.header);
     block_thread();
     return true;
 }
@@ -61,17 +82,12 @@ bool ms_sleep(mseconds_t msc) {
 }
 
 void timer_handle() {
-    timer_t *header = timer_pool.header;
-    while (header != NULL) {
-        if (header->time >= TIME_SINCE_BOOT) {
-            if (header->prev != NULL)
-                header->prev->next = header->next;
-            else
-                timer_pool.header = header->next;
-            unblock_thread(header->thread);
-            // free_timer 不会销毁 header
-            free_timer(header);
+    for (timer_t *hdr = timer_pool.header.next, *next = hdr->next;
+         hdr != &timer_pool.header; hdr = next, next = next->next) {
+        if (hdr->time >= TIME_SINCE_BOOT) {
+            _list_del(hdr);
+            unblock_thread(hdr->thread);
+            free_timer(hdr);
         }
-        header = header->next;
     }
 }

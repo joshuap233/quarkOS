@@ -373,6 +373,12 @@ extern elf_string_table_t g_shstrtab, g_strtab;
 extern elf_symbol_table_t g_symtab;
 
 extern uint32_t g_mem_total;
-extern pointer_t g_mmap_tail;
 extern pointer_t g_vmm_start;
+
+
+#define for_each_mmap \
+    for (multiboot_mmap_entry_t *entry = g_mmap->entries; (pointer_t) entry < (pointer_t) g_mmap + g_mmap->size; entry++)
+
+
+
 #endif //QUARKOS_MULTIBOOT2_H
