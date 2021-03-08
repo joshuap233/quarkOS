@@ -7,8 +7,12 @@
 
 #include "x86.h"
 
+extern uint32_t fetch_and_add(uint32_t *ptr);
+
+extern uint32_t test_and_set(uint32_t *flag);
+
 typedef struct interrupt_lock {
-    bool ir_enable;
+    uint32_t ir_enable;
 } ir_lock_t;
 
 
@@ -38,7 +42,12 @@ static inline void spinlock_init(spinlock_t *lock) {
     lock->flag = 0;
 }
 
-extern void spinlock_lock(spinlock_t *lock);
+__attribute__((always_inline))
+static inline void spinlock_lock(spinlock_t *lock) {
+    while (test_and_set(&lock->flag) == 1)
+        pause();
+    opt_barrier();
+}
 
 __attribute__((always_inline))
 static inline void spinlock_unlock(spinlock_t *lock) {
@@ -51,7 +60,6 @@ typedef struct tick_lock {
     uint32_t turn;
 } ticklock_t;
 
-extern uint32_t fetch_and_add(uint32_t *ptr);
 
 static inline void ticklock_init(ticklock_t *lock) {
     lock->ticket = 0;

@@ -24,7 +24,7 @@ void timer_handle();
 
 void thread_timer_init();
 
-extern volatile uint64_t time_slice;
+extern volatile uint64_t g_time_slice;
 #define TIME_SLICE_LENGTH 10  // 时间片长度为 100ms
 
 #endif //QUARKOS_SCHED_TIMER_H

@@ -134,14 +134,14 @@ void ISR(20)(interrupt_frame_t *frame) {
 // PIC 0 号中断,PIT 时钟中断
 __attribute__((interrupt))
 void ISR(32)(interrupt_frame_t *frame) {
-    TIME_SINCE_BOOT++;
+    G_TIME_SINCE_BOOT++;
     timer_handle();
     pic1_eoi();
 
-    if (time_slice == 0) {
+    if (g_time_slice == 0) {
         schedule();
     } else {
-        time_slice -= 1;
+        g_time_slice -= 1;
     }
 }
 

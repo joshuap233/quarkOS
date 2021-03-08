@@ -57,7 +57,7 @@ bool poll_status(uint8_t bit, status_t expect) {
         if (ps2_cs(bit, expect)) {
             return true;
         }
-        pause();
+        io_wait();
     }
     return false;
 }

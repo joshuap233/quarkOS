@@ -1,4 +1,3 @@
-#include <mm/heap.h>
 #include "types.h"
 #include "klib/qlib.h"
 #include "multiboot2.h"
@@ -6,10 +5,10 @@
 #include "idt.h"
 #include "drivers/vga.h"
 #include "x86.h"
-#include "drivers/keyboard.h"
 #include "mm/mm.h"
 #include "sched/kthread.h"
 #include "sched/klock.h"
+
 
 #if defined(__linux__)
 #warning "你没有使用跨平台编译器进行编译"
@@ -20,7 +19,7 @@
 #endif
 
 #if !defined(__STDC_HOSTED__)
-#warning "你没有使用 freestanding 模式"
+#warning "你没有使用 ffreestanding 模式"
 #endif
 
 

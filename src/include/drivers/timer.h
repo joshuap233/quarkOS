@@ -21,6 +21,6 @@
 void pit_init(uint32_t frequency);
 
 extern volatile uint64_t g_tick;
-#define TIME_SINCE_BOOT g_tick // 单位为 10ms
+#define G_TIME_SINCE_BOOT g_tick // 单位为 10ms
 
 #endif //QUARKOS_DRIVERS_TIMER_H

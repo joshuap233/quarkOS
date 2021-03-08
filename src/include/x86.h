@@ -37,7 +37,7 @@ static inline void outw(uint16_t port, uint16_t value) {
 
 __attribute__((always_inline))
 static inline void io_wait(void) {
-    // 让 CPU 等待 IO 完成,IRQ 还没有初始化时可以使用这个
+    // 等待一个 io 读写的时间
     asm volatile ( "outb %%al, $0x80" : : "a"(0));
 }
 
@@ -58,7 +58,7 @@ static inline void halt() {
 }
 
 __attribute__((always_inline))
-static inline void pause(){
+static inline void pause() {
     //停止固定的指令周期
     asm volatile ("pause");
 }
@@ -95,7 +95,6 @@ static inline void enable_paging() {
 }
 
 
-
 __attribute__((always_inline))
 static inline bool is_paging() {
     uint32_t cr0;
@@ -112,5 +111,24 @@ static inline pointer_t pf_addr() {
 }
 
 
+__attribute__((always_inline))
+static inline uint32_t cupid_available() {
+#define CPUID_MASK (0b1 << 21)
+    uint32_t eflags = get_eflags() | CPUID_MASK;
+    set_eflags(eflags);
+    return get_eflags() & CPUID_MASK;
+}
+
+__attribute__((always_inline))
+static inline uint32_t cpu_core() {
+    uint32_t reg;
+    asm volatile("cpuid":"=a"(reg):"a"(4));
+    return ((reg >> 26) & 0x3f) + 1;
+}
+
 #define INTERRUPT_MASK (0b1 << 9)
+
+// gcc 优化屏障
+#define opt_barrier() asm volatile("": : :"memory")
+
 #endif //QUARKOS_X86_H

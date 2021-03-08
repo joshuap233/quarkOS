@@ -9,7 +9,7 @@
 #include "drivers/timer.h"
 
 // 当前线程剩余时间片
-volatile uint64_t time_slice = 0;
+volatile uint64_t g_time_slice = 0;
 
 static void _list_header_init(timer_t *header) {
     header->next = header;
@@ -81,13 +81,13 @@ bool ms_sleep_until(uint64_t msc) {
 }
 
 bool ms_sleep(mseconds_t msc) {
-    return ms_sleep_until(TIME_SINCE_BOOT + msc);
+    return ms_sleep_until(G_TIME_SINCE_BOOT + msc);
 }
 
 void timer_handle() {
     for (timer_t *hdr = timer_pool.header.next, *next = hdr->next;
          hdr != &timer_pool.header; hdr = next, next = next->next) {
-        if (hdr->time >= TIME_SINCE_BOOT) {
+        if (hdr->time >= G_TIME_SINCE_BOOT) {
             _list_del(hdr);
             unblock_thread(hdr->thread);
             free_timer(hdr);

@@ -36,7 +36,7 @@ static kb_queue_t kb_buf = {
         .tail = 0
 };
 
-static struct kb_queue kb_cmd = {
+static kb_queue_t kb_cmd = {
         .header=0,
         .tail = 0
 };

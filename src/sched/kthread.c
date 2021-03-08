@@ -154,8 +154,8 @@ void schedule() {
     }
     ready_to_run = next->next;
 
-    time_slice = TIME_SLICE_LENGTH;
-    time_slice = next == init_task ? 0 : TIME_SLICE_LENGTH;
+    g_time_slice = TIME_SLICE_LENGTH;
+    g_time_slice = next == init_task ? 0 : TIME_SLICE_LENGTH;
     switch_to(&CUR_TCB->context, &next->context);
     ir_unlock(&lock);
 }
