@@ -40,7 +40,7 @@ typedef struct tcb {
 #define KTHREAD_NAME_LEN   16
 #define KTHREAD_STACK_SIZE 4096
 #define KTHREAD_NUM        65536
-    struct tcb *next, *prev; //运行队列
+    list_head_t run_list; //运行队列
     kthread_t tid;
     kthread_state_t state;
     char name[KTHREAD_NAME_LEN];
@@ -70,12 +70,13 @@ _Noreturn static inline void idle() {
 }
 
 __attribute__((always_inline))
-static inline tcb_t *_cur_tcb() {
+static inline tcb_t *cur_tcb() {
     tcb_t *tcb;
     asm("andl %%esp,%0; ":"=r" (tcb): "0" (~ALIGN_MASK));
     return tcb;
 }
 
-#define CUR_TCB _cur_tcb()
+#define CUR_TCB cur_tcb()
+#define tcb_entry(ptr) list_entry(ptr,tcb_t,run_list)
 
 #endif //QUARKOS_KTHREAD_H

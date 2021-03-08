@@ -7,13 +7,11 @@
 
 #include "types.h"
 
-#define LIST_HEAD_INIT(name) { &(name), &(name) }
-
 #define LIST_HEAD(name) \
-    struct list_head name = LIST_HEAD_INIT(name)
+    list_head_t name = { &(name), &(name) }
 
 #define list_entry(ptr,type,member) \
-    (type *)((void *)(ptr) - offsetof(type,member))
+    ((type *)((void *)(ptr) - offsetof(type,member)))
 
 
  //双向链表指针域
@@ -58,6 +56,12 @@ static inline bool list_empty(list_head_t *header) {
     return header->next == header;
 }
 
-#define list_foreach
+__attribute__((always_inline))
+static inline void list_link(list_head_t *header, list_head_t *tail) {
+    header->next = tail;
+    tail->prev = header;
+}
+
+//#define list_foreach
 
 #endif //QUARKOS_LIST_H

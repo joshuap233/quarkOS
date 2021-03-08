@@ -21,41 +21,6 @@ typedef struct thread_btm {
 #define THREAD_BTM(top) ((void*)(top) + KTHREAD_STACK_SIZE-sizeof(thread_btm_t))
 
 
-static void _list_header_init(tcb_t *header) {
-    header->next = header;
-    header->prev = header;
-}
-
-__attribute__((always_inline))
-static inline void _list_add(tcb_t *new, tcb_t *prev, tcb_t *next) {
-    new->prev = prev;
-    new->next = next;
-    next->prev = new;
-    prev->next = new;
-}
-
-__attribute__((always_inline))
-static inline void _list_add_next(tcb_t *new, tcb_t *target) {
-    _list_add(new, target, target->next);
-}
-
-__attribute__((always_inline))
-static inline void _list_add_prev(tcb_t *new, tcb_t *target) {
-    _list_add(new, target->prev, target);
-}
-
-
-__attribute__((always_inline))
-static inline void _list_del(tcb_t *list) {
-    list->prev->next = list->next;
-    list->next->prev = list->prev;
-}
-
-__attribute__((always_inline))
-static inline bool _list_empty(tcb_t *header) {
-    return header->next == header;
-}
-
 //用于管理空闲 tid
 static struct kthread_map {
     uint8_t map[DIV_CEIL(KTHREAD_NUM, 8)];
@@ -65,18 +30,19 @@ static struct kthread_map {
         .map = {0},
 };
 
-tcb_t finish_list;   //已执行完成等待销毁的线程
-tcb_t block_list;    //阻塞中的线程
+LIST_HEAD(finish_list);  //已执行完成等待销毁的线程
+LIST_HEAD(block_list);   //阻塞中的线程
 
-tcb_t *cleaner_task = NULL;  //清理线程,用于清理其他线程
-tcb_t *init_task = NULL;     //空闲线程,时钟在可运行列表
-tcb_t *ready_to_run = NULL;  //指向运行队列节点
+
+list_head_t *cleaner_task = NULL;  //清理线程,用于清理其他线程
+list_head_t *init_task    = NULL;  //空闲线程,时钟在可运行列表
+list_head_t *ready_to_run = NULL;  //指向运行队列节点
 
 static kthread_t alloc_tid();
 
 static void free_tid(kthread_t tid);
 
-static void *idle_worker();
+static void *init_worker();
 
 _Noreturn static void *cleaner_worker();
 
@@ -88,19 +54,19 @@ static void cleaner_thread_init();
 //添加 idle task 方便任务列表的管理
 static void init_thread_init();
 
-static int _kthread_create(tcb_t **_thread, kthread_t *tid, void *(worker)(void *), void *args);
+static int _kthread_create(list_head_t **_thread, kthread_t *tid, void *(worker)(void *), void *args);
 
 
 extern void kthread_worker(void *(worker)(void *), void *args, tcb_t *tcb);
 
 static inline void set_next_ready() {
     //从运行队列删除节点前需要调用该方法
-    ready_to_run = CUR_TCB->next;
+    ready_to_run = &CUR_TCB->run_list;
 }
 
 static inline void del_cur_task() {
     set_next_ready();
-    _list_del(CUR_TCB);
+    list_del(&CUR_TCB->run_list);
 }
 
 //初始化内核线程
@@ -108,15 +74,12 @@ void sched_init() {
     thread_timer_init();
     init_thread_init();
 
-    _list_header_init(&finish_list);
-    _list_header_init(&block_list);
-
     CUR_TCB->tid = alloc_tid();
     CUR_TCB->state = TASK_RUNNING;
     CUR_TCB->stack = CUR_TCB;
     q_memcpy(CUR_TCB->name, "main", sizeof("main"));
     asm volatile("movl %%esp, %0":"=rm"(CUR_TCB->context.esp));
-    _list_add_prev(CUR_TCB, init_task);
+    list_add_prev(&CUR_TCB->run_list, init_task);
     cleaner_thread_init();
     set_next_ready();
 }
@@ -127,9 +90,10 @@ void kthread_exit() {
     ir_lock(&lock);
 
     del_cur_task();
-    _list_add_next(CUR_TCB, &finish_list);
-    if (cleaner_task->state != TASK_RUNNING)
-        unblock_thread(cleaner_task);
+    list_add_next(&CUR_TCB->run_list, &finish_list);
+    tcb_t *ct = tcb_entry(cleaner_task);
+    if (ct->state != TASK_RUNNING)
+        unblock_thread(ct);
     _block_thread(TASK_ZOMBIE);
 
     ir_unlock(&lock);
@@ -138,25 +102,25 @@ void kthread_exit() {
 
 
 int kthread_create(kthread_t *tid, void *(worker)(void *), void *args) {
-    tcb_t *thread;
+    list_head_t *thread;
     return _kthread_create(&thread, tid, worker, args);
 }
 
 void schedule() {
     ir_lock_t lock;
     ir_lock(&lock);
-    tcb_t *next = ready_to_run;
-    if (CUR_TCB == init_task && next == init_task)
+    list_head_t *next = ready_to_run;
+    if (&CUR_TCB->run_list == init_task && next == init_task)
         return;
     if (next == init_task) {
-        if (next->next == CUR_TCB) return;
+        if (next->next == &CUR_TCB->run_list) return;
         next = next->next;
     }
     ready_to_run = next->next;
 
     g_time_slice = TIME_SLICE_LENGTH;
     g_time_slice = next == init_task ? 0 : TIME_SLICE_LENGTH;
-    switch_to(&CUR_TCB->context, &next->context);
+    switch_to(&CUR_TCB->context, &tcb_entry(next)->context);
     ir_unlock(&lock);
 }
 
@@ -170,7 +134,7 @@ void block_thread() {
     ir_lock(&lock);
 
     del_cur_task();
-    _list_add_next(CUR_TCB, &block_list);
+    list_add_next(&CUR_TCB->run_list, &block_list);
     _block_thread(TASK_SLEEPING);
 
     ir_unlock(&lock);
@@ -181,8 +145,8 @@ void unblock_thread(tcb_t *thread) {
     ir_lock(&lock);
 
     thread->state = TASK_RUNNING;
-    _list_del(thread);
-    _list_add_prev(thread, init_task);
+    list_del(&thread->run_list);
+    list_add_prev(&thread->run_list, init_task);
 
     ir_unlock(&lock);
 }
@@ -215,13 +179,14 @@ _Noreturn static void *cleaner_worker() {
         ir_lock_t lock;
         ir_lock(&lock);
 
-        tcb_t *next;
-        for (tcb_t *hdr = finish_list.next; hdr != &finish_list; hdr = next) {
+        list_head_t *next;
+        for (list_head_t *hdr = finish_list.next; hdr != &finish_list; hdr = next) {
+            tcb_t *entry = tcb_entry(hdr);
             next = hdr->next;
-            free_tid(hdr->tid);
-            freeK(hdr->stack);
+            free_tid(entry->tid);
+            freeK(entry->stack);
         }
-        _list_header_init(&finish_list);
+        list_header_init(&finish_list);
         block_thread();
 
         ir_unlock(&lock);
@@ -231,7 +196,7 @@ _Noreturn static void *cleaner_worker() {
 static void cleaner_thread_init() {
     kthread_t tid;
     _kthread_create(&cleaner_task, &tid, cleaner_worker, NULL);
-    q_memcpy(cleaner_task->name, "cleaner", sizeof("cleaner"));
+    q_memcpy(tcb_entry(cleaner_task)->name, "cleaner", sizeof("cleaner"));
 }
 
 // 空闲线程作为头节点加入循环链表，该线程永远在可运行线程列表
@@ -239,20 +204,20 @@ static void cleaner_thread_init() {
 static void init_thread_init() {
     kthread_t tid;
     _kthread_create(&init_task, &tid, init_worker, NULL);
-    _list_header_init(init_task);
-    q_memcpy(init_task->name, "init", sizeof("init"));
-    assertk(init_task->tid == 0);
+    list_header_init(init_task);
+    q_memcpy(tcb_entry(init_task)->name, "init", sizeof("init"));
+    assertk(tcb_entry(init_task)->tid == 0);
 }
 
 // 成功返回 0,否则返回错误码(<0)
-static int _kthread_create(tcb_t **_thread, kthread_t *tid, void *(worker)(void *), void *args) {
+static int _kthread_create(list_head_t **_thread, kthread_t *tid, void *(worker)(void *), void *args) {
     //tcb 结构放到栈顶(低地址)
     ir_lock_t lock;
     ir_lock(&lock);
     tcb_t *thread = allocK_page();
     ir_unlock(&lock);
 
-    *_thread = thread;
+    *_thread = &thread->run_list;
     assertk(thread != NULL);
     assertk(((pointer_t) thread & ALIGN_MASK) == 0);
 
@@ -274,7 +239,7 @@ static int _kthread_create(tcb_t **_thread, kthread_t *tid, void *(worker)(void 
     ir_lock(&lock);
     thread->tid = alloc_tid();
     *tid = thread->tid;
-    _list_add_prev(thread, CUR_TCB);
+    list_add_prev(&thread->run_list, &CUR_TCB->run_list);
     ir_unlock(&lock);
     return 0;
 }
