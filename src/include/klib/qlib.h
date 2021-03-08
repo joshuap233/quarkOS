@@ -54,9 +54,14 @@ static inline void clear_bit(uint8_t *value, uint8_t bit) {
     *value &= (~(0b1 << bit));
 }
 
+// bit 从 0 开始
+#define CLEAR_BIT(value, bit) ((value) & (~((typeof(value))0b1 << (bit))))
+#define SET_BIT(value, bit)   ((value) | ((typeof(value))0b1 << (bit)))
+
 char *cur_func_name(pointer_t addr);
 
 void stack_trace();
+
 void panic();
 
 

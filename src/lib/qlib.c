@@ -68,7 +68,7 @@ char *cur_func_name(pointer_t addr) {
 // 内核异常,停止运行
 void panic() {
     disable_interrupt();
-//    stack_trace();
+    stack_trace();
     halt();
 }
 

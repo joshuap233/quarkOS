@@ -8,6 +8,9 @@
 #include "sched/kthread.h"
 #include "drivers/timer.h"
 
+// 当前线程剩余时间片
+volatile uint64_t time_slice = 0;
+
 static void _list_header_init(timer_t *header) {
     header->next = header;
     header->prev = header;

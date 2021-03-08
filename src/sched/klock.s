@@ -2,14 +2,15 @@
     .type   spinlock_lock, @function
     .text
 spinlock_lock:
-    movl  $1,%eax
+    movl 4(%esp),%ecx
 
-    xchg  %eax,4(%esp)
+    movl  $1,%eax
+    xchg  %eax,(%ecx)
     cmpl  $1,%eax
     jne   2f
 
 1:  pause
-    xchg  %eax,4(%esp)
+    xchg  %eax,(%ecx)
     cmpl  $1,%eax
     je    1b
 2:  ret

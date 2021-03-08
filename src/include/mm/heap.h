@@ -17,13 +17,13 @@ void heap_init();
 typedef struct heap_chunk_ptr {
     struct heap_chunk_ptr *next, *prev;
     uint32_t size; //当前内存块长度,包括头块
-    uint32_t magic: 31;
     uint32_t used: 1;  //当前内存块是否被使用
+    uint32_t magic: 31;
 #define HEAP_MAGIC 0x35e92b2e
 } heap_ptr_t;
 
 typedef struct heap {
-    heap_ptr_t *header; //header指向第一个头块
+    heap_ptr_t *header; //header 指向空头块
     uint32_t size;      //已分配虚拟内存大小
 #define HEAP_START           0x20000000
 #define HEAP_END             0x2fffffff

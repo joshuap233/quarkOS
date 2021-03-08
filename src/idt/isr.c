@@ -134,10 +134,15 @@ void ISR(20)(interrupt_frame_t *frame) {
 // PIC 0 号中断,PIT 时钟中断
 __attribute__((interrupt))
 void ISR(32)(interrupt_frame_t *frame) {
-    g_tick++;
+    TIME_SINCE_BOOT++;
     timer_handle();
     pic1_eoi();
-    schedule();
+
+    if (time_slice == 0) {
+        schedule();
+    } else {
+        time_slice -= 1;
+    }
 }
 
 // PIC 1 号中断,键盘输入

@@ -12,7 +12,7 @@
 #include "mm/heap.h"
 
 //刷新 tlb 缓存
-static inline void tlb_refresh(uint32_t va) {
+static inline void tlb_flush(pointer_t va) {
     __asm__ volatile ("invlpg (%0)" : : "a" (va));
 }
 
@@ -49,7 +49,7 @@ void vmm_map(pointer_t va, pointer_t pa, uint32_t size, uint32_t flags) {
             pt->entry[pteI] = pa | flags;
             pa += PAGE_SIZE;
 
-            tlb_refresh(va);
+            tlb_flush(va);
             va += PAGE_SIZE;
         }
     }
@@ -73,7 +73,7 @@ void vmm_mapv(pointer_t va, uint32_t size, uint32_t flags) {
         for_each_pt(pteI, size) {
             pt->entry[pteI] = phymm_alloc() | flags;
 
-            tlb_refresh(va);
+            tlb_flush(va);
             va += PAGE_SIZE;
         }
     }
@@ -108,7 +108,7 @@ void vmm_unmap(void *va, uint32_t size) {
             phymm_free(pt->entry[pteI]);
             pt->entry[pteI] = VM_NPRES;
 
-            tlb_refresh((pointer_t)va);
+            tlb_flush((pointer_t)va);
             va += PAGE_SIZE;
         }
 

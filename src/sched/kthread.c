@@ -143,6 +143,8 @@ int kthread_create(kthread_t *tid, void *(worker)(void *), void *args) {
 }
 
 void schedule() {
+    ir_lock_t lock;
+    ir_lock(&lock);
     tcb_t *next = ready_to_run;
     if (CUR_TCB == init_task && next == init_task)
         return;
@@ -151,7 +153,11 @@ void schedule() {
         next = next->next;
     }
     ready_to_run = next->next;
+
+    time_slice = TIME_SLICE_LENGTH;
+    time_slice = next == init_task ? 0 : TIME_SLICE_LENGTH;
     switch_to(&CUR_TCB->context, &next->context);
+    ir_unlock(&lock);
 }
 
 static void _block_thread(kthread_state_t state) {
@@ -200,19 +206,18 @@ static void free_tid(kthread_t tid) {
     clear_bit(&tid_map.map[tid / 8], tid % 8);
 }
 
-static void *idle_worker() {
+static void *init_worker() {
     idle();
 }
 
 _Noreturn static void *cleaner_worker() {
-
-    while (1){
+    while (1) {
         ir_lock_t lock;
         ir_lock(&lock);
 
         tcb_t *next;
         for (tcb_t *hdr = finish_list.next; hdr != &finish_list; hdr = next) {
-            next = hdr;
+            next = hdr->next;
             free_tid(hdr->tid);
             freeK(hdr->stack);
         }
@@ -233,7 +238,7 @@ static void cleaner_thread_init() {
 //添加 idle task 方便任务列表的管理
 static void init_thread_init() {
     kthread_t tid;
-    _kthread_create(&init_task, &tid, idle_worker, NULL);
+    _kthread_create(&init_task, &tid, init_worker, NULL);
     _list_header_init(init_task);
     q_memcpy(init_task->name, "init", sizeof("init"));
     assertk(init_task->tid == 0);
@@ -242,7 +247,11 @@ static void init_thread_init() {
 // 成功返回 0,否则返回错误码(<0)
 static int _kthread_create(tcb_t **_thread, kthread_t *tid, void *(worker)(void *), void *args) {
     //tcb 结构放到栈顶(低地址)
+    ir_lock_t lock;
+    ir_lock(&lock);
     tcb_t *thread = allocK_page();
+    ir_unlock(&lock);
+
     *_thread = thread;
     assertk(thread != NULL);
     assertk(((pointer_t) thread & ALIGN_MASK) == 0);
@@ -257,16 +266,15 @@ static int _kthread_create(tcb_t **_thread, kthread_t *tid, void *(worker)(void 
     btm->entry = kthread_worker;
 
     thread->context.esp = (pointer_t) btm;
-    thread->context.eflags = get_eflags() | INTERRUPT_MASK; // 开启中断
+    // 必须关闭中断,且 schedule 必须关中断,否则 switch 函数恢复 eflags
+    // 可能由于中断切换,导致 esp 还没有恢复(switch 时使用了临时 esp 用于保存 context)
+    thread->context.eflags = 0;
     thread->name[0] = '\0';
 
-    ir_lock_t lock;
     ir_lock(&lock);
-
     thread->tid = alloc_tid();
     *tid = thread->tid;
     _list_add_prev(thread, CUR_TCB);
-
     ir_unlock(&lock);
     return 0;
 }

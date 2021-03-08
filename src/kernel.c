@@ -1,3 +1,4 @@
+#include <mm/heap.h>
 #include "types.h"
 #include "klib/qlib.h"
 #include "multiboot2.h"
@@ -40,14 +41,7 @@ spinlock_t lock;
 
 void *workerA(void *args) {
     spinlock_lock(&lock);
-    printfk("a\n");
-    spinlock_unlock(&lock);
-    return NULL;
-}
-
-void *workerB(void *args) {
-    spinlock_lock(&lock);
-    printfk("b\n");
+    printfk("lock\n");
     spinlock_unlock(&lock);
     return NULL;
 }
@@ -65,11 +59,14 @@ void kernel_main() {
     gdt_init();
     idt_init();
     mm_init();
-    sched_init();
+
     spinlock_init(&lock);
-    kthread_t a, b;
-    kthread_create(&a, workerA, NULL);
-    kthread_create(&b, workerB, NULL);
+    sched_init();
     enable_interrupt();
+
+    kthread_t a[10];
+    for (int i = 0; i < 10; ++i) {
+        kthread_create(&a[i], workerA, NULL);
+    }
     block_thread();
 }
