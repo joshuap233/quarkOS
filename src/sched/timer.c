@@ -11,7 +11,7 @@
 #include "klib/list.h"
 
 #define timer_entry(ptr) list_entry(ptr, timer_t, head)
-
+#define HEAD timer_pool.header
 // 当前线程剩余时间片
 volatile uint64_t g_time_slice = 0;
 
@@ -41,7 +41,7 @@ static inline void free_timer(timer_t *t) {
 void thread_timer_init() {
     timer_pool.top = 0;
     timer_pool.size = TIMER_COUNT;
-    list_header_init(&timer_pool.header);
+    list_header_init(&HEAD);
     for (int i = 0; i < TIMER_COUNT; ++i) {
         timer_pool.timer[i] = &_timer[i];
     }
@@ -53,7 +53,7 @@ bool ms_sleep_until(uint64_t msc) {
     t->time = msc;
     t->thread = CUR_TCB;
 
-    list_add_prev(&t->head, &timer_pool.header);
+    list_add_prev(&t->head, &HEAD);
     block_thread();
     return true;
 }
@@ -63,7 +63,7 @@ bool ms_sleep(mseconds_t msc) {
 }
 
 void timer_handle() {
-    list_for_each_del(&timer_pool.header) {
+    list_for_each_del(&HEAD) {
         timer_t *tmp = timer_entry(hdr);
         if (tmp->time >= G_TIME_SINCE_BOOT) {
             list_del(hdr);

@@ -6,12 +6,13 @@
 #define QUARKOS_FREE_LIST_H
 
 #include "types.h"
+#include "klib/list.h"
 
 // 管理空闲空间链表
 typedef struct free_list {
+    list_head_t head;
     pointer_t addr;     //空闲空间起始地址
     uint32_t size;
-    struct free_list *next, *prev;
 } free_list_t;
 
 typedef free_list_t free_list_header;
@@ -28,7 +29,7 @@ typedef struct free_stack {
 } free_stack_t;
 
 typedef struct vmm_list {
-    free_list_header header; //数据域始终为空
+    list_head_t header;      //数据域始终为空
     uint32_t size;           //剩余总虚拟内存
 } vmm_list_t;
 

@@ -6,10 +6,13 @@
 #include "types.h"
 #include "mm/mm.h"
 #include "mm/virtual_mm.h"
-#include "klib/qmath.h"
-
+#include "klib/list.h"
 static heap_t heap;
 
+#define cnk_entry(ptr) list_entry(ptr, heap_ptr_t, head)
+#define HEAD heap.header
+#define HDR_CHUNK cnk_entry(HEAD.next)
+#define TAL_CHUNK cnk_entry(HEAD.prev)
 
 //返回当前堆末尾地址
 #define HEAP_TAIL (HEAP_START + heap.size - 1)
@@ -35,39 +38,6 @@ static inline size_t chunk_size(size_t size) {
     return size + sizeof(heap_ptr_t);
 }
 
-__attribute__((always_inline))
-static inline void _list_add(heap_ptr_t *new, heap_ptr_t *prev, heap_ptr_t *next) {
-    new->prev = prev;
-    new->next = next;
-    next->prev = new;
-    prev->next = new;
-}
-
-// new 节点添加到 target 后
-__attribute__((always_inline))
-static inline void _list_add_next(heap_ptr_t *new, heap_ptr_t *target) {
-    _list_add(new, target, target->next);
-}
-
-__attribute__((always_inline))
-static inline void _list_add_prev(heap_ptr_t *new, heap_ptr_t *target) {
-    _list_add(new, target->prev, target);
-}
-
-
-__attribute__((always_inline))
-static inline void _list_link(heap_ptr_t *header, heap_ptr_t *tail) {
-    header->next = tail;
-    tail->prev = header;
-}
-
-
-__attribute__((always_inline))
-static inline void list_header_init(heap_ptr_t *header) {
-    header->next = header;
-    header->prev = header;
-}
-
 
 //初始化一个新头块
 static void chunk_init(heap_ptr_t *c, uint32_t size) {
@@ -77,18 +47,15 @@ static void chunk_init(heap_ptr_t *c, uint32_t size) {
 }
 
 void heap_init() {
+    list_header_init(&HEAD);
     heap.size = PAGE_SIZE;
-    heap.header = (heap_ptr_t *) HEAP_START;
-    vmm_mapv((pointer_t) heap.header, heap.size, VM_KW | VM_PRES);
-    //初始化空头块
-    list_header_init(heap.header);
-    chunk_init(heap.header, sizeof(heap_ptr_t));
-    heap.header->used = true;
 
-    // 初始空闲块
-    heap_ptr_t *new = heap.header + 1;
-    chunk_init(new, PAGE_SIZE - heap.header->size);
-    _list_add_next(new, heap.header);
+    //初始空闲块
+    heap_ptr_t *hdr = (heap_ptr_t *) HEAP_START;
+    vmm_mapv(HEAP_START, PAGE_SIZE, VM_KW | VM_PRES);
+    chunk_init(hdr, PAGE_SIZE);
+
+    list_add_next(&hdr->head,&HEAD);
 
     test_mallocK_and_freeK();
     test_shrink_and_expand();
@@ -100,33 +67,33 @@ void heap_init() {
 static bool expend(uint32_t size) {
     size = SIZE_ALIGN(size);
     if (HEAP_VMM_FREE < size) return false;
-    heap_ptr_t *tail = heap.header->prev;
+
+
     vmm_mapv(HEAP_TAIL + 1, size, VM_KW | VM_PRES);
-    if (tail->used) {
+    if (TAL_CHUNK->used) {
         heap_ptr_t *new = (heap_ptr_t *) (HEAP_TAIL + 1);
-        _list_add_next(new, tail);
+        list_add_next(&new->head, &TAL_CHUNK->head);
         chunk_init(new, size);
     } else {
-        tail->size += size;
+        TAL_CHUNK->size += size;
     }
     heap.size += size;
     return true;
 }
 
 static inline void shrink() {
-    heap_ptr_t *tail = heap.header->prev;
 
     //保留需要释放的内存块所占用的第一页
-    if (!tail->used && tail->size > HEAP_FREE_LIMIT) {
-        pointer_t chunk_header_end = (pointer_t) tail + sizeof(heap_ptr_t);
+    if (!TAL_CHUNK->used && TAL_CHUNK->size > HEAP_FREE_LIMIT) {
+        pointer_t chunk_end = (pointer_t) TAL_CHUNK + sizeof(heap_ptr_t);
 
-        void *addr = (void *) ((chunk_header_end & (~ALIGN_MASK)) + PAGE_SIZE);
+        void *addr = (void *) ((chunk_end & (~ALIGN_MASK)) + PAGE_SIZE);
 
-        uint32_t size = addr - (void *) tail;
-        uint32_t free_size = tail->size - size;
+        uint32_t size = addr - (void *) TAL_CHUNK;
+        uint32_t free_size = TAL_CHUNK->size - size;
         assertk(!(free_size & ALIGN_MASK));
 
-        tail->size = size;
+        TAL_CHUNK->size = size;
         heap.size -= free_size;
         vmm_unmap(addr, free_size);
     }
@@ -134,22 +101,22 @@ static inline void shrink() {
 
 //合并内存块
 static void merge(heap_ptr_t *alloc) {
-    heap_ptr_t *header = alloc, *tail = alloc;
+    list_head_t *header = &alloc->head, *tail = &alloc->head;
     uint32_t size = alloc->size;
     //空头块始终为 used
-    while (!header->prev->used) {
+    while (!cnk_entry(header->prev)->used) {
         header = header->prev;
-        size += header->size;
+        size += cnk_entry(header)->size;
     }
     //向后合并
-    while (!tail->next->used) {
+    while (!cnk_entry(tail->next)->used) {
         tail = tail->next;
-        size += tail->size;
+        size += cnk_entry(tail)->size;
     }
 
     if (header != tail) {
-        _list_link(header, tail->next);
-        header->size = size;
+        list_link(header, tail->next);
+        cnk_entry(header)->size = size;
     }
 }
 
@@ -162,7 +129,7 @@ static void *alloc_chunk(heap_ptr_t *chunk, size_t size) {
         size = chunk->size;
     } else {
         heap_ptr_t *new = (void *) chunk + size;
-        _list_add_next(new, chunk);
+        list_add_next(&new->head, &chunk->head);
         chunk_init(new, free_size);
     }
     chunk->used = true;
@@ -173,28 +140,26 @@ static void *alloc_chunk(heap_ptr_t *chunk, size_t size) {
 void *mallocK(size_t size) {
     size = chunk_size(size);
 
-    for (heap_ptr_t *hdr = heap.header->next; hdr != heap.header; hdr = hdr->next) {
-        if (!hdr->used && hdr->size >= size)
-            return alloc_chunk(hdr, size);
+    list_for_each(&HEAD) {
+        if (!cnk_entry(hdr)->used && cnk_entry(hdr)->size >= size)
+            return alloc_chunk(cnk_entry(hdr), size);
     }
 
-    heap_ptr_t *tail = heap.header->prev;
-    if (!expend(tail->used ? size : size - tail->size)) return NULL;
-    // expand 后 tail 可能已经不指向最后一块,因此使用  heap.header->prev 访问
-    return alloc_chunk(heap.header->prev, size);
+    if (!expend(TAL_CHUNK->used ? size : size - TAL_CHUNK->size)) return NULL;
+    return alloc_chunk(TAL_CHUNK, size);
 }
 
 // 分配页对齐的一页(页内不包括头块)
 void *allocK_page() {
     size_t size = chunk_size(PAGE_SIZE);
-    if (!expend(heap.header->prev->used ? PAGE_SIZE * 2 : PAGE_SIZE)) return NULL;
+    if (!expend(TAL_CHUNK->used ? PAGE_SIZE * 2 : PAGE_SIZE)) return NULL;
 
     heap_ptr_t *new = (heap_ptr_t *) (HEAP_TAIL + 1 - size);
     chunk_init(new, size);
     new->used = true;
 
-    heap.header->prev->size -= size;
-    _list_add_prev(new, heap.header);
+    TAL_CHUNK->size -= size;
+    list_add_prev(&new->head, &HEAD);
     return alloc_addr(new);
 }
 
@@ -211,16 +176,16 @@ void freeK(void *addr) {
 
 static size_t get_unused_space() {
     size_t size = 0;
-    for (heap_ptr_t *hdr = heap.header->next; hdr != heap.header; hdr = hdr->next) {
-        if (!hdr->used) size += hdr->size;
+    list_for_each(&HEAD) {
+        if (!cnk_entry(hdr)->used) size += cnk_entry(hdr)->size;
     }
     return size;
 }
 
 static size_t get_used_space() {
     size_t size = 0;
-    for (heap_ptr_t *hdr = heap.header->next; hdr != heap.header; hdr = hdr->next) {
-        if (hdr->used) size += hdr->size;
+    list_for_each(&HEAD) {
+        if (cnk_entry(hdr)->used) size += cnk_entry(hdr)->size;
     }
     return size;
 }
@@ -249,7 +214,7 @@ void test_mallocK_and_freeK() {
     freeK(addr[2]);
     assertk(unused == get_unused_space());
     assertk(used == get_used_space());
-    assertk(heap.header->size + heap.header->next->size == heap.size);
+    assertk(HDR_CHUNK->size == heap.size);
     test_pass;
 }
 
@@ -278,7 +243,7 @@ void test_shrink_and_expand() {
 
     assertk(unused == get_unused_space());
     assertk(used == get_used_space());
-    assertk(heap.header->size + heap.header->next->size == heap.size);
+    assertk(HDR_CHUNK->size == heap.size);
     test_pass;
 }
 
@@ -307,6 +272,6 @@ void test_allocK_page() {
     freeK(addr[2]);
     assertk(unused == get_unused_space());
     assertk(used == get_used_space());
-    assertk(heap.header->size + heap.header->next->size == heap.size);
+    assertk(HDR_CHUNK->size == heap.size);
     test_pass;
 }

@@ -62,8 +62,8 @@ static inline void list_link(list_head_t *header, list_head_t *tail) {
     tail->prev = header;
 }
 
-//#define list_foreach
-
+#define list_for_each(head) \
+    for (list_head_t *hdr = (head)->next; hdr != (head); hdr = hdr->next)
 
 
 #define list_for_each_del(head) \

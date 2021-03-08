@@ -10,7 +10,12 @@
 #include "mm/free_list.h"
 #include "mm/mm.h"
 #include "mm/heap.h"
+#include "klib/list.h"
 
+#define fl_entry(ptr) list_entry(ptr, free_list_t, head)
+#define HEAD vmm_list.header
+#define NXT_ENTRY(ptr) fl_entry((ptr)->next)
+#define PRV_ENTRY(ptr) fl_entry((ptr)->prev)
 
 static free_list_t free_list[LIST_COUNT];
 static vmm_list_t vmm_list;
@@ -24,48 +29,6 @@ static inline void push(free_list_t *addr) {
 __attribute__((always_inline))
 static inline free_list_t *pop() {
     return stack.list[--stack.top];
-}
-
-
-static void free_list_header_init(free_list_header *header) {
-    header->addr = 0;
-    header->size = 0;
-    header->next = header;
-    header->prev = header;
-}
-
-__attribute__((always_inline))
-static inline void _list_add(free_list_t *new, free_list_t *prev, free_list_t *next) {
-    new->prev = prev;
-    new->next = next;
-    next->prev = new;
-    prev->next = new;
-}
-
-// new 节点添加到 target 后
-__attribute__((always_inline))
-static inline void _list_add_next(free_list_t *new, free_list_t *target) {
-    _list_add(new, target, target->next);
-}
-
-// new 节点添加到 target 前
-__attribute__((always_inline))
-static inline void _list_add_prev(free_list_t *new, free_list_t *target) {
-    _list_add(new, target->prev, target);
-}
-
-
-//将节点从链表中删除
-__attribute__((always_inline))
-static inline void _list_del(free_list_t *list) {
-    list->prev->next = list->next;
-    list->next->prev = list->prev;
-}
-
-__attribute__((always_inline))
-static inline void _list_link(free_list_t *header, free_list_t *tail) {
-    header->next = tail;
-    tail->prev = header;
 }
 
 
@@ -114,12 +77,12 @@ static void stack_init() {
 void free_list_init(uint32_t size) {
     size = SIZE_ALIGN(size);
 
-    free_list_header_init(&vmm_list.header);
+    list_header_init(&HEAD);
     stack_init();
 
     free_list_t *list = list_alloc();
     list->addr = size;
-    _list_add_next(list, &vmm_list.header);
+    list_add_next(&list->head, &HEAD);
     list->size = PHYMM - size;
     vmm_list.size = list->size;
 
@@ -133,7 +96,7 @@ static void list_mem_split(pointer_t va, uint32_t size, free_list_t *node) {
     pointer_t va_end_n = va + size;
     pointer_t list_end_n = node->size + node->addr;
     if (node->size == size) {
-        _list_del(node);
+        list_del(&node->head);
         list_destroy(node);
     } else if (node->addr == va) {
         node->addr = va_end_n;
@@ -143,7 +106,7 @@ static void list_mem_split(pointer_t va, uint32_t size, free_list_t *node) {
     } else {
         node->size = va - node->addr;
         free_list_t *new = list_alloc();
-        _list_add_next(new, node);
+        list_add_next(&new->head, &node->head);
         new->addr = va_end_n;
         new->size = list_end_n - va_end_n;
     }
@@ -155,10 +118,12 @@ bool list_split(pointer_t va, uint32_t size) {
     size = SIZE_ALIGN(size);
     va = PAGE_ADDR(va);
     if (vmm_list.size < size) return false;
-    for (free_list_t *hdr = vmm_list.header.next; hdr != &vmm_list.header; hdr = hdr->next) {
+
+    list_for_each(&HEAD) {
+        free_list_t *tmp = fl_entry(hdr);
         // 各 -1, 防止溢出
-        if ((hdr->addr <= va) && (hdr->addr - 1 + hdr->size >= va - 1 + size)) {
-            list_mem_split(va, size, hdr);
+        if ((tmp->addr <= va) && (tmp->addr - 1 + tmp->size >= va - 1 + size)) {
+            list_mem_split(va, size, tmp);
             return true;
         }
     }
@@ -169,10 +134,11 @@ bool list_split(pointer_t va, uint32_t size) {
 void *list_split_ff(uint32_t size) {
     size = SIZE_ALIGN(size);
     if (vmm_list.size < size) return false;
-    for (free_list_t *hdr = vmm_list.header.next; hdr != &vmm_list.header; hdr = hdr->next) {
-        if (hdr->size >= size) {
-            void *ret = (void *) hdr->addr;
-            list_mem_split(hdr->addr, size, hdr);
+    list_for_each(&HEAD) {
+        free_list_t *tmp = fl_entry(hdr);
+        if (tmp->size >= size) {
+            void *ret = (void *) tmp->addr;
+            list_mem_split(tmp->addr, size, tmp);
             return ret;
         }
     }
@@ -182,42 +148,42 @@ void *list_split_ff(uint32_t size) {
 //合并连续空闲空间
 //alloc 为合并前插入的链表节点
 static void list_merge(free_list_t *alloc) {
-    free_list_t *h = alloc, *t = alloc->next;
+    list_head_t *h = &alloc->head, *t = alloc->head.next;
     size_t size = 0;
 
-    while (h->prev != &vmm_list.header && (h->prev->addr + h->prev->size >= h->addr)) {
-        size += h->size;
+    while (h->prev != &HEAD && (PRV_ENTRY(h)->addr + PRV_ENTRY(h)->size >= fl_entry(h)->addr)) {
+        size += fl_entry(h)->size;
         h = h->prev;
     }
 
-    while (t != &vmm_list.header && (t->prev->addr + t->prev->size >= t->addr)) {
-        size += t->size;
+    while (t != &HEAD && (PRV_ENTRY(h)->addr + PRV_ENTRY(h)->size >= fl_entry(t)->addr)) {
+        size += fl_entry(t)->size;
         t = t->next;
     }
 
     if (h->next != t) {
-        free_list_t *hdr = h->next;
-        h->size += size;
+        list_head_t *hdr = h->next;
+        fl_entry(h)->size += size;
         while (hdr != t) {
             hdr = hdr->next;
-            list_destroy(hdr->prev);
+            list_destroy(PRV_ENTRY(hdr));
         }
-        _list_link(h,t);
+        list_link(h,t);
     }
 }
 
 
 //释放虚拟内存
 void list_free(pointer_t va, uint32_t size) {
-    free_list_t *hdr = vmm_list.header.next;
+    list_head_t *hdr = HEAD.next;
     free_list_t *new = list_alloc();
     new->addr = va;
     new->size = size;
 
-    while (hdr != &vmm_list.header && hdr->addr <= va)
+    while (hdr != &HEAD && fl_entry(hdr)->addr <= va)
         hdr = hdr->next;
 
-    _list_add_prev(new, hdr);
+    list_add_prev(&new->head, hdr);
     vmm_list.size += size;
     list_merge(new);
 }
@@ -258,19 +224,19 @@ void test_list_stack2() {
 
 void test_list_mem_split() {
     test_start;
-    free_list_t *hdr = vmm_list.header.next;
+    list_head_t *hdr = HEAD.next;
     size_t total = vmm_list.size;
     assertk(hdr->next->next == hdr);
-    pointer_t addr[3] = {hdr->addr, hdr->addr + 3 * PAGE_SIZE, hdr->addr + hdr->size - PAGE_SIZE};
-    list_mem_split(addr[0], PAGE_SIZE, hdr);
-    list_mem_split(addr[2], PAGE_SIZE, hdr);
-    list_mem_split(addr[1], PAGE_SIZE, hdr);
+    pointer_t addr[3] = {fl_entry(hdr)->addr, fl_entry(hdr)->addr + 3 * PAGE_SIZE, fl_entry(hdr)->addr + fl_entry(hdr)->size - PAGE_SIZE};
+    list_mem_split(addr[0], PAGE_SIZE, fl_entry(hdr));
+    list_mem_split(addr[2], PAGE_SIZE, fl_entry(hdr));
+    list_mem_split(addr[1], PAGE_SIZE, fl_entry(hdr));
     assertk(hdr->next->next->next == hdr);
     list_free(addr[0], PAGE_SIZE);
     list_free(addr[1], PAGE_SIZE);
     list_free(addr[2], PAGE_SIZE);
-    assertk(vmm_list.header.next->next == &vmm_list.header);
-    assertk(vmm_list.header.next->size == total);
+    assertk(HEAD.next->next == &HEAD);
+    assertk(fl_entry(HEAD.next)->size == total);
     assertk(vmm_list.size == total);
     test_pass;
 }
@@ -284,41 +250,41 @@ void test_list_split_ff() {
     addr[0] = list_split_ff(PAGE_SIZE);
     addr[1] = list_split_ff(PAGE_SIZE);
     addr[2] = list_split_ff(PAGE_SIZE);
-    for (free_list_t *hdr = vmm_list.header.next; hdr != &vmm_list.header; hdr = hdr->next) {
-        size -= hdr->size;
+    list_for_each(&HEAD) {
+        size -= fl_entry(hdr)->size;
     }
     assertk(size == 0);
 
     list_free((pointer_t) addr[0], PAGE_SIZE);
     list_free((pointer_t) addr[1], PAGE_SIZE);
     list_free((pointer_t) addr[2], PAGE_SIZE);
-    assertk(vmm_list.size == vmm_list.header.next->size);
-    assertk(vmm_list.header.next->next == &vmm_list.header);
+    assertk(vmm_list.size == fl_entry(HEAD.next)->size);
+    assertk(HEAD.next->next == &HEAD);
     test_pass;
 }
 
 void test_list_split() {
     test_start;
-    free_list_t *h = vmm_list.header.next;
+    list_head_t *h = HEAD.next;
     pointer_t addr[3] = {
-            h->addr, h->addr + 3 * PAGE_SIZE, h->addr + h->size - PAGE_SIZE
+            fl_entry(h)->addr, fl_entry(h)->addr + 3 * PAGE_SIZE, fl_entry(h)->addr + fl_entry(h)->size - PAGE_SIZE
     };
     size_t total = vmm_list.size;
     size_t size = total - PAGE_SIZE * 3;
     assertk(list_split(addr[0], PAGE_SIZE));
     assertk(list_split(addr[1], PAGE_SIZE));
     assertk(list_split(addr[2], PAGE_SIZE));
-    for (free_list_t *hdr = vmm_list.header.next; hdr != &vmm_list.header; hdr = hdr->next) {
-        size -= hdr->size;
+    list_for_each(&HEAD) {
+        size -= fl_entry(hdr)->size;
     }
     assertk(size == 0);
 
     list_free((pointer_t) addr[0], PAGE_SIZE);
     list_free((pointer_t) addr[1], PAGE_SIZE);
     list_free((pointer_t) addr[2], PAGE_SIZE);
-    assertk(vmm_list.size == vmm_list.header.next->size);
+    assertk(vmm_list.size == fl_entry(HEAD.next)->size);
     assertk(vmm_list.size == total);
-    assertk(vmm_list.header.next->next == &vmm_list.header);
+    assertk(HEAD.next->next == &HEAD);
     test_pass;
 }
 
