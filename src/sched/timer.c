@@ -8,41 +8,19 @@
 #include "sched/kthread.h"
 #include "drivers/timer.h"
 
+#include "klib/list.h"
+
+#define timer_entry(ptr) list_entry(ptr, timer_t, head)
+
 // 当前线程剩余时间片
 volatile uint64_t g_time_slice = 0;
-
-static void _list_header_init(timer_t *header) {
-    header->next = header;
-    header->prev = header;
-}
-
-__attribute__((always_inline))
-static inline void _list_add(timer_t *new, timer_t *prev, timer_t *next) {
-    new->prev = prev;
-    new->next = next;
-    next->prev = new;
-    prev->next = new;
-}
-
-__attribute__((always_inline))
-static inline void _list_add_prev(timer_t *new, timer_t *target) {
-    _list_add(new, target->prev, target);
-}
-
-
-__attribute__((always_inline))
-static inline void _list_del(timer_t *list) {
-    list->prev->next = list->next;
-    list->next->prev = list->prev;
-}
-
 
 static timer_t _timer[TIMER_COUNT];
 
 //用于管理计时器
 static struct timer_pool {
     timer_t *timer[TIMER_COUNT];
-    timer_t header; //头结点,始终为空
+    list_head_t header; //头结点,始终为空
     size_t top; //指向栈顶空元素
     size_t size;
 } timer_pool;
@@ -63,7 +41,7 @@ static inline void free_timer(timer_t *t) {
 void thread_timer_init() {
     timer_pool.top = 0;
     timer_pool.size = TIMER_COUNT;
-    _list_header_init(&timer_pool.header);
+    list_header_init(&timer_pool.header);
     for (int i = 0; i < TIMER_COUNT; ++i) {
         timer_pool.timer[i] = &_timer[i];
     }
@@ -75,7 +53,7 @@ bool ms_sleep_until(uint64_t msc) {
     t->time = msc;
     t->thread = CUR_TCB;
 
-    _list_add_prev(t, &timer_pool.header);
+    list_add_prev(&t->head, &timer_pool.header);
     block_thread();
     return true;
 }
@@ -85,12 +63,12 @@ bool ms_sleep(mseconds_t msc) {
 }
 
 void timer_handle() {
-    for (timer_t *hdr = timer_pool.header.next, *next = hdr->next;
-         hdr != &timer_pool.header; hdr = next, next = next->next) {
-        if (hdr->time >= G_TIME_SINCE_BOOT) {
-            _list_del(hdr);
-            unblock_thread(hdr->thread);
-            free_timer(hdr);
+    list_for_each_del(&timer_pool.header) {
+        timer_t *tmp = timer_entry(hdr);
+        if (tmp->time >= G_TIME_SINCE_BOOT) {
+            list_del(hdr);
+            unblock_thread(tmp->thread);
+            free_timer(tmp);
         }
     }
 }

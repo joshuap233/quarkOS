@@ -64,4 +64,10 @@ static inline void list_link(list_head_t *header, list_head_t *tail) {
 
 //#define list_foreach
 
+
+
+#define list_for_each_del(head) \
+    for (list_head_t *hdr = (head)->next, *next=hdr->next; hdr != (head); hdr = next,next=next->next)
+
+
 #endif //QUARKOS_LIST_H

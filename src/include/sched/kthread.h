@@ -76,7 +76,8 @@ static inline tcb_t *cur_tcb() {
     return tcb;
 }
 
-#define CUR_TCB cur_tcb()
+#define CUR_TCB  cur_tcb()
+#define CUR_HEAD (CUR_TCB->run_list)
 #define tcb_entry(ptr) list_entry(ptr,tcb_t,run_list)
 
 #endif //QUARKOS_KTHREAD_H

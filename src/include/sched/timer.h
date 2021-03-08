@@ -7,10 +7,11 @@
 
 #include "types.h"
 #include "kthread.h"
+#include "klib/list.h"
 
 #define TIMER_COUNT 20
 typedef struct timer {
-    struct timer *next, *prev;
+    list_head_t head;
     volatile uint64_t time;
     tcb_t *thread;
 } timer_t;

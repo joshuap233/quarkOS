@@ -61,12 +61,12 @@ extern void kthread_worker(void *(worker)(void *), void *args, tcb_t *tcb);
 
 static inline void set_next_ready() {
     //从运行队列删除节点前需要调用该方法
-    ready_to_run = &CUR_TCB->run_list;
+    ready_to_run = CUR_HEAD.next;
 }
 
 static inline void del_cur_task() {
     set_next_ready();
-    list_del(&CUR_TCB->run_list);
+    list_del(&CUR_HEAD);
 }
 
 //初始化内核线程
@@ -79,7 +79,7 @@ void sched_init() {
     CUR_TCB->stack = CUR_TCB;
     q_memcpy(CUR_TCB->name, "main", sizeof("main"));
     asm volatile("movl %%esp, %0":"=rm"(CUR_TCB->context.esp));
-    list_add_prev(&CUR_TCB->run_list, init_task);
+    list_add_prev(&CUR_HEAD, init_task);
     cleaner_thread_init();
     set_next_ready();
 }
@@ -90,7 +90,7 @@ void kthread_exit() {
     ir_lock(&lock);
 
     del_cur_task();
-    list_add_next(&CUR_TCB->run_list, &finish_list);
+    list_add_next(&CUR_HEAD, &finish_list);
     tcb_t *ct = tcb_entry(cleaner_task);
     if (ct->state != TASK_RUNNING)
         unblock_thread(ct);
@@ -110,10 +110,10 @@ void schedule() {
     ir_lock_t lock;
     ir_lock(&lock);
     list_head_t *next = ready_to_run;
-    if (&CUR_TCB->run_list == init_task && next == init_task)
+    if (&CUR_HEAD == init_task && next == init_task)
         return;
     if (next == init_task) {
-        if (next->next == &CUR_TCB->run_list) return;
+        if (next->next == &CUR_HEAD) return;
         next = next->next;
     }
     ready_to_run = next->next;
@@ -134,7 +134,7 @@ void block_thread() {
     ir_lock(&lock);
 
     del_cur_task();
-    list_add_next(&CUR_TCB->run_list, &block_list);
+    list_add_next(&CUR_HEAD, &block_list);
     _block_thread(TASK_SLEEPING);
 
     ir_unlock(&lock);
@@ -179,8 +179,7 @@ _Noreturn static void *cleaner_worker() {
         ir_lock_t lock;
         ir_lock(&lock);
 
-        list_head_t *next;
-        for (list_head_t *hdr = finish_list.next; hdr != &finish_list; hdr = next) {
+        list_for_each_del(&finish_list) {
             tcb_t *entry = tcb_entry(hdr);
             next = hdr->next;
             free_tid(entry->tid);
@@ -239,7 +238,7 @@ static int _kthread_create(list_head_t **_thread, kthread_t *tid, void *(worker)
     ir_lock(&lock);
     thread->tid = alloc_tid();
     *tid = thread->tid;
-    list_add_prev(&thread->run_list, &CUR_TCB->run_list);
+    list_add_prev(&thread->run_list, &CUR_HEAD);
     ir_unlock(&lock);
     return 0;
 }
