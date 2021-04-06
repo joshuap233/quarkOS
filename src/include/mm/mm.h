@@ -7,54 +7,11 @@
 
 #include "types.h"
 #include "klib/qlib.h"
-
-
-#define K                   1024
-#define M                   0x100000
-#define G                   ((uint64_t)0x40000000)
-#define PAGE_SIZE           (4 * K)
-#define PHYMM               (4 * G)              //最大物理内存大小
-#define VIRMM               (4 * G)              //虚拟内存大小
-#define N_PPAGE             (PHYMM / PAGE_SIZE)  //页面数
-#define N_VPAGE             (VIRMM / PAGE_SIZE) //虚拟页面数
-#define ALIGN_MASK          ((uint32_t)(PAGE_SIZE - 1)) //页对齐掩码
-
-#define PAGE_ADDR(addr)     ((addr) & (~MASK_U32(12)))
-#define PDE_INDEX(addr)     ((addr)>>22)                //页目录索引
-#define PTE_INDEX(addr)     (((addr) >> 12) & MASK_U32(10))
-
-#define MM_NULL             ((void*)0)  //空页表指针, 存在位为 0
-#define PTE_SIZE            sizeof(pte_t)                   //页表项大小
-#define PDE_SIZE            sizeof(pde_t)
-#define N_PTE              (PAGE_SIZE/PTE_SIZE)  //每个页面的表项数
-#define N_PDE              (PAGE_SIZE/PDE_SIZE)
-#define PT_SIZE             N_PDE * N_PTE * PTE_SIZE // 页表项总大小
-#define SIZE_ALIGN(s)       (((s) & ALIGN_MASK) ?(((s)&(~ALIGN_MASK))+PAGE_SIZE):(s))
-
-#define CR3_CTRL 0         //不使用 write-through,且页目录允许缓存
-#define PAGE_ENTRY_NUM     (PAGE_SIZE / sizeof(entry))
-
-typedef uint32_t entry;
-typedef uint32_t cr3_t;
-typedef entry pde_t;
-typedef entry pte_t;
-
-typedef struct table {
-    entry entry[PAGE_ENTRY_NUM];
-} table_t;
-
-typedef table_t page_dir_t;
-typedef table_t page_table_t;
-
+#include "mm/heap.h"
+#include "mm/vmm.h"
+#include "mm/pmm.h"
 
 void mm_init();
-
-// 内核最大地址+1, 不要修改成 *_end,
-extern char _endKernel[], _startKernel[];
-
-#define K_START ((pointer_t) _startKernel)
-#define K_END   ((pointer_t) _endKernel)
-#define K_SIZE  (K_END - K_START)
 
 //页错误错误码
 typedef struct pf_error_code {

@@ -5,17 +5,27 @@
 #ifndef QUARKOS_TYPES_H
 #define QUARKOS_TYPES_H
 
-
 #include <stdint.h>
 #include <stdbool.h>
 #include <stddef.h> // size_t and NULL
 
-typedef uint32_t pointer_t; //pointer_t 存地址值
+// pointer_t 存地址值, 万一以后写64位 OS 呢,233
+typedef uint32_t pointer_t;
 
-// x86 指针长 32 位,万一以后写64位 OS 呢,233
-#define POINTER_LENGTH 32
 
 typedef uint32_t useconds_t;
 typedef uint32_t mseconds_t; //毫秒
+
+typedef uint8_t  u8_t;
+typedef uint16_t u16_t;
+typedef uint32_t u32_t;
+typedef uint64_t u64_t;
+
+#define K                   1024
+#define M                   0x100000
+#define G                   ((uint64_t)0x40000000)
+
+#define PACKED __attribute__((packed))
+#define INLINE __attribute__((always_inline))
 
 #endif //QUARKOS_TYPES_H

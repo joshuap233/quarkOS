@@ -3,7 +3,6 @@
 //
 #include "sched/kthread.h"
 #include "sched/klock.h"
-#include "mm/heap.h"
 #include "klib/qlib.h"
 #include "klib/qmath.h"
 #include "sched/timer.h"

@@ -8,7 +8,7 @@
 #include "mm/mm.h"
 #include "sched/kthread.h"
 #include "sched/klock.h"
-
+#include "drivers/ide.h"
 
 #if defined(__linux__)
 #warning "你没有使用跨平台编译器进行编译"
@@ -58,6 +58,7 @@ void kernel_main() {
     gdt_init();
     idt_init();
     mm_init();
+    ide_init();
 
     spinlock_init(&lock);
     sched_init();

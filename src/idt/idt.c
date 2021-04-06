@@ -10,9 +10,40 @@
 #include "isr.h"
 #include "drivers/ps2.h"
 
+typedef struct idtr {
+    uint16_t limit;
+    uint32_t address;
+}__attribute__((packed)) idtr_t;
+
+
+// gate 描述符
+struct gate_desc {
+    uint16_t offset_l; // 处理程序入口偏移 0-15位
+    uint16_t selector; // 目标代码段的段选择子
+    uint8_t zero;      // 保留
+    uint8_t type;
+    uint16_t offset_h; // 偏移 16-31 位
+}__attribute__((packed));
+
+typedef struct gate_desc interrupt_gate_t;
+typedef struct gate_desc trap_gate_t;
+
+typedef union idt {
+    interrupt_gate_t interrupt_gate;
+    trap_gate_t trap_gate;
+#define IDT_SIZE sizeof(union idt)
+#define IDT_COUNT 256
+#define IDT_TYPE 0b10001110 //interrupt_gate type 32 位,特权级为 0
+#define IDT_INT_USR_TYPE32 0b11101110
+#define IDT_SC  0x08     //代码段选择子
+}__attribute__((packed)) idt_t;
+
+extern void idtr_set(uint32_t idtr);
+static idt_t _Alignas(8) idt[IDT_COUNT] = {0};
+
 // 设置 interrupt gate
-static void idt_set_ig(idt_t *idt, uint32_t offset, uint16_t selector, uint8_t type) {
-    interrupt_gate_t *ig = &(idt->interrupt_gate);
+static void idt_set_ig(idt_t *_idt, uint32_t offset, uint16_t selector, uint8_t type) {
+    interrupt_gate_t *ig = &(_idt->interrupt_gate);
     ig->zero = 0;
     ig->type = type;
     ig->selector = selector;
@@ -20,8 +51,11 @@ static void idt_set_ig(idt_t *idt, uint32_t offset, uint16_t selector, uint8_t t
     ig->offset_l = offset & MASK_U32(16);
 }
 
+void register_isr(uint8_t n,void *isr){
+    idt_set_ig(&idt[0], (pointer_t) isr, IDT_SC, IDT_TYPE);
+}
+
 void idt_init() {
-    static idt_t _Alignas(8) idt[IDT_COUNT] = {0};
     idtr_t idtr = {
             .limit = IDT_SIZE * IDT_COUNT - 1,
             .address = (pointer_t) idt
@@ -48,10 +82,12 @@ void idt_init() {
     idt_set_ig(&idt[19], (pointer_t) (ISR(19)), IDT_SC, IDT_TYPE);
     idt_set_ig(&idt[20], (pointer_t) (ISR(20)), IDT_SC, IDT_TYPE);
 
-    idtr_set((pointer_t) &idtr);
 
     idt_set_ig(&idt[32], (pointer_t) (ISR(32)), IDT_SC, IDT_TYPE);
     idt_set_ig(&idt[33], (pointer_t) (ISR(33)), IDT_SC, IDT_TYPE);
+    idt_set_ig(&idt[46], (pointer_t) (ISR(46)), IDT_SC, IDT_TYPE);
+
+    idtr_set((pointer_t) &idtr);
     pic_init(32, 40);
     ps2_init();
 }

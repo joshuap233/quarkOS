@@ -2,7 +2,6 @@
 // Created by pjs on 2021/2/1.
 //
 // 使用栈结构管理物理内存
-#include "mm/physical_mm.h"
 #include "types.h"
 #include "klib/qlib.h"
 #include "mm/mm.h"
@@ -29,7 +28,7 @@ static inline void push(pointer_t addr) {
 
 __attribute__((always_inline))
 static inline pointer_t pop() {
-    if (STACK_EMPTY(mm_page)) return PAGE_NULL;
+    if (STACK_EMPTY(mm_page)) return PMM_NLL;
     return mm_page.page[--mm_page.top];
 }
 

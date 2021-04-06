@@ -38,5 +38,6 @@ void ISR(20)(interrupt_frame_t *);      // 20 #VE Virtualization Exception
 
 void ISR(32)(interrupt_frame_t *);
 void ISR(33)(interrupt_frame_t *);
+void ISR(46)(interrupt_frame_t *);
 
 #endif //QUARKOS_ISR_H

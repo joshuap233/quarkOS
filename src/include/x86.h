@@ -5,7 +5,6 @@
 #define QUARKOS_X86_H
 
 #include "types.h"
-#include "klib/qlib.h"
 
 // 读一个字节
 __attribute__((always_inline))
@@ -34,6 +33,29 @@ __attribute__((always_inline))
 static inline void outw(uint16_t port, uint16_t value) {
     asm volatile ("outw %1,%0"::"dN"(port), "a"(value));
 }
+
+// 端口 port 数据读取到内存 addr 处(4*cnt 字节)
+// intel x86 手册只能找到 insd 指令(d - 双字)
+__attribute__((always_inline))
+static inline void insl(int port, void *addr, int cnt) {
+    asm volatile(
+    "cld\n\t"
+    "rep insl" :
+    "=D" (addr), "=c" (cnt) :
+    "d" (port), "0" (addr), "1" (cnt) :
+    "memory", "cc");
+}
+
+__attribute__((always_inline))
+static inline void outsl(int port, const void *addr, int cnt) {
+    asm volatile(
+    "cld\n\t"
+    " rep outsl" :
+    "=S" (addr), "=c" (cnt) :
+    "d" (port), "0" (addr), "1" (cnt) :
+    "cc");
+}
+
 
 __attribute__((always_inline))
 static inline void io_wait(void) {

@@ -11,6 +11,8 @@
 #include "sched/kthread.h"
 #include "sched/timer.h"
 
+#define INT __attribute__((interrupt))
+
 // 忽略 -Wunused-parameter
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-parameter"
@@ -151,5 +153,13 @@ void ISR(33)(interrupt_frame_t *frame) {
     kb_sc_parse(ps2_rd());
     pic1_eoi();
 }
+
+// PIC 14 号中断
+// ata primary bus
+__attribute__((interrupt))
+void ISR(46)(interrupt_frame_t *frame) {
+    pic_eoi(46);
+}
+
 
 #pragma GCC diagnostic pop

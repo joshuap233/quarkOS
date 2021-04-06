@@ -9,7 +9,6 @@
 
 #include "mm/free_list.h"
 #include "mm/mm.h"
-#include "mm/heap.h"
 #include "klib/list.h"
 
 #define fl_entry(ptr) list_entry(ptr, free_list_t, head)
@@ -142,7 +141,7 @@ void *list_split_ff(uint32_t size) {
             return ret;
         }
     }
-    return MM_NULL;
+    return NULL;
 }
 
 //合并连续空闲空间

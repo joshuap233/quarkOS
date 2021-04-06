@@ -2,11 +2,10 @@
 // Created by pjs on 2021/2/3.
 //
 // 内核堆
-#include "mm/heap.h"
 #include "types.h"
 #include "mm/mm.h"
-#include "mm/virtual_mm.h"
 #include "klib/list.h"
+
 static heap_t heap;
 
 #define cnk_entry(ptr) list_entry(ptr, heap_ptr_t, head)
@@ -55,7 +54,7 @@ void heap_init() {
     vmm_mapv(HEAP_START, PAGE_SIZE, VM_KW | VM_PRES);
     chunk_init(hdr, PAGE_SIZE);
 
-    list_add_next(&hdr->head,&HEAD);
+    list_add_next(&hdr->head, &HEAD);
 
     test_mallocK_and_freeK();
     test_shrink_and_expand();
@@ -104,12 +103,12 @@ static void merge(heap_ptr_t *alloc) {
     list_head_t *header = &alloc->head, *tail = &alloc->head;
     uint32_t size = alloc->size;
     //空头块始终为 used
-    while (!cnk_entry(header->prev)->used) {
+    while (header->prev != &HEAD && (!cnk_entry(header->prev)->used)) {
         header = header->prev;
         size += cnk_entry(header)->size;
     }
     //向后合并
-    while (!cnk_entry(tail->next)->used) {
+    while (tail->next != &HEAD && (!cnk_entry(tail->next)->used)) {
         tail = tail->next;
         size += cnk_entry(tail)->size;
     }

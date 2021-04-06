@@ -2,12 +2,12 @@
 // Created by pjs on 2021/2/1.
 //
 
-#ifndef QUARKOS_PHYSICAL_MM_H
-#define QUARKOS_PHYSICAL_MM_H
+#ifndef QUARKOS_PMM_H
+#define QUARKOS_PMM_H
 
 #include "types.h"
 
-#define PAGE_NULL 0xffffffff
+#define PMM_NLL 0xffffffff
 
 void phymm_init();
 
@@ -17,4 +17,4 @@ void phymm_free(pointer_t addr);
 
 void test_physical_mm();
 
-#endif //QUARKOS_PHYSICAL_MM_H
+#endif //QUARKOS_PMM_H

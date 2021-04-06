@@ -10,6 +10,7 @@ ENABLE_LANGUAGE(ASM)
 set(TOOLS $ENV{HOME}/OS/tool)
 set(CMAKE_C_COMPILER ${TOOLS}/bin/i686-elf-gcc)
 set(CMAKE_ASM_COMPILER ${TOOLS}/bin/i686-elf-as)
+set(OBJCOPY ${TOOLS}/i686-elf-objcopy)
 
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_FLAGS "-ffreestanding -O0 -Wall -Wextra -g")
@@ -68,6 +69,13 @@ target_link_libraries(${KERNEL_BIN} PUBLIC gdt)
 target_include_directories(
         ${KERNEL_BIN} PUBLIC
         "${PROJECT_SOURCE_DIR}/src/gdt"
+)
+
+add_subdirectory(${PROJECT_SOURCE_DIR}/src/fs)
+target_link_libraries(${KERNEL_BIN} PUBLIC fs)
+target_include_directories(
+        ${KERNEL_BIN} PUBLIC
+        "${PROJECT_SOURCE_DIR}/src/fs"
 )
 
 

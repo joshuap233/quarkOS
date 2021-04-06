@@ -40,6 +40,7 @@ void printfk(char *__restrict str, ...);
         (((__type__)1<<(n))-1))
 
 #define MASK_U32(n) BIT_MASK(uint32_t, n)
+#define MASK_U16(n) BIT_MASK(uint16_t, n)
 #define MASK_U8(n)  BIT_MASK(uint8_t, n)
 
 // bit 为 0-7

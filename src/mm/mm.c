@@ -3,9 +3,6 @@
 //
 
 #include "mm/mm.h"
-#include "mm/physical_mm.h"
-#include "mm/virtual_mm.h"
-#include "mm/heap.h"
 #include "mm/free_list.h"
 
 void mm_init() {

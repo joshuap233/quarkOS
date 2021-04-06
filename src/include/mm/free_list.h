@@ -15,8 +15,6 @@ typedef struct free_list {
     uint32_t size;
 } free_list_t;
 
-typedef free_list_t free_list_header;
-
 //用于管理空闲列表节点
 typedef struct free_stack {
 #define LIST_COUNT 64
