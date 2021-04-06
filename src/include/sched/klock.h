@@ -16,16 +16,14 @@ typedef struct interrupt_lock {
 } ir_lock_t;
 
 
-__attribute__((always_inline))
-static inline void ir_lock(ir_lock_t *lock) {
+INLINE void ir_lock(ir_lock_t *lock) {
     lock->ir_enable = get_eflags() & INTERRUPT_MASK;
     // 只会禁用当前线程中断
     if (lock->ir_enable)
         disable_interrupt();
 }
 
-__attribute__((always_inline))
-static inline void ir_unlock(ir_lock_t *lock) {
+INLINE void ir_unlock(ir_lock_t *lock) {
     if (lock->ir_enable)
         enable_interrupt();
 }
@@ -37,20 +35,17 @@ typedef struct spinlock {
     uint32_t flag;
 } spinlock_t;
 
-__attribute__((always_inline))
-static inline void spinlock_init(spinlock_t *lock) {
+INLINE void spinlock_init(spinlock_t *lock) {
     lock->flag = 0;
 }
 
-__attribute__((always_inline))
-static inline void spinlock_lock(spinlock_t *lock) {
+INLINE void spinlock_lock(spinlock_t *lock) {
     while (test_and_set(&lock->flag) == 1)
         pause();
     opt_barrier();
 }
 
-__attribute__((always_inline))
-static inline void spinlock_unlock(spinlock_t *lock) {
+INLINE void spinlock_unlock(spinlock_t *lock) {
     lock->flag = 0;
 }
 

@@ -48,8 +48,6 @@ typedef struct tcb {
     context_t context;       //上下文信息
 } tcb_t;
 
-void sched_init();
-
 int kthread_create(kthread_t *tid, void *(worker)(void *), void *args);
 
 void schedule();
@@ -62,15 +60,13 @@ void unblock_thread(tcb_t *thread);
 
 extern void switch_to(context_t *cur_context, context_t *next_context);
 
-__attribute__((always_inline))
-_Noreturn static inline void idle() {
+_Noreturn INLINE void idle() {
     while (1) {
         halt();
     }
 }
 
-__attribute__((always_inline))
-static inline tcb_t *cur_tcb() {
+INLINE tcb_t *cur_tcb() {
     tcb_t *tcb;
     asm("andl %%esp,%0; ":"=r" (tcb): "0" (~ALIGN_MASK));
     return tcb;

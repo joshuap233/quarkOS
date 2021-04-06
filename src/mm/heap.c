@@ -19,20 +19,17 @@ static heap_t heap;
 //计算剩余可用于扩展堆的虚拟内存
 #define HEAP_VMM_FREE (HEAP_SIZE - heap.size)
 
-__attribute__((always_inline))
-static inline void *alloc_addr(void *addr) {
+INLINE void *alloc_addr(void *addr) {
     //计算实际分配的内存块首地址
     return addr + sizeof(heap_ptr_t);
 }
 
-__attribute__((always_inline))
-static inline void *chunk_header(void *addr) {
+INLINE void *chunk_header(void *addr) {
     //addr 为需要释放的内存地址,返回包括头块的地址
     return addr - sizeof(heap_ptr_t);
 }
 
-__attribute__((always_inline))
-static inline size_t chunk_size(size_t size) {
+INLINE size_t chunk_size(size_t size) {
     //size为需要分配的内存大小,返回包括头块的大小
     return size + sizeof(heap_ptr_t);
 }

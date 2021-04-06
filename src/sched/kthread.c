@@ -241,3 +241,23 @@ static int _kthread_create(list_head_t **_thread, kthread_t *tid, void *(worker)
     ir_unlock(&lock);
     return 0;
 }
+
+// 线程测试
+spinlock_t lock;
+
+void *workerA(UNUSED void *args) {
+    spinlock_lock(&lock);
+    printfk("lock\n");
+    spinlock_unlock(&lock);
+    return NULL;
+}
+
+void test_thread(){
+    test_start;
+    spinlock_init(&lock);
+    kthread_t a[10];
+    for (int i = 0; i < 10; ++i) {
+        kthread_create(&a[i], workerA, NULL);
+    }
+    test_pass;
+}

@@ -2,7 +2,7 @@
 #include "multiboot2.h"
 #include "klib/qlib.h"
 #include "klib/qmath.h"
-#include "mm/mm.h"
+#include "mm/vmm.h"
 #include "klib/qstring.h"
 #include "elf.h"
 

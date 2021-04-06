@@ -20,10 +20,7 @@ typedef struct device_status {
     //...
 } device_status_t;
 
-void ps2_init();
-
-__attribute__((always_inline))
-static inline uint8_t ps2_rd() {
+INLINE uint8_t ps2_rd() {
     return inb(PS2_DAT);
 }
 

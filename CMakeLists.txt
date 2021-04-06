@@ -13,7 +13,7 @@ set(CMAKE_ASM_COMPILER ${TOOLS}/bin/i686-elf-as)
 set(OBJCOPY ${TOOLS}/i686-elf-objcopy)
 
 set(CMAKE_C_STANDARD 11)
-set(CMAKE_C_FLAGS "-ffreestanding -O0 -Wall -Wextra -g")
+set(CMAKE_C_FLAGS "-ffreestanding -O0 -Wall -Wextra -g -mgeneral-regs-only")
 set(CMAKE_ASM_FLAGS "-g")
 
 set(KERNEL_BIN ${CMAKE_PROJECT_NAME}.bin)
@@ -21,8 +21,8 @@ set(KERNEL_ISO ${CMAKE_PROJECT_NAME}.iso)
 set(INCLUDE ${PROJECT_SOURCE_DIR}/src/include)
 include_directories(${INCLUDE})
 
-set(S_SOURCE src/boot.s)
-set(C_SOURCE src/kernel.c src/multiboot2.c)
+set(S_SOURCE src/boot.s src/idt.s)
+set(C_SOURCE src/kernel.c src/multiboot2.c src/isr.c)
 
 add_executable(${KERNEL_BIN} ${C_SOURCE} ${S_SOURCE} ${mylib} ${drivers})
 set_target_properties(${KERNEL_BIN} PROPERTIES LINK_FLAGS "-T ${CMAKE_SOURCE_DIR}/linker.ld -ffreestanding -O0 -nostdlib -g")
@@ -43,12 +43,6 @@ target_include_directories(
         "${PROJECT_SOURCE_DIR}/src/drivers"
 )
 
-add_subdirectory(${PROJECT_SOURCE_DIR}/src/idt)
-target_link_libraries(${KERNEL_BIN} PUBLIC idt)
-target_include_directories(
-        ${KERNEL_BIN} PUBLIC
-        "${PROJECT_SOURCE_DIR}/src/idt"
-)
 
 add_subdirectory(${PROJECT_SOURCE_DIR}/src/mm)
 target_link_libraries(${KERNEL_BIN} PUBLIC mm)

@@ -23,7 +23,7 @@ typedef struct tss_desc {
 #define TSS_KERNEL 0b00 << 5  //特权级
 #define TSS_USER   0b11 << 5  //特权级
 #define TSS_FLAG   0          //不分页
-} __attribute__((packed)) tss_desc_t;
+} PACKED tss_desc_t;
 
 // tss 段应该为标记为可读写
 //tss 段结构
@@ -86,7 +86,7 @@ typedef struct tss {
     uint32_t io_map_ba: 16;
     //Contains a 16-bit offset from the base of the TSS to the I/O permission bit
     //map and interrupt redirection bitmap
-}__attribute__((packed)) tss_t;
+}PACKED tss_t;
 
 extern void tr_set(uint32_t tss_desc_index);
 #endif //QUARKOS_TSS_H

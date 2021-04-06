@@ -3,6 +3,35 @@
 #include "types.h"
 #include "klib/qstring.h"
 #include "klib/qlib.h"
+#include "drivers/init.h"
+
+
+#define VGA_TEXT_MODE_MEM 0xB8000
+
+// VGA模式 3 提供 80 * 25的字符窗口显示
+// 0xB8000 ~ 0xBFFFF 内存地址映射到显存(VGA text mode)
+#define VGA_WIDTH    80
+#define VGA_HEIGHT   25
+#define BUF_INDEX(col, row) ((row)*VGA_WIDTH+(col))
+#define NEWLINE      '\n'
+#define VGA_INDEX   0x3d4  //索引寄存器端口
+#define VGA_DAT     0x3d5  //vga 数据端口
+#define CI_H        0x0e   //光标位置索引:高 8 位
+#define CI_L        0x0f   //光标位置索引:低 8 位索引
+#define MAX_SLI     0x09   //光标最大 scan line 索引
+#define S_CURSOR_Y  0x0A   //光标开始像素
+#define E_CURSOR_Y  0x0B   //光标结束像素
+
+
+//光标位置,即 即将读写的行列
+typedef struct cursor {
+    uint8_t row;
+    uint8_t col;
+} cursor_t;
+
+void vga_sync_cursor(cursor_t cur);
+void vga_enable_cursor();
+
 
 //即将读写的行与列,不要直接修改
 static cursor_t cursor;
@@ -11,81 +40,69 @@ static uint16_t *terminal_buffer;
 
 
 // fg，bg 为前景色与背景色
-__attribute__((always_inline))
-static inline uint8_t vga_entry_color(enum vga_color fg, enum vga_color bg) {
+INLINE uint8_t vga_entry_color(enum vga_color fg, enum vga_color bg) {
     return fg | (bg << 4);
 }
 
 // 拼接 ascii 字符与显示属性
-__attribute__((always_inline))
-static inline uint16_t vga_entry(unsigned char uc, uint8_t color) {
+INLINE uint16_t vga_entry(unsigned char uc, uint8_t color) {
     return (uint16_t) uc | (uint16_t) color << 8;
 }
 
 #define VGA_SPACE vga_entry(' ', terminal_color)
 
-__attribute__((always_inline))
-static inline void vga_set_buf(char c, uint8_t color, cursor_t cur) {
+INLINE void vga_set_buf(char c, uint8_t color, cursor_t cur) {
     // 根据行列设置buffer
     const size_t index = BUF_INDEX(cur.col, cur.row);
     terminal_buffer[index] = vga_entry(c, color);
 }
 
-__attribute__((always_inline))
-static inline void vga_clean_line(uint8_t row) {
+INLINE void vga_clean_line(uint8_t row) {
     q_memset16(&terminal_buffer[BUF_INDEX(0, row)], VGA_SPACE, VGA_WIDTH);
 }
 
-__attribute__((always_inline))
-static inline void vga_scroll_up() {
+INLINE void vga_scroll_up() {
     q_memcpy(terminal_buffer, &terminal_buffer[BUF_INDEX(0, 1)], (VGA_HEIGHT - 1) * VGA_WIDTH * 2);
     vga_clean_line(VGA_HEIGHT - 1);
 }
 
 
-__attribute__((always_inline))
-static inline void vga_clean() {
+INLINE void vga_clean() {
     // 清屏为空格
     q_memset16(terminal_buffer, VGA_SPACE, VGA_WIDTH * VGA_HEIGHT);
 }
 
-__attribute__((always_inline))
-static inline void vga_cleanc(cursor_t c) {
+INLINE void vga_cleanc(cursor_t c) {
     //清除一个字符
     q_memset16(&terminal_buffer[BUF_INDEX(c.col, c.row)], VGA_SPACE, 1);
 }
 
 
-__attribute__((always_inline))
-static inline void set_cursor(uint8_t row, uint8_t col) {
+INLINE void set_cursor(uint8_t row, uint8_t col) {
     cursor.row = row;
     cursor.col = col;
 }
 
 
 //指针向上平移
-__attribute__((always_inline))
-static inline void cursor_up() {
+INLINE void cursor_up() {
     cursor.row = cursor.row == 0 ? 0 : cursor.row - 1;
 }
 
 //指针向下平移
-__attribute__((always_inline))
-static inline void cursor_down() {
+INLINE void cursor_down() {
     uint8_t nr = cursor.row + 1;
     cursor.row = nr >= VGA_HEIGHT ? cursor.row : nr;
 }
 
 // 移动到下一行行首
-__attribute__((always_inline))
-static inline void inc_row() {
+INLINE void inc_row() {
     cursor.row + 1 == VGA_HEIGHT ? vga_scroll_up() : cursor.row++;
     cursor.col = 0;
 }
 
 // 移动到上一行行尾
-__attribute__((always_inline))
-static inline void dec_row() {
+INLINE void dec_row() {
     if (cursor.row != 0) {
         cursor.row--;
         cursor.col = VGA_WIDTH - 1;
@@ -93,14 +110,12 @@ static inline void dec_row() {
 }
 
 // cursor.col + 1
-__attribute__((always_inline))
-static inline void inc_col() {
+INLINE void inc_col() {
     cursor.col + 1 == VGA_WIDTH ? inc_row() : cursor.col++;
 }
 
 // cursor.col - 1
-__attribute__((always_inline))
-static inline void dec_col() {
+INLINE void dec_col() {
     cursor.col == 0 ? dec_row() : cursor.col--;
 }
 

@@ -1,14 +1,13 @@
 #include "types.h"
 #include "klib/qlib.h"
 #include "multiboot2.h"
-#include "gdt.h"
-#include "idt.h"
-#include "drivers/vga.h"
 #include "x86.h"
-#include "mm/mm.h"
+#include "mm/init.h"
 #include "sched/kthread.h"
-#include "sched/klock.h"
-#include "drivers/ide.h"
+#include "drivers/init.h"
+#include "isr.h"
+#include "sched/init.h"
+
 
 #if defined(__linux__)
 #warning "你没有使用跨平台编译器进行编译"
@@ -36,14 +35,6 @@ void hello() {
     printfk("\n");
 }
 
-spinlock_t lock;
-
-void *workerA(void *args) {
-    spinlock_lock(&lock);
-    printfk("lock\n");
-    spinlock_unlock(&lock);
-    return NULL;
-}
 
 extern multiboot_info_t *mba;
 extern uint32_t magic;
@@ -60,13 +51,9 @@ void kernel_main() {
     mm_init();
     ide_init();
 
-    spinlock_init(&lock);
     sched_init();
     enable_interrupt();
 
-    kthread_t a[10];
-    for (int i = 0; i < 10; ++i) {
-        kthread_create(&a[i], workerA, NULL);
-    }
+    test_thread();
     block_thread();
 }

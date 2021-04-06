@@ -20,20 +20,17 @@ static free_list_t free_list[LIST_COUNT];
 static vmm_list_t vmm_list;
 static free_stack_t stack;
 
-__attribute__((always_inline))
-static inline void push(free_list_t *addr) {
+INLINE void push(free_list_t *addr) {
     stack.list[stack.top++] = addr;
 }
 
-__attribute__((always_inline))
-static inline free_list_t *pop() {
+INLINE free_list_t *pop() {
     return stack.list[--stack.top];
 }
 
 
 //分配一个链表节点
-__attribute__((always_inline))
-static inline free_list_t *list_alloc() {
+INLINE free_list_t *list_alloc() {
     if (STACK_EMPTY(stack)) {
         return mallocK(sizeof(free_list_t));
     }

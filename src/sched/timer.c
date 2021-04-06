@@ -7,6 +7,7 @@
 #include "sched/timer.h"
 #include "sched/kthread.h"
 #include "drivers/timer.h"
+#include "isr.h"
 
 #include "klib/list.h"
 
@@ -16,6 +17,8 @@
 volatile uint64_t g_time_slice = 0;
 
 static timer_t _timer[TIMER_COUNT];
+void timer_handle();
+void clock_isr(interrupt_frame_t *frame);
 
 //用于管理计时器
 static struct timer_pool {
@@ -25,15 +28,13 @@ static struct timer_pool {
     size_t size;
 } timer_pool;
 
-__attribute__((always_inline))
-static inline timer_t *alloc_timer() {
+INLINE timer_t *alloc_timer() {
     if (timer_pool.top != 0)
         return timer_pool.timer[--timer_pool.top];
     return NULL;
 }
 
-__attribute__((always_inline))
-static inline void free_timer(timer_t *t) {
+INLINE void free_timer(timer_t *t) {
     if (timer_pool.top != timer_pool.size)
         timer_pool.timer[timer_pool.top++] = t;
 }
@@ -45,6 +46,8 @@ void thread_timer_init() {
     for (int i = 0; i < TIMER_COUNT; ++i) {
         timer_pool.timer[i] = &_timer[i];
     }
+
+    reg_isr(32, clock_isr);
 }
 
 bool ms_sleep_until(uint64_t msc) {
@@ -70,5 +73,18 @@ void timer_handle() {
             unblock_thread(tmp->thread);
             free_timer(tmp);
         }
+    }
+}
+
+// PIC 0 号中断,PIT 时钟中断
+INT clock_isr(UNUSED interrupt_frame_t *frame) {
+    G_TIME_SINCE_BOOT++;
+    timer_handle();
+    pic1_eoi();
+
+    if (g_time_slice == 0) {
+        schedule();
+    } else {
+        g_time_slice -= 1;
     }
 }

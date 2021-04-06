@@ -9,6 +9,7 @@
 #include "types.h"
 #include "x86.h"
 #include "klib/qlib.h"
+#include "isr.h"
 
 //primary bus port
 #define IDE_IO_BASE     0x1F0
@@ -79,7 +80,9 @@ typedef struct buf {
     uint8_t data[Sector_SIZE];
 } buf_t;
 
-void ide_init(void) {
+void ide_isr(interrupt_frame_t *frame);
+
+void ide_init() {
     // 使用 identify 指令检测...
     ide_wait(0);
 
@@ -101,6 +104,8 @@ void ide_init(void) {
     ide_device.lba48 = buffer[83] & (1 << 10);
     //  88/93  dma 检测
 //    ide_device.size = buffer[60] + ((uint32_t) buffer[61] << 16);
+
+    reg_isr(46, ide_isr);
 }
 
 // 等待主盘可用
@@ -113,4 +118,10 @@ static int32_t ide_wait(bool check_error) {
     }
 
     return 0;
+}
+
+// PIC 14 号中断
+// ata primary bus
+INT ide_isr(UNUSED interrupt_frame_t *frame) {
+    pic_eoi(46);
 }

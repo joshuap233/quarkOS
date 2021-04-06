@@ -21,8 +21,6 @@ bool ms_sleep(mseconds_t msc);
 
 bool ms_sleep_until(uint64_t msc);
 
-void timer_handle();
-
 void thread_timer_init();
 
 extern volatile uint64_t g_time_slice;

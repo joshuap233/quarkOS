@@ -7,6 +7,9 @@
 #include "drivers/ps2.h"
 #include "klib/qlib.h"
 #include "sched/timer.h"
+#include "isr.h"
+
+void kb_isr(interrupt_frame_t *frame);
 
 static device_status_t ds = {
         .error  = KB_ERROR,
@@ -54,8 +57,7 @@ char q_pop(kb_queue_t *q) {
     return res;
 }
 
-__attribute__((always_inline))
-static inline void q_clear(kb_queue_t *q) {
+INLINE void q_clear(kb_queue_t *q) {
     q->tail = q->header;
 }
 
@@ -87,6 +89,8 @@ void kb_init() {
     q_append(&kb_cmd, 2);
     q_append(&kb_cmd, EnableScanning);
     kb_cmd_worker();
+
+    reg_isr(33, kb_isr);
 }
 
 //处理修饰键
@@ -226,4 +230,10 @@ void kb_sc_parse(uint8_t scancode) {
             kb_release_handle(r);
         }
     }
+}
+
+// PIC 1 号中断,键盘输入
+INT kb_isr(UNUSED interrupt_frame_t *frame) {
+    kb_sc_parse(ps2_rd());
+    pic1_eoi();
 }

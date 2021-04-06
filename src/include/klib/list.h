@@ -20,44 +20,37 @@ typedef struct list_head {
 } list_head_t;
 
 
-__attribute__((always_inline))
-static inline void list_header_init(list_head_t *header) {
+INLINE void list_header_init(list_head_t *header) {
     header->next = header;
     header->prev = header;
 }
 
-__attribute__((always_inline))
-static inline void list_add(list_head_t *new, list_head_t *prev, list_head_t *next) {
+INLINE void list_add(list_head_t *new, list_head_t *prev, list_head_t *next) {
     new->prev = prev;
     new->next = next;
     next->prev = new;
     prev->next = new;
 }
 
-__attribute__((always_inline))
-static inline void list_add_next(list_head_t *new, list_head_t *target) {
+INLINE void list_add_next(list_head_t *new, list_head_t *target) {
     list_add(new, target, target->next);
 }
 
-__attribute__((always_inline))
-static inline void list_add_prev(list_head_t *new, list_head_t *target) {
+INLINE void list_add_prev(list_head_t *new, list_head_t *target) {
     list_add(new, target->prev, target);
 }
 
 
-__attribute__((always_inline))
-static inline void list_del(list_head_t *list) {
+INLINE void list_del(list_head_t *list) {
     list->prev->next = list->next;
     list->next->prev = list->prev;
 }
 
-__attribute__((always_inline))
-static inline bool list_empty(list_head_t *header) {
+INLINE bool list_empty(list_head_t *header) {
     return header->next == header;
 }
 
-__attribute__((always_inline))
-static inline void list_link(list_head_t *header, list_head_t *tail) {
+INLINE void list_link(list_head_t *header, list_head_t *tail) {
     header->next = tail;
     tail->prev = header;
 }

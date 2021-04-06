@@ -6,6 +6,5 @@
 #ifndef QUARKOS_IDE_H
 #define QUARKOS_IDE_H
 
-void ide_init();
 
 #endif //QUARKOS_IDE_H

@@ -11,8 +11,6 @@
 #include "mm/vmm.h"
 #include "mm/pmm.h"
 
-void mm_init();
-
 //页错误错误码
 typedef struct pf_error_code {
     uint16_t p: 1;   //置 0 则异常由页不存在引起,否则由特权级保护引起
@@ -24,6 +22,6 @@ typedef struct pf_error_code {
     uint16_t zero: 10;
     uint16_t sgx: 1;
     uint16_t zero1: 15;
-}__attribute__((packed)) pf_error_code_t;
+}PACKED pf_error_code_t;
 
 #endif //QUARKOS_MM_H

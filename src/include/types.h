@@ -26,6 +26,9 @@ typedef uint64_t u64_t;
 #define G                   ((uint64_t)0x40000000)
 
 #define PACKED __attribute__((packed))
-#define INLINE __attribute__((always_inline))
+#define INLINE __attribute__((always_inline)) static inline
+#define INT    __attribute__((interrupt)) void
+#define UNUSED __attribute__((unused))
+
 
 #endif //QUARKOS_TYPES_H

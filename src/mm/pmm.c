@@ -20,14 +20,12 @@ static struct mm_stack {
         .size = 0
 };
 
-__attribute__((always_inline))
-static inline void push(pointer_t addr) {
+INLINE void push(pointer_t addr) {
     assertk(!STACK_FULL(mm_page));
     mm_page.page[mm_page.top++] = addr;
 }
 
-__attribute__((always_inline))
-static inline pointer_t pop() {
+INLINE pointer_t pop() {
     if (STACK_EMPTY(mm_page)) return PMM_NLL;
     return mm_page.page[--mm_page.top];
 }

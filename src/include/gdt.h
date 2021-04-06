@@ -26,23 +26,20 @@ typedef struct gdt_entry {
 #define GDT_USR_DATA     0xf2    // 用户数据段
 #define GDT_USR_RODATA   0xf0    // 用户只读数据段
 #define GDT_COUNT 20
-} __attribute__((packed)) gdt_entry_t;
+} PACKED gdt_entry_t;
 //一定要加上  __attribute__((packed)), 否则这些值不会紧挨在一起
 
 typedef struct gdtr {
     uint16_t limit;
     uint32_t address;
-} __attribute__((packed)) gdtr_t;
+} PACKED gdtr_t;
 
 void gdt_set(uint32_t index, pointer_t value_addr);
 
 extern void gdtr_set(uint32_t gdtr);
 
 
-void gdt_init();
-
-__attribute__((always_inline))
-static inline int32_t get_free_gdt_index() {
+INLINE int32_t get_free_gdt_index() {
     extern uint32_t gdt_index;
     assertk(gdt_index != GDT_COUNT);
     return gdt_index++;

@@ -478,8 +478,6 @@ typedef struct kb_queue {
     size_t tail;
 } kb_queue_t;
 
-void kb_init();
-
 //解析扫描码
 void kb_sc_parse(uint8_t scancode);
 
