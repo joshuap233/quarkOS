@@ -2,8 +2,8 @@
 // Created by pjs on 2021/2/1.
 //
 
-#include "mm/mm.h"
 #include "mm/free_list.h"
+#include "mm/init.h"
 
 void mm_init() {
     phymm_init();

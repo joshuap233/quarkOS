@@ -10,7 +10,7 @@
 #include "klib/list.h"
 #include "klib/qlib.h"
 #include "klib/qmath.h"
-#include "mm/mm.h"
+#include "mm/vmm.h"
 
 typedef struct context {
     //线程切换时需要保存的上下文

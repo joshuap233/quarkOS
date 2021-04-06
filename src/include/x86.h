@@ -130,6 +130,11 @@ INLINE uint32_t cpu_core() {
     return ((reg >> 26) & 0x3f) + 1;
 }
 
+//刷新 tlb 缓存
+INLINE void tlb_flush(pointer_t va) {
+    __asm__ volatile ("invlpg (%0)" : : "a" (va));
+}
+
 #define INTERRUPT_MASK (0b1 << 9)
 
 // gcc 优化屏障

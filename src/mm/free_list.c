@@ -8,8 +8,10 @@
 //栈满时, 释放动态分配的空闲链表节点
 
 #include "mm/free_list.h"
-#include "mm/mm.h"
 #include "klib/list.h"
+#include "mm/vmm.h"
+#include "mm/heap.h"
+#include "klib/qlib.h"
 
 #define fl_entry(ptr) list_entry(ptr, free_list_t, head)
 #define HEAD vmm_list.header

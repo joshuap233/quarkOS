@@ -56,18 +56,18 @@ typedef struct tick_lock {
 } ticklock_t;
 
 
-static inline void ticklock_init(ticklock_t *lock) {
+INLINE void ticklock_init(ticklock_t *lock) {
     lock->ticket = 0;
     lock->turn = 0;
 }
 
-static inline void ticklock_lock(ticklock_t *lock) {
+INLINE void ticklock_lock(ticklock_t *lock) {
     while (lock->turn != fetch_and_add(&lock->ticket)) {
         pause();
     }
 }
 
-static inline void ticklock_unlock(ticklock_t *lock) {
+INLINE void ticklock_unlock(ticklock_t *lock) {
     fetch_and_add(&lock->turn);
 }
 

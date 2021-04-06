@@ -6,8 +6,8 @@
 #include "klib/qlib.h"
 #include "klib/qmath.h"
 #include "sched/timer.h"
-#include "mm/mm.h"
 #include "klib/qstring.h"
+#include "mm/heap.h"
 
 typedef struct thread_btm {
     void *entry;
@@ -58,12 +58,12 @@ static int _kthread_create(list_head_t **_thread, kthread_t *tid, void *(worker)
 
 extern void kthread_worker(void *(worker)(void *), void *args, tcb_t *tcb);
 
-static inline void set_next_ready() {
+INLINE void set_next_ready() {
     //从运行队列删除节点前需要调用该方法
     ready_to_run = CUR_HEAD.next;
 }
 
-static inline void del_cur_task() {
+INLINE void del_cur_task() {
     set_next_ready();
     list_del(&CUR_HEAD);
 }

@@ -6,7 +6,6 @@
 #define QUARKOS_VMM_H
 
 #include "types.h"
-#include "free_list.h"
 
 
 #define PAGE_SIZE           (4 * K)
@@ -60,21 +59,24 @@ typedef table_t pdr_t;
 typedef table_t ptb_t;
 
 
-void vmm_init();
-
 void vmm_mapv(pointer_t va, uint32_t size, uint32_t flags);
 
 void vmm_unmap(void *va, uint32_t size);
 
 void vmm_map(pointer_t va, pointer_t pa, uint32_t size, uint32_t flags);
 
-extern void cr3_set(pointer_t);
-
-
-//刷新 tlb 缓存
-static inline void tlb_flush(pointer_t va) {
-    __asm__ volatile ("invlpg (%0)" : : "a" (va));
-}
+//页错误错误码
+typedef struct pf_error_code {
+    uint16_t p: 1;   //置 0 则异常由页不存在引起,否则由特权级保护引起
+    uint16_t w: 1;   //置 0 则访问是读取
+    uint16_t u: 1;   //置 0 则特权模式下发生的异常
+    uint16_t r: 1;
+    uint16_t i: 1;
+    uint16_t pk: 1;
+    uint16_t zero: 10;
+    uint16_t sgx: 1;
+    uint16_t zero1: 15;
+}PACKED pf_error_code_t;
 
 
 // ============测试===================

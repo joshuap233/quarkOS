@@ -3,10 +3,14 @@
 //
 //虚拟内存管理
 #include "types.h"
-#include "mm/mm.h"
+#include "mm/vmm.h"
+#include "mm/pmm.h"
+#include "mm/heap.h"
+
 #include "mm/free_list.h"
 #include "klib/qstring.h"
 #include "multiboot2.h"
+#include "x86.h"
 
 //内核页表本身在页表内的索引
 #define K_PD_INDEX        1023
@@ -15,6 +19,7 @@
 //返回页目录索引为index的页表项首地址
 #define PTE_ADDR(pde_index) (K_PTE_VA + (pde_index)*PAGE_SIZE)
 
+extern void cr3_set(pointer_t);
 
 static pdr_t _Alignas(PAGE_SIZE) pageDir = {
         .entry = {[0 ...PAGE_ENTRY_NUM - 1]=(VM_KR | VM_NPRES)}

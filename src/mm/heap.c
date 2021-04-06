@@ -3,8 +3,10 @@
 //
 // 内核堆
 #include "types.h"
-#include "mm/mm.h"
 #include "klib/list.h"
+#include "mm/heap.h"
+#include "mm/vmm.h"
+#include "klib/qlib.h"
 
 static heap_t heap;
 
@@ -77,7 +79,7 @@ static bool expend(uint32_t size) {
     return true;
 }
 
-static inline void shrink() {
+INLINE void shrink() {
 
     //保留需要释放的内存块所占用的第一页
     if (!TAL_CHUNK->used && TAL_CHUNK->size > HEAP_FREE_LIMIT) {
