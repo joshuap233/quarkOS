@@ -22,7 +22,7 @@ set(INCLUDE ${PROJECT_SOURCE_DIR}/src/include)
 include_directories(${INCLUDE})
 
 set(S_SOURCE src/boot.s)
-set(C_SOURCE src/kernel.c src/multiboot2.c src/bio.c)
+set(C_SOURCE src/kernel.c src/multiboot2.c src/bio.c src/console.c)
 
 add_executable(${KERNEL_BIN} ${C_SOURCE} ${S_SOURCE} ${mylib} ${drivers})
 set_target_properties(${KERNEL_BIN} PROPERTIES LINK_FLAGS "-T ${CMAKE_SOURCE_DIR}/linker.ld -ffreestanding -O0 -nostdlib -g")

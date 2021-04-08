@@ -7,7 +7,6 @@
 #include "sched/kthread.h"
 #include "drivers/timer.h"
 #include "isr.h"
-#include "drivers/pic.h"
 #include "klib/list.h"
 
 

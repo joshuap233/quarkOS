@@ -5,7 +5,7 @@
 #include "drivers/init.h"
 #include "isr.h"
 #include "sched/init.h"
-
+#include "klib/qlib.h"
 
 #if defined(__linux__)
 #warning "你没有使用跨平台编译器进行编译"
@@ -45,9 +45,17 @@ void kernel_main() {
     multiboot_init(mba);
     hello();
     gdt_init();
+
     idt_init();
-    mm_init();
-    ide_init();
+    pic_init(32, 40);
+    pit_init(PIT_TIMER_FREQUENCY);
+    ps2_init();
+    kb_init();    //初始化 ps/2 键盘
+
+    phymm_init();
+    vmm_init();
+    heap_init();
+//    ide_init();
 
     sched_init();
     enable_interrupt();

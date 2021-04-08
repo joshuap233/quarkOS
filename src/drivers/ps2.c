@@ -1,14 +1,10 @@
 //
 // Created by pjs on 2021/1/27.
 //
-
-#include <stdbool.h>
-#include "drivers/ps2.h"
 #include "types.h"
+#include "drivers/ps2.h"
 #include "x86.h"
 #include "klib/qlib.h"
-#include "drivers/keyboard.h"
-#include "drivers/init.h"
 
 
 typedef bool status_t;
@@ -110,8 +106,7 @@ void ps2_init() {
     ps2_wc(0xAA);
     assertk(ps2_rd() == 0x55);
 
-    //初始化 ps/2 键盘
-    kb_init();
+
 }
 
 

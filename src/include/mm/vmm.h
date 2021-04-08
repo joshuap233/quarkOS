@@ -53,15 +53,4 @@ void vmm_unmap(void *va, uint32_t size);
 
 void vmm_map(pointer_t va, pointer_t pa, uint32_t size, uint32_t flags);
 
-
-// ============测试===================
-#ifdef TEST
-
-void test_vmm_map();
-
-void test_vmm_map2();
-
-void test_vmm_mapv();
-#endif //TEST
-
 #endif //QUARKOS_MM_VMM_H

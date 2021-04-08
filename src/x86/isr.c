@@ -2,7 +2,6 @@
 // Created by pjs on 2021/1/25.
 //
 #include "klib/qlib.h"
-#include "drivers/init.h"
 #include "isr.h"
 
 //页错误错误码
@@ -116,8 +115,6 @@ void idt_init() {
     reg_isr(20, ISR(20));
 
     idtr_set((pointer_t) &idtr);
-    pic_init(32, 40);
-    ps2_init();
 }
 
 void reg_isr(uint8_t n,void *isr){

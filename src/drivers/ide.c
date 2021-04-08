@@ -12,7 +12,6 @@
 #include "isr.h"
 #include "param.h"
 #include "buf.h"
-#include "drivers/pic.h"
 
 //primary bus port
 #define IDE_IO_BASE     0x1F0

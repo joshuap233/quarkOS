@@ -6,8 +6,6 @@
 #include "x86.h"
 #include "klib/qlib.h"
 #include "drivers/pic.h"
-#include "drivers/timer.h"
-#include "drivers/init.h"
 
 #define ICW1_ICW4        0x1                //本次初始化需要发送 ICW4
 #define ICW1_CASCADE    (0x0<<1)        //级联
@@ -56,7 +54,5 @@ void pic_init(uint32_t offset1, uint32_t offset2) {
 
     outb(PIC1_DAT, m1);
     outb(PIC2_DAT, m2);
-
-    pit_init(PIT_TIMER_FREQUENCY);
 }
 

@@ -6,7 +6,6 @@
 #include "types.h"
 #include "drivers/ps2.h"
 #include "klib/qlib.h"
-#include "sched/timer.h"
 #include "isr.h"
 
 INT kb_isr(interrupt_frame_t *frame);
@@ -34,7 +33,7 @@ static kb_status_t kbStatus = {
 };
 
 //TODO:单一缓冲区多终端会出现问题
-static kb_queue_t kb_buf = {
+kb_queue_t kb_buf = {
         .header=0,
         .tail = 0
 };
@@ -57,21 +56,6 @@ char q_pop(kb_queue_t *q) {
     return res;
 }
 
-INLINE void q_clear(kb_queue_t *q) {
-    q->tail = q->header;
-}
-
-// sched_init 调用后才能使用
-char kb_getchar() {
-    uint8_t c;
-    q_clear(&kb_buf);
-    do {
-        c = q_pop(&kb_buf);
-        assertk(ms_sleep(10));
-    } while (c == KB_NULL);
-    vga_put_char(c);
-    return c;
-}
 
 static void kb_cmd_worker() {
     uint8_t c, res;

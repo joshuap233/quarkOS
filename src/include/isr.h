@@ -6,7 +6,7 @@
 #define QUARKOS_ISR_H
 
 #include "types.h"
-
+#include "drivers/pic.h"
 
 typedef struct interrupt_frame {
     uint32_t eip;

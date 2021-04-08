@@ -5,9 +5,7 @@
 #include "types.h"
 #include "mm/vmm.h"
 #include "mm/pmm.h"
-#include "mm/heap.h"
 
-#include "mm/free_list.h"
 #include "klib/qstring.h"
 #include "multiboot2.h"
 #include "x86.h"
@@ -89,25 +87,13 @@ void vmm_mapv(pointer_t va, uint32_t size, uint32_t flags) {
 // 初始化内核页表
 void vmm_init() {
     cr3_t cr3 = CR3_CTRL | ((pointer_t) &pageDir);
-    free_list_init(g_vmm_start);
     //留出页表与堆的虚拟内存
-    assertk(list_split(K_PTE_VA, PT_SIZE));
-    assertk(list_split(HEAP_START, HEAP_SIZE));
     pageDir.entry[N_PDE - 1] = (pointer_t) &pageDir | VM_KW | VM_PRES;
 
     // _vmm_start 以下部分直接映射
     vmm_map(0, 0, SIZE_ALIGN(g_vmm_start), VM_KW | VM_PRES);
 
-#ifdef TEST
-    test_vmm_map();
-#endif //TEST
-
     cr3_set(cr3);
-
-#ifdef TEST
-    test_vmm_map2();
-    test_vmm_mapv();
-#endif //TEST
 }
 
 // 开启分页后才能使用, size 为 PAGE_SIZE 的整数倍
@@ -134,49 +120,3 @@ void vmm_unmap(void *_va, uint32_t size) {
     }
 }
 
-
-
-// ======================== 测试 =====================
-
-
-#ifdef TEST
-static uint16_t *test_pa;
-static uint16_t *test_va;
-
-// 需要在开启分页前调用
-void test_vmm_map() {
-    test_start;
-    //测试直接映射函数
-    test_pa = (uint16_t *) phymm_alloc();
-    for (uint64_t i = 0; i < PAGE_SIZE / sizeof(uint16_t); ++i) {
-        test_pa[i] = i;
-    }
-    test_va = list_split_ff(PAGE_SIZE);
-    vmm_map((pointer_t) test_va, (pointer_t) test_pa, PAGE_SIZE, VM_KW | VM_PRES);
-    test_pass;
-}
-
-// 开启分页后调用
-void test_vmm_map2() {
-    test_start;
-    for (uint64_t i = 0; i < PAGE_SIZE / sizeof(uint16_t); ++i) {
-        assertk(test_va[i] == i);
-    }
-    vmm_unmap((void *) test_va, PAGE_SIZE);
-    list_free((pointer_t) test_va, PAGE_SIZE);
-    test_pass;
-}
-
-void test_vmm_mapv() {
-    test_start;
-    test_va = list_split_ff(PAGE_SIZE);
-    vmm_mapv((pointer_t) test_va, PAGE_SIZE, VM_KW | VM_PRES);
-    for (uint64_t i = 0; i < PAGE_SIZE / sizeof(uint16_t); ++i) {
-        test_va[i] = i;
-    }
-    vmm_unmap((void *) test_va, PAGE_SIZE);
-    list_free((pointer_t) test_va, PAGE_SIZE);
-    test_pass;
-}
-
-#endif //TEST

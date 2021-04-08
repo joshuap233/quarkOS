@@ -480,7 +480,6 @@ typedef struct kb_queue {
 //解析扫描码
 void kb_sc_parse(uint8_t scancode);
 
-char kb_getchar();
 
 typedef enum KEY_TYPE {
     CHAR = 0,
@@ -493,5 +492,14 @@ typedef enum KEY_TYPE {
 
 
 key_type_t kb_key_type(uint8_t value);
+void q_append(kb_queue_t *q, uint8_t c);
+char q_pop(kb_queue_t *q);
+
+extern kb_queue_t kb_buf; // 键盘缓区
+
+INLINE void q_clear(kb_queue_t *q) {
+    q->tail = q->header;
+}
+
 
 #endif //QUARKOS_DRIVERS_KEYBOARD_H
