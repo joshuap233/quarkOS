@@ -2,8 +2,8 @@
 // Created by pjs on 2021/2/23.
 //
 // 双向循环链表
-#ifndef QUARKOS_LIST_H
-#define QUARKOS_LIST_H
+#ifndef QUARKOS_KLIB_LIST_H
+#define QUARKOS_KLIB_LIST_H
 
 #include "types.h"
 
@@ -63,4 +63,4 @@ INLINE void list_link(list_head_t *header, list_head_t *tail) {
     for (list_head_t *hdr = (head)->next, *next=hdr->next; hdr != (head); hdr = next,next=next->next)
 
 
-#endif //QUARKOS_LIST_H
+#endif //QUARKOS_KLIB_LIST_H

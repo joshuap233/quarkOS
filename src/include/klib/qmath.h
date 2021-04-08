@@ -2,8 +2,8 @@
 // Created by pjs on 2021/1/19.
 //
 
-#ifndef QUARKOS_QMATH_H
-#define QUARKOS_QMATH_H
+#ifndef QUARKOS_KLIB_QMATH_H
+#define QUARKOS_KLIB_QMATH_H
 
 #include "types.h"
 
@@ -17,4 +17,4 @@ float q_floorf(float _arg);
 // 向上取整除法,可能溢出, y 为被除数
 #define DIV_CEIL(x, y)  (((x) + (y) - 1) / (y))
 
-#endif //QUARKOS_QMATH_H
+#endif //QUARKOS_KLIB_QMATH_H

@@ -2,8 +2,8 @@
 // Created by pjs on 2021/2/14.
 //
 
-#ifndef QUARKOS_TSS_H
-#define QUARKOS_TSS_H
+#ifndef QUARKOS_SCHED_TSS_H
+#define QUARKOS_SCHED_TSS_H
 
 #include "types.h"
 
@@ -89,4 +89,4 @@ typedef struct tss {
 }PACKED tss_t;
 
 extern void tr_set(uint32_t tss_desc_index);
-#endif //QUARKOS_TSS_H
+#endif //QUARKOS_SCHED_TSS_H

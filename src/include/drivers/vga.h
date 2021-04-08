@@ -1,5 +1,5 @@
-#ifndef QUARKOS_VGA_H
-#define QUARKOS_VGA_H
+#ifndef QUARKOS_DRIVERS_VGA_H
+#define QUARKOS_DRIVERS_VGA_H
 
 #include "types.h"
 
@@ -35,4 +35,4 @@ void vga_cursor_left();
 void vga_cursor_right();
 void vga_cursor_up();
 void vga_cursor_down();
-#endif //QUARKOS_VGA_H
+#endif //QUARKOS_DRIVERS_VGA_H

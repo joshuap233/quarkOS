@@ -40,7 +40,6 @@ INLINE free_list_t *list_alloc() {
 }
 
 
-
 // 销毁一个链表节点
 static void list_destroy(free_list_t *node) {
     if (STACK_FULL(stack)) {
@@ -84,10 +83,12 @@ void free_list_init(uint32_t size) {
     list->size = PHYMM - size;
     vmm_list.size = list->size;
 
+#ifdef TEST
     test_list_stack();
     test_list_mem_split();
     test_list_split_ff();
     test_list_split();
+#endif // TEST
 }
 
 static void list_mem_split(pointer_t va, uint32_t size, free_list_t *node) {
@@ -166,7 +167,7 @@ static void list_merge(free_list_t *alloc) {
             hdr = hdr->next;
             list_destroy(PRV_ENTRY(hdr));
         }
-        list_link(h,t);
+        list_link(h, t);
     }
 }
 
@@ -187,6 +188,7 @@ void list_free(pointer_t va, uint32_t size) {
 }
 
 //=============== 测试 ================
+#ifdef TEST
 
 void test_list_stack() {
     test_start;
@@ -225,7 +227,8 @@ void test_list_mem_split() {
     list_head_t *hdr = HEAD.next;
     size_t total = vmm_list.size;
     assertk(hdr->next->next == hdr);
-    pointer_t addr[3] = {fl_entry(hdr)->addr, fl_entry(hdr)->addr + 3 * PAGE_SIZE, fl_entry(hdr)->addr + fl_entry(hdr)->size - PAGE_SIZE};
+    pointer_t addr[3] = {fl_entry(hdr)->addr, fl_entry(hdr)->addr + 3 * PAGE_SIZE,
+                         fl_entry(hdr)->addr + fl_entry(hdr)->size - PAGE_SIZE};
     list_mem_split(addr[0], PAGE_SIZE, fl_entry(hdr));
     list_mem_split(addr[2], PAGE_SIZE, fl_entry(hdr));
     list_mem_split(addr[1], PAGE_SIZE, fl_entry(hdr));
@@ -286,3 +289,4 @@ void test_list_split() {
     test_pass;
 }
 
+#endif //TESt

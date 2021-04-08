@@ -242,7 +242,10 @@ static int _kthread_create(list_head_t **_thread, kthread_t *tid, void *(worker)
     return 0;
 }
 
-// 线程测试
+
+// ================线程测试
+#ifdef TEST
+
 spinlock_t lock;
 
 void *workerA(UNUSED void *args) {
@@ -261,3 +264,5 @@ void test_thread(){
     }
     test_pass;
 }
+
+#endif //TEST

@@ -96,10 +96,17 @@ void vmm_init() {
 
     // _vmm_start 以下部分直接映射
     vmm_map(0, 0, SIZE_ALIGN(g_vmm_start), VM_KW | VM_PRES);
+
+#ifdef TEST
     test_vmm_map();
+#endif //TEST
+
     cr3_set(cr3);
+
+#ifdef TEST
     test_vmm_map2();
     test_vmm_mapv();
+#endif //TEST
 }
 
 // 开启分页后才能使用, size 为 PAGE_SIZE 的整数倍
@@ -130,6 +137,8 @@ void vmm_unmap(void *_va, uint32_t size) {
 
 // ======================== 测试 =====================
 
+
+#ifdef TEST
 static uint16_t *test_pa;
 static uint16_t *test_va;
 
@@ -168,3 +177,5 @@ void test_vmm_mapv() {
     list_free((pointer_t) test_va, PAGE_SIZE);
     test_pass;
 }
+
+#endif //TEST

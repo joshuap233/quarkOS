@@ -2,9 +2,9 @@
 // Created by pjs on 2021/3/15.
 //
 
-#ifndef QUARKOS_USER_H
-#define QUARKOS_USER_H
+#ifndef QUARKOS_SCHED_USER_H
+#define QUARKOS_SCHED_USER_H
 
 int user_test();
 
-#endif //QUARKOS_USER_H
+#endif //QUARKOS_SCHED_USER_H

@@ -59,7 +59,10 @@ static void page_stack_init() {
 void phymm_init() {
     page_stack_init();
     push_free_page();
+
+#ifdef TEST
     test_physical_mm();
+#endif //TEST
 }
 
 
@@ -71,7 +74,7 @@ void phymm_free(pointer_t addr) {
     push(PAGE_ADDR(addr));
 }
 
-
+#ifdef TEST
 void test_physical_mm() {
     test_start;
     pointer_t addr[3];
@@ -85,3 +88,4 @@ void test_physical_mm() {
     assertk(addr[1] == addr[0]);
     test_pass;
 }
+#endif //TEST

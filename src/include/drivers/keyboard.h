@@ -3,8 +3,8 @@
 //
 
 
-#ifndef QUARKOS_KEYBOARD_H
-#define QUARKOS_KEYBOARD_H
+#ifndef QUARKOS_DRIVERS_KEYBOARD_H
+#define QUARKOS_DRIVERS_KEYBOARD_H
 
 #include <stdbool.h>
 #include "types.h"
@@ -495,4 +495,4 @@ typedef enum KEY_TYPE {
 
 key_type_t kb_key_type(uint8_t value);
 
-#endif //QUARKOS_KEYBOARD_H
+#endif //QUARKOS_DRIVERS_KEYBOARD_H

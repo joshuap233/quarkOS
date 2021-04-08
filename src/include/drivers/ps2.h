@@ -2,8 +2,8 @@
 // Created by pjs on 2021/1/27.
 //
 
-#ifndef QUARKOS_PS2_H
-#define QUARKOS_PS2_H
+#ifndef QUARKOS_DRIVERS_PS2_H
+#define QUARKOS_DRIVERS_PS2_H
 
 #include "types.h"
 #include "x86.h"
@@ -28,4 +28,4 @@ INLINE uint8_t ps2_rd() {
 uint8_t ps2_device_cmd(uint8_t cmd, device_status_t status);
 
 
-#endif //QUARKOS_PS2_H
+#endif //QUARKOS_DRIVERS_PS2_H

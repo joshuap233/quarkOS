@@ -2,8 +2,8 @@
 // Created by pjs on 2021/2/6.
 //
 
-#ifndef QUARKOS_FREE_LIST_H
-#define QUARKOS_FREE_LIST_H
+#ifndef QUARKOS_MM_FREE_LIST_H
+#define QUARKOS_MM_FREE_LIST_H
 
 #include "types.h"
 #include "klib/list.h"
@@ -43,6 +43,7 @@ void free_list_init(uint32_t size);
 
 
 //=============== 测试 ================
+#ifdef TEST
 void test_list_stack();
 
 void test_list_stack2();
@@ -52,5 +53,6 @@ void test_list_split_ff();
 void test_list_mem_split();
 
 void test_list_split();
+#endif //TEST
 //=========
-#endif //QUARKOS_FREE_LIST_H
+#endif //QUARKOS_MM_FREE_LIST_H

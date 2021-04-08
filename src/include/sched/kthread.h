@@ -3,8 +3,8 @@
 //
 // 内核线程
 
-#ifndef QUARKOS_KTHREAD_H
-#define QUARKOS_KTHREAD_H
+#ifndef QUARKOS_SCHED_KTHREAD_H
+#define QUARKOS_SCHED_KTHREAD_H
 
 #include "types.h"
 #include "klib/list.h"
@@ -76,4 +76,4 @@ INLINE tcb_t *cur_tcb() {
 #define CUR_HEAD (CUR_TCB->run_list)
 #define tcb_entry(ptr) list_entry(ptr,tcb_t,run_list)
 
-#endif //QUARKOS_KTHREAD_H
+#endif //QUARKOS_SCHED_KTHREAD_H

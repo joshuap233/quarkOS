@@ -9,7 +9,7 @@
 #include "sched/timer.h"
 #include "isr.h"
 
-void kb_isr(interrupt_frame_t *frame);
+INT kb_isr(interrupt_frame_t *frame);
 
 static device_status_t ds = {
         .error  = KB_ERROR,

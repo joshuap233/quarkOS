@@ -2,8 +2,8 @@
 // Created by pjs on 2021/1/15.
 //
 
-#ifndef QUARKOS_QLIB_H
-#define QUARKOS_QLIB_H
+#ifndef QUARKOS_KLIB_QLIB_H
+#define QUARKOS_KLIB_QLIB_H
 
 #include <stdbool.h>
 #include <stdarg.h>
@@ -31,7 +31,7 @@ void printfk(char *__restrict str, ...);
 #define assertk(condition) assert(condition);
 #define printfk printf
 
-#endif
+#endif //__i386__
 
 
 // 生成掩码
@@ -63,9 +63,9 @@ void stack_trace();
 
 void panic();
 
-
+#ifdef TEST
 #define test_start   printfk("test start: %s\n",__FUNCTION__);
 #define test_pass    printfk("test pass : %s: %s: %u\n",__FILE__,__FUNCTION__,__LINE__);
+#endif // TEST
 
-
-#endif //QUARKOS_QLIB_H
+#endif //QUARKOS_KLIB_QLIB_H

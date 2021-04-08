@@ -6,6 +6,26 @@
 
 #include "types.h"
 
+
+// 端口 port 数据读取到内存 addr 处(2*cnt 字节)
+INLINE void insw(int port, void *addr, int cnt) {
+    asm volatile(
+    "cld\n\t"
+    "rep insw" :
+    "=D" (addr), "=c" (cnt) :
+    "d" (port), "0" (addr), "1" (cnt) :
+    "memory", "cc");
+}
+
+INLINE void outsw(int port, const void *addr, int cnt) {
+    asm volatile(
+    "cld\n\t"
+    "rep outsw" :
+    "=S" (addr), "=c" (cnt) :
+    "d" (port), "0" (addr), "1" (cnt) :
+    "cc");
+}
+
 // 读一个字节
 INLINE uint8_t inb(uint16_t port) {
     uint8_t res;
@@ -28,26 +48,6 @@ INLINE void outb(uint16_t port, uint8_t value) {
 //写一个字
 INLINE void outw(uint16_t port, uint16_t value) {
     asm volatile ("outw %1,%0"::"dN"(port), "a"(value));
-}
-
-// 端口 port 数据读取到内存 addr 处(4*cnt 字节)
-// intel x86 手册只能找到 insd 指令(d - 双字)
-INLINE void insl(int port, void *addr, int cnt) {
-    asm volatile(
-    "cld\n\t"
-    "rep insl" :
-    "=D" (addr), "=c" (cnt) :
-    "d" (port), "0" (addr), "1" (cnt) :
-    "memory", "cc");
-}
-
-INLINE void outsl(int port, const void *addr, int cnt) {
-    asm volatile(
-    "cld\n\t"
-    " rep outsl" :
-    "=S" (addr), "=c" (cnt) :
-    "d" (port), "0" (addr), "1" (cnt) :
-    "cc");
 }
 
 
@@ -134,6 +134,7 @@ INLINE uint32_t cpu_core() {
 INLINE void tlb_flush(pointer_t va) {
     __asm__ volatile ("invlpg (%0)" : : "a" (va));
 }
+
 
 #define INTERRUPT_MASK (0b1 << 9)
 

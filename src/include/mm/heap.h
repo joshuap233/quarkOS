@@ -2,8 +2,8 @@
 // Created by pjs on 2021/2/3.
 //
 
-#ifndef QUARKOS_HEAP_H
-#define QUARKOS_HEAP_H
+#ifndef QUARKOS_MM_HEAP_H
+#define QUARKOS_MM_HEAP_H
 
 #include "types.h"
 #include "klib/list.h"
@@ -35,8 +35,12 @@ typedef struct heap {
 void *allocK_page();
 
 // =============== 测试 =================
+#ifdef TEST
+
 void test_mallocK_and_freeK();
 
 void test_shrink_and_expand();
 void test_allocK_page();
-#endif //QUARKOS_HEAP_H
+#endif //TEST
+
+#endif //QUARKOS_MM_HEAP_H

@@ -2,8 +2,8 @@
 // Created by pjs on 2021/2/1.
 //
 // 页表使用递归映射
-#ifndef QUARKOS_VMM_H
-#define QUARKOS_VMM_H
+#ifndef QUARKOS_MM_VMM_H
+#define QUARKOS_MM_VMM_H
 
 #include "types.h"
 
@@ -80,11 +80,13 @@ typedef struct pf_error_code {
 
 
 // ============测试===================
+#ifdef TEST
 
 void test_vmm_map();
 
 void test_vmm_map2();
 
 void test_vmm_mapv();
+#endif //TEST
 
-#endif //QUARKOS_VMM_H
+#endif //QUARKOS_MM_VMM_H

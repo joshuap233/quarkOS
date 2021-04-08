@@ -55,10 +55,11 @@ void heap_init() {
 
     list_add_next(&hdr->head, &HEAD);
 
+#ifdef TEST
     test_mallocK_and_freeK();
     test_shrink_and_expand();
     test_allocK_page();
-
+#endif //TEST
 }
 
 // size 为需要扩展的内存块大小
@@ -172,6 +173,8 @@ void freeK(void *addr) {
 
 //=============== 测试 ================
 
+#ifdef TEST
+
 static size_t get_unused_space() {
     size_t size = 0;
     list_for_each(&HEAD) {
@@ -273,3 +276,5 @@ void test_allocK_page() {
     assertk(HDR_CHUNK->size == heap.size);
     test_pass;
 }
+
+#endif //TEST

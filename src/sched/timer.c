@@ -17,8 +17,8 @@
 volatile uint64_t g_time_slice = 0;
 
 static timer_t _timer[TIMER_COUNT];
-void timer_handle();
-void clock_isr(interrupt_frame_t *frame);
+void timer_handler();
+INT clock_isr(interrupt_frame_t *frame);
 
 //用于管理计时器
 static struct timer_pool {
@@ -65,7 +65,7 @@ bool ms_sleep(mseconds_t msc) {
     return ms_sleep_until(G_TIME_SINCE_BOOT + msc);
 }
 
-void timer_handle() {
+void timer_handler() {
     list_for_each_del(&HEAD) {
         timer_t *tmp = timer_entry(hdr);
         if (tmp->time >= G_TIME_SINCE_BOOT) {
@@ -79,7 +79,7 @@ void timer_handle() {
 // PIC 0 号中断,PIT 时钟中断
 INT clock_isr(UNUSED interrupt_frame_t *frame) {
     G_TIME_SINCE_BOOT++;
-    timer_handle();
+    timer_handler();
     pic1_eoi();
 
     if (g_time_slice == 0) {

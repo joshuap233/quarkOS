@@ -9,5 +9,8 @@ void mm_init() {
     phymm_init();
     vmm_init();
     heap_init();
+
+#ifdef TEST
     test_list_stack2();
+#endif //TEST
 }

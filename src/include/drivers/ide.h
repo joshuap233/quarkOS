@@ -1,10 +1,13 @@
 //
 // Created by pjs on 2021/3/17.
 //
-// PATA pid
+// PATA
 
-#ifndef QUARKOS_IDE_H
-#define QUARKOS_IDE_H
+#ifndef QUARKOS_DRIVERS_IDE_H
+#define QUARKOS_DRIVERS_IDE_H
 
+#include "buf.h"
 
-#endif //QUARKOS_IDE_H
+void ide_rw(buf_t *buf);
+
+#endif //QUARKOS_DRIVERS_IDE_H

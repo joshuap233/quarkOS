@@ -2,8 +2,8 @@
 // Created by pjs on 2021/2/22.
 //
 
-#ifndef QUARKOS_KLOCK_H
-#define QUARKOS_KLOCK_H
+#ifndef QUARKOS_SCHED_KLOCK_H
+#define QUARKOS_SCHED_KLOCK_H
 
 #include "x86.h"
 
@@ -71,4 +71,4 @@ INLINE void ticklock_unlock(ticklock_t *lock) {
     fetch_and_add(&lock->turn);
 }
 
-#endif //QUARKOS_KLOCK_H
+#endif //QUARKOS_SCHED_KLOCK_H
