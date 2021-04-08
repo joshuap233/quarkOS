@@ -1,8 +1,7 @@
 // TODO: 管理 1M 以下 内存
 #include "multiboot2.h"
 #include "klib/qlib.h"
-#include "klib/qmath.h"
-#include "mm/vmm.h"
+#include "mm/mm.h"
 #include "klib/qstring.h"
 #include "elf.h"
 

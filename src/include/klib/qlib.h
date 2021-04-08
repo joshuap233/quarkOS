@@ -5,9 +5,8 @@
 #ifndef QUARKOS_KLIB_QLIB_H
 #define QUARKOS_KLIB_QLIB_H
 
-#include <stdbool.h>
-#include <stdarg.h>
 #include "types.h"
+#include <stdarg.h>
 #include "drivers/vga.h"
 #include "x86.h"
 #include "drivers/timer.h"
@@ -42,6 +41,10 @@ void printfk(char *__restrict str, ...);
 #define MASK_U32(n) BIT_MASK(uint32_t, n)
 #define MASK_U16(n) BIT_MASK(uint16_t, n)
 #define MASK_U8(n)  BIT_MASK(uint8_t, n)
+
+
+// 向上取整除法,可能溢出, y 为被除数
+#define DIV_CEIL(x, y)  (((x) + (y) - 1) / (y))
 
 // bit 为 0-7
 INLINE void set_bit(uint8_t *value, uint8_t bit) {

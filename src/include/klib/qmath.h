@@ -14,7 +14,5 @@ float _q_ceilf(float _arg);
 
 float q_floorf(float _arg);
 
-// 向上取整除法,可能溢出, y 为被除数
-#define DIV_CEIL(x, y)  (((x) + (y) - 1) / (y))
 
 #endif //QUARKOS_KLIB_QMATH_H

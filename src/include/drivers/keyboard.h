@@ -6,7 +6,6 @@
 #ifndef QUARKOS_DRIVERS_KEYBOARD_H
 #define QUARKOS_DRIVERS_KEYBOARD_H
 
-#include <stdbool.h>
 #include "types.h"
 //状态读取
 #define KB_ACK     0xFA

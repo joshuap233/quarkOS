@@ -5,7 +5,6 @@
 #ifndef QUARKOS_KLIB_QSTRING_H
 #define QUARKOS_KLIB_QSTRING_H
 
-#include <stdbool.h>
 #include "types.h"
 
 size_t q_strlen(const char *str);

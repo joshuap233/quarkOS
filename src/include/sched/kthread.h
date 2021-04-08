@@ -8,9 +8,8 @@
 
 #include "types.h"
 #include "klib/list.h"
-#include "klib/qlib.h"
-#include "klib/qmath.h"
-#include "mm/vmm.h"
+#include "x86.h"
+#include "mm/mm.h"
 
 typedef struct context {
     //线程切换时需要保存的上下文

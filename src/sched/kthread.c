@@ -4,7 +4,6 @@
 #include "sched/kthread.h"
 #include "sched/klock.h"
 #include "klib/qlib.h"
-#include "klib/qmath.h"
 #include "sched/timer.h"
 #include "klib/qstring.h"
 #include "mm/heap.h"

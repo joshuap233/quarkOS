@@ -6,6 +6,7 @@
 #include "bio.h"
 #include "drivers/ide.h"
 #include "klib/qstring.h"
+#include "sched/sleeplock.h"
 
 static struct cache {
     buf_t buf[N_BUF];
@@ -57,7 +58,7 @@ void bio_read(buf_t *buf) {
 
 void bio_write(buf_t *buf, void *data) {
     while (buf->flag & BUF_BSY) {
-        // TODO: 阻塞线程
+         // TODO: 阻塞线程
     }
     q_memcpy(buf->data, data, SECTOR_SIZE);
     buf->flag |= (BUF_DIRTY | BUF_VALID);

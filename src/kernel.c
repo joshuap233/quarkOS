@@ -1,7 +1,5 @@
 #include "types.h"
-#include "klib/qlib.h"
 #include "multiboot2.h"
-#include "x86.h"
 #include "mm/init.h"
 #include "sched/kthread.h"
 #include "drivers/init.h"

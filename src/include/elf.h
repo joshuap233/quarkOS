@@ -7,7 +7,6 @@
 #define QUARKOS_ELF_H
 
 #include "types.h"
-#include "klib/qlib.h"
 
 typedef uint16_t Elf32_Half;    // Unsigned half int
 typedef uint32_t Elf32_Off;     // Unsigned offset

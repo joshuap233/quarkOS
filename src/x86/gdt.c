@@ -2,7 +2,6 @@
 // Created by pjs on 2021/1/23.
 //
 #include "gdt.h"
-
 #include "klib/qstring.h"
 
 uint32_t gdt_index = 1; //第一个空闲gdt索引
