@@ -4,7 +4,7 @@
 
 #include "types.h"
 #include "x86.h"
-#include "klib/qlib.h"
+#include "lib/qlib.h"
 #include "drivers/pic.h"
 
 #define ICW1_ICW4        0x1                //本次初始化需要发送 ICW4

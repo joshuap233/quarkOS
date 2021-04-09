@@ -8,10 +8,12 @@
 #include "drivers/ide.h"
 #include "types.h"
 #include "x86.h"
-#include "klib/qlib.h"
+#include "lib/qlib.h"
 #include "isr.h"
 #include "param.h"
 #include "buf.h"
+#include "sched/sleeplock.h"
+#include "sched/kthread.h"
 
 //primary bus port
 #define IDE_IO_BASE     0x1F0
@@ -46,11 +48,12 @@
 
 #define LBA_DRIVE0     0xE0  // Drive/Head 寄存器 4-7位,选择 lba模式,0主盘
 
-static struct ide_queue {
-    buf_t *head;
-    buf_t *tail;
-} ide_queue = {NULL, NULL};
+//static struct ide_queue {
+//    buf_t *head;
+//    buf_t *tail;
+//} ide_queue = {NULL, NULL};
 
+QUEUE_HEAD(ide_queue);
 
 static struct ide_device {
 #define MAX_N_SECS (256 * M)         // lba28 总扇区数
@@ -81,14 +84,6 @@ static struct ide_device {
 static int32_t ide_wait(bool check_error);
 
 static void ide_start(buf_t *buf);
-
-static void queue_put(buf_t *buf);
-
-static buf_t *queue_get();
-
-#define queue_empty (ide_queue.head == NULL)
-#define queue_head ide_queue.head
-#define queue_tail ide_queue.tail
 
 
 INT ide_isr(interrupt_frame_t *frame);
@@ -142,18 +137,18 @@ static int32_t ide_wait(bool check_error) {
 // PIC 14 号中断
 // ata primary bus
 INT ide_isr(UNUSED interrupt_frame_t *frame) {
-    buf_t *buf = queue_get();
-    if (buf != NULL) {
-        //TODO: 唤醒睡眠线程
+    queue_t *h = queue_get(&ide_queue);
+    if (h) {
+        buf_t *buf = buf_entry(h);
+        unblock_thread(&buf->queue);
         if (!(buf->flag & BUF_DIRTY)) {
             read_sector(buf);
             buf->flag |= BUF_VALID;
         } else {
             buf->flag &= ~BUF_DIRTY;
         }
-        buf->next = NULL;
-        if (!queue_empty)
-            ide_start(queue_head);
+        if (queue_empty(&ide_queue))
+            ide_start(buf_entry(&ide_queue.next));
     }
     pic2_eoi(46);
 }
@@ -178,29 +173,12 @@ static void ide_start(buf_t *buf) {
     }
 }
 
-static void queue_put(buf_t *buf) {
-    if (queue_empty) {
-        queue_head = buf;
-        queue_tail = buf;
-    } else {
-        queue_tail->q_next = buf;
-        queue_tail = buf;
-    }
-}
-
-static buf_t *queue_get() {
-    buf_t *buf = queue_head;
-    if (buf == NULL) return NULL;
-    queue_head = buf->next;
-    return buf;
-}
 
 void ide_rw(buf_t *buf) {
-    queue_put(buf);
-    if (buf == queue_head) {
+    queue_put(&buf->queue,&ide_queue);
+    if (&buf->queue == queue_head(&ide_queue)) {
         ide_start(buf);
     }
-    //TODO: 线程睡眠等待
 }
 
 

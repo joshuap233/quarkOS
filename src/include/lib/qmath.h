@@ -2,8 +2,8 @@
 // Created by pjs on 2021/1/19.
 //
 
-#ifndef QUARKOS_KLIB_QMATH_H
-#define QUARKOS_KLIB_QMATH_H
+#ifndef QUARKOS_LIB_QMATH_H
+#define QUARKOS_LIB_QMATH_H
 
 #include "types.h"
 
@@ -15,4 +15,4 @@ float _q_ceilf(float _arg);
 float q_floorf(float _arg);
 
 
-#endif //QUARKOS_KLIB_QMATH_H
+#endif //QUARKOS_LIB_QMATH_H

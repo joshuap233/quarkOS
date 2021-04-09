@@ -6,7 +6,7 @@
 #define QUARKOS_GDT_H
 
 #include "types.h"
-#include "klib/qlib.h"
+#include "lib/qlib.h"
 
 typedef struct gdt_entry {
     uint16_t limit; // 段界限 0-15位, 置 0xffff

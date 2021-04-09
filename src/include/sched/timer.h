@@ -7,7 +7,7 @@
 
 #include "types.h"
 #include "kthread.h"
-#include "klib/list.h"
+#include "lib/list.h"
 
 #define TIMER_COUNT 20
 typedef struct timer {

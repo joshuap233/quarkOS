@@ -4,7 +4,7 @@
 #include "types.h"
 #include "x86.h"
 #include "drivers/timer.h"
-#include "klib/qlib.h"
+#include "lib/qlib.h"
 #include "drivers/init.h"
 
 // 8 bit 端口,分别为 c0 c2 数据端口以及命令端口

@@ -1,8 +1,8 @@
 #include "types.h"
 #include "drivers/vga.h"
 #include "x86.h"
-#include "klib/qstring.h"
-#include "klib/qlib.h"
+#include "lib/qstring.h"
+#include "lib/qlib.h"
 
 
 #define VGA_TEXT_MODE_MEM 0xB8000

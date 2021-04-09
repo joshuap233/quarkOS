@@ -1,6 +1,6 @@
 #include <stdarg.h> // 可变参数
-#include "klib/qstring.h"
-#include "klib/qlib.h"
+#include "lib/qstring.h"
+#include "lib/qlib.h"
 #include "types.h"
 #include "drivers/vga.h"
 #include "elf.h"

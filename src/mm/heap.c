@@ -3,10 +3,10 @@
 //
 // 内核堆
 #include "types.h"
-#include "klib/list.h"
+#include "lib/list.h"
 #include "mm/heap.h"
 #include "mm/vmm.h"
-#include "klib/qlib.h"
+#include "lib/qlib.h"
 
 static heap_t heap;
 

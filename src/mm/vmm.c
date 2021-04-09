@@ -6,10 +6,10 @@
 #include "mm/vmm.h"
 #include "mm/pmm.h"
 
-#include "klib/qstring.h"
+#include "lib/qstring.h"
 #include "multiboot2.h"
 #include "x86.h"
-#include "klib/qlib.h"
+#include "lib/qlib.h"
 
 //内核页表本身在页表内的索引
 #define K_PD_INDEX        1023

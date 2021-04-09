@@ -1,7 +1,7 @@
 //
 // Created by pjs on 2021/1/25.
 //
-#include "klib/qlib.h"
+#include "lib/qlib.h"
 #include "isr.h"
 
 //页错误错误码

@@ -2,8 +2,8 @@
 // Created by pjs on 2021/1/15.
 //
 
-#ifndef QUARKOS_KLIB_QLIB_H
-#define QUARKOS_KLIB_QLIB_H
+#ifndef QUARKOS_LIB_QLIB_H
+#define QUARKOS_LIB_QLIB_H
 
 #include "types.h"
 #include <stdarg.h>
@@ -71,4 +71,4 @@ void panic();
 #define test_pass    printfk("test pass : %s: %s: %u\n",__FILE__,__FUNCTION__,__LINE__);
 #endif // TEST
 
-#endif //QUARKOS_KLIB_QLIB_H
+#endif //QUARKOS_LIB_QLIB_H

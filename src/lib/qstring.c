@@ -1,7 +1,7 @@
 //
 // Created by pjs on 2021/1/5.
 //
-#include "klib/qstring.h"
+#include "lib/qstring.h"
 #include "types.h"
 
 size_t q_strlen(const char *str) {

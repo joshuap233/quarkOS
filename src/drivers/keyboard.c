@@ -5,7 +5,7 @@
 #include "drivers/keyboard.h"
 #include "types.h"
 #include "drivers/ps2.h"
-#include "klib/qlib.h"
+#include "lib/qlib.h"
 #include "isr.h"
 
 INT kb_isr(interrupt_frame_t *frame);

@@ -1,8 +1,8 @@
 #include "types.h"
-#include "klib/qlib.h"
-#include "klib/qstring.h"
+#include "lib/qlib.h"
+#include "lib/qstring.h"
 #include "limits.h"
-#include "klib/qmath.h"
+#include "lib/qmath.h"
 
 float _q_ceilf(float _arg) {
     uint32_t be_mask = BIT_MASK(uint32_t ,8);

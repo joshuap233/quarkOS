@@ -3,7 +3,7 @@
 //
 // 使用栈结构管理物理内存
 #include "types.h"
-#include "klib/qlib.h"
+#include "lib/qlib.h"
 #include "mm/mm.h"
 #include "mm/pmm.h"
 #include "multiboot2.h"

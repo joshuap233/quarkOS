@@ -5,7 +5,8 @@
 #include "drivers/init.h"
 #include "isr.h"
 #include "sched/init.h"
-#include "klib/qlib.h"
+#include "lib/qlib.h"
+#include "bio.h"
 
 #if defined(__linux__)
 #warning "你没有使用跨平台编译器进行编译"
@@ -55,7 +56,9 @@ void kernel_main() {
     phymm_init();
     vmm_init();
     heap_init();
-//    ide_init();
+
+    ide_init();
+    bio_init();
 
     sched_init();
     enable_interrupt();
@@ -64,5 +67,5 @@ void kernel_main() {
     test_thread();
 #endif
 
-    block_thread();
+    block_thread(&block_list, NULL);
 }

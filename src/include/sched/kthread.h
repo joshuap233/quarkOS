@@ -7,7 +7,7 @@
 #define QUARKOS_SCHED_KTHREAD_H
 
 #include "types.h"
-#include "klib/list.h"
+#include "lib/list.h"
 #include "x86.h"
 #include "mm/mm.h"
 
@@ -53,17 +53,13 @@ void schedule();
 
 void kthread_exit();
 
-void block_thread();
+void block_thread(list_head_t *_block_list, spinlock_t *lock);
 
-void unblock_thread(tcb_t *thread);
+void unblock_thread(list_head_t *head);
 
-extern void switch_to(context_t *cur_context, context_t *next_context);
+// 通用阻塞列表
+extern list_head_t block_list;
 
-_Noreturn INLINE void idle() {
-    while (1) {
-        halt();
-    }
-}
 
 INLINE tcb_t *cur_tcb() {
     tcb_t *tcb;

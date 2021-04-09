@@ -4,7 +4,7 @@
 
 #include "types.h"
 #include "drivers/keyboard.h"
-#include "klib/qlib.h"
+#include "lib/qlib.h"
 #include "sched/timer.h"
 
 // sched_init 调用后才能使用

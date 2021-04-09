@@ -6,7 +6,7 @@
 #define QUARKOS_MM_FREE_LIST_H
 
 #include "types.h"
-#include "klib/list.h"
+#include "lib/list.h"
 
 // 管理空闲空间链表
 typedef struct free_list {

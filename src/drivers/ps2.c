@@ -4,7 +4,7 @@
 #include "types.h"
 #include "drivers/ps2.h"
 #include "x86.h"
-#include "klib/qlib.h"
+#include "lib/qlib.h"
 
 
 typedef bool status_t;

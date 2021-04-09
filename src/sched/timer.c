@@ -7,7 +7,7 @@
 #include "sched/kthread.h"
 #include "drivers/timer.h"
 #include "isr.h"
-#include "klib/list.h"
+#include "lib/list.h"
 
 
 #define timer_entry(ptr) list_entry(ptr, timer_t, head)
@@ -15,9 +15,11 @@
 // 当前线程剩余时间片
 volatile uint64_t g_time_slice = 0;
 
+
 static timer_t _timer[TIMER_COUNT];
-void timer_handler();
+
 INT clock_isr(interrupt_frame_t *frame);
+
 
 //用于管理计时器
 static struct timer_pool {
@@ -55,8 +57,7 @@ bool ms_sleep_until(uint64_t msc) {
     t->time = msc;
     t->thread = CUR_TCB;
 
-    list_add_prev(&t->head, &HEAD);
-    block_thread();
+    block_thread(&HEAD, NULL);
     return true;
 }
 
@@ -64,21 +65,19 @@ bool ms_sleep(mseconds_t msc) {
     return ms_sleep_until(G_TIME_SINCE_BOOT + msc);
 }
 
-void timer_handler() {
-    list_for_each_del(&HEAD) {
-        timer_t *tmp = timer_entry(hdr);
-        if (tmp->time >= G_TIME_SINCE_BOOT) {
-            list_del(hdr);
-            unblock_thread(tmp->thread);
-            free_timer(tmp);
-        }
-    }
-}
 
 // PIC 0 号中断,PIT 时钟中断
 INT clock_isr(UNUSED interrupt_frame_t *frame) {
     G_TIME_SINCE_BOOT++;
-    timer_handler();
+
+    list_for_each_del(&HEAD) {
+        timer_t *tmp = timer_entry(hdr);
+        if (tmp->time >= G_TIME_SINCE_BOOT) {
+            unblock_thread(hdr);
+            free_timer(tmp);
+        }
+    }
+
     pic1_eoi();
 
     if (g_time_slice == 0) {

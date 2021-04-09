@@ -6,7 +6,7 @@
 #define QUARKOS_MM_HEAP_H
 
 #include "types.h"
-#include "klib/list.h"
+#include "lib/list.h"
 void *mallocK(size_t size);
 
 void freeK(void *addr);

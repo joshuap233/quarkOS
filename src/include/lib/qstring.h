@@ -2,8 +2,8 @@
 // Created by pjs on 2021/1/5.
 //
 
-#ifndef QUARKOS_KLIB_QSTRING_H
-#define QUARKOS_KLIB_QSTRING_H
+#ifndef QUARKOS_LIB_QSTRING_H
+#define QUARKOS_LIB_QSTRING_H
 
 #include "types.h"
 
@@ -40,4 +40,4 @@ void reverse(char *s, uint32_t li);
 
 // q_strcpy,q_strncpy
 
-#endif //QUARKOS_KLIB_QSTRING_H
+#endif //QUARKOS_LIB_QSTRING_H

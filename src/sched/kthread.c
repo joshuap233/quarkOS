@@ -3,9 +3,9 @@
 //
 #include "sched/kthread.h"
 #include "sched/klock.h"
-#include "klib/qlib.h"
+#include "lib/qlib.h"
 #include "sched/timer.h"
-#include "klib/qstring.h"
+#include "lib/qstring.h"
 #include "mm/heap.h"
 
 typedef struct thread_btm {
@@ -33,8 +33,10 @@ LIST_HEAD(block_list);   //阻塞中的线程
 
 
 list_head_t *cleaner_task = NULL;  //清理线程,用于清理其他线程
-list_head_t *init_task    = NULL;  //空闲线程,时钟在可运行列表
+list_head_t *init_task = NULL;  //空闲线程,始终    在可运行列表
 list_head_t *ready_to_run = NULL;  //指向运行队列节点
+
+extern void switch_to(context_t *cur_context, context_t *next_context);
 
 static kthread_t alloc_tid();
 
@@ -56,6 +58,13 @@ static int _kthread_create(list_head_t **_thread, kthread_t *tid, void *(worker)
 
 
 extern void kthread_worker(void *(worker)(void *), void *args, tcb_t *tcb);
+
+
+_Noreturn INLINE void idle() {
+    while (1) {
+        halt();
+    }
+}
 
 INLINE void set_next_ready() {
     //从运行队列删除节点前需要调用该方法
@@ -91,7 +100,7 @@ void kthread_exit() {
     list_add_next(&CUR_HEAD, &finish_list);
     tcb_t *ct = tcb_entry(cleaner_task);
     if (ct->state != TASK_RUNNING)
-        unblock_thread(ct);
+        unblock_thread(cleaner_task);
     _block_thread(TASK_ZOMBIE);
 
     ir_unlock(&lock);
@@ -127,18 +136,20 @@ static void _block_thread(kthread_state_t state) {
     schedule();
 }
 
-void block_thread() {
+void block_thread(list_head_t *_block_list, spinlock_t *lk) {
     ir_lock_t lock;
     ir_lock(&lock);
+    if (lk) spinlock_unlock(lk);
 
     del_cur_task();
-    list_add_next(&CUR_HEAD, &block_list);
+    list_add_next(&CUR_HEAD, _block_list);
     _block_thread(TASK_SLEEPING);
 
     ir_unlock(&lock);
 }
 
-void unblock_thread(tcb_t *thread) {
+void unblock_thread(list_head_t *head) {
+    tcb_t *thread = tcb_entry(head);
     ir_lock_t lock;
     ir_lock(&lock);
 
@@ -168,6 +179,7 @@ static void free_tid(kthread_t tid) {
     clear_bit(&tid_map.map[tid / 8], tid % 8);
 }
 
+// 所有线程睡眠时才会执行
 static void *init_worker() {
     idle();
 }
@@ -184,7 +196,7 @@ _Noreturn static void *cleaner_worker() {
             freeK(entry->stack);
         }
         list_header_init(&finish_list);
-        block_thread();
+        block_thread(&block_list, NULL);
 
         ir_unlock(&lock);
     }
@@ -254,7 +266,7 @@ void *workerA(UNUSED void *args) {
     return NULL;
 }
 
-void test_thread(){
+void test_thread() {
     test_start;
     spinlock_init(&lock);
     kthread_t a[10];
