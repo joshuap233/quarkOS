@@ -5,7 +5,6 @@
 #ifndef QUARKOS_BUF_H
 #define QUARKOS_BUF_H
 
-#include "param.h"
 #include "types.h"
 #include "sched/sleeplock.h"
 #include "lib/list.h"
@@ -14,6 +13,9 @@ typedef struct buf {
 #define BUF_DIRTY 1     //数据需要更新
 #define BUF_VALID 1<<1  //数据块有效
 #define BUF_BSY   1<<2  //数据块正在读写
+#define SECTOR_SIZE 512
+#define N_BUF       30
+
     uint8_t flag;
     uint16_t ref_cnt;      // 当前块被引用的次数
     spinlock_t lock;

@@ -9,9 +9,9 @@
 
 #define ICW1_ICW4        0x1                //本次初始化需要发送 ICW4
 #define ICW1_CASCADE    (0x0<<1)        //级联
-#define ICW1_LTIM        (0x1<<4)        //边沿触发
+#define ICW1_LTIM       (0x1<<4)        //边沿触发
 
-#define ICW1_INIT       ICW1_ICW4 | ICW1_CASCADE | ICW1_LTIM
+#define ICW1_INIT       (ICW1_ICW4 | ICW1_CASCADE | ICW1_LTIM)
 #define ICW4_8086        0x01           // 需要手动添加 eoi 结束中断(级联必须选择)
 
 uint8_t pic2_offset = 40;

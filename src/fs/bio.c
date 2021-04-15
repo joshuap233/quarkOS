@@ -3,7 +3,7 @@
 //
 //磁盘缓冲块
 
-#include "bio.h"
+#include "fs/bio.h"
 #include "drivers/ide.h"
 #include "lib/qstring.h"
 #include "lib/list.h"

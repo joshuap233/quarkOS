@@ -10,6 +10,7 @@
 #include "lib/list.h"
 #include "x86.h"
 #include "mm/mm.h"
+#include "sched/klock.h"
 
 typedef struct context {
     //线程切换时需要保存的上下文

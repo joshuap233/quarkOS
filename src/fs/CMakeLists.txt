@@ -1,3 +1,3 @@
-add_library(fs OBJECT fs.c)
+add_library(fs OBJECT fs.c bio.c)
 
 

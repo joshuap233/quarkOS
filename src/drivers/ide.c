@@ -1,18 +1,17 @@
 //
 // Created by pjs on 2021/3/17.
 //
-// pata dma
+// pata pio/dma
 // 驱动只处理一根线连接一个设备的情况
 // 使用 lba28 编址,因此磁盘大小 <= 128G
+
 
 #include "drivers/ide.h"
 #include "types.h"
 #include "x86.h"
 #include "lib/qlib.h"
 #include "isr.h"
-#include "param.h"
 #include "buf.h"
-#include "sched/sleeplock.h"
 #include "sched/kthread.h"
 
 //primary bus port
@@ -44,7 +43,7 @@
 #define CMD_READ_MULTIPLE   0xC4
 #define CMD_WRITE_MULTIPLE  0xC5
 #define CMD_IDENTIFY        0xEC
-
+#define CMD_FLUSH           0xE7
 
 #define LBA_DRIVE0     0xE0  // Drive/Head 寄存器 4-7位,选择 lba模式,0主盘
 
@@ -57,12 +56,24 @@ QUEUE_HEAD(ide_queue);
 
 static struct ide_device {
 #define MAX_N_SECS (256 * M)         // lba28 总扇区数
-    bool dma;                        // 是否支持 dma
+    bool udma;                        // 是否支持 udma
     bool lba48;                      // 是否支持 lba48
     uint32_t size;                   // 扇区数量
 } ide_device;
 
+//Physical Region Descriptor
+//static struct prd {
+//    uint32_t addr; // 需要传输的数据缓冲区物理地址
+//    uint16_t cnt;  // 需要传输的字节数
+//    uint16_t zero: 15;
+//    uint16_t end: 1; //最后一个 prd 设置该位
+//} prd;
+//
+//// prd table
+//static _Alignas(4) struct prd prdt[1];
+
 //struct error {
+
 //    uint8_t addr_mark_nf: 1;
 //    uint8_t track_zero_nf: 1;
 //    uint8_t aborted_cmd: 1;
@@ -92,8 +103,12 @@ INLINE void read_sector(void *buf) {
     insw(IDE_DAT, buf, SECTOR_SIZE / 2);
 }
 
-INLINE void write_sector(void *buf) {
-    outsw(IDE_DAT, buf, SECTOR_SIZE / 2);
+INLINE void write_sector(void *b) {
+    for (uint16_t *buf = b; (void *) buf < b + SECTOR_SIZE / sizeof(uint16_t); buf++) {
+        outw(IDE_DAT, *buf);
+        // 刷新缓存
+        outb(IDE_CMD, CMD_FLUSH);
+    }
 }
 
 
@@ -140,15 +155,15 @@ INT ide_isr(UNUSED interrupt_frame_t *frame) {
     queue_t *h = queue_get(&ide_queue);
     if (h) {
         buf_t *buf = buf_entry(h);
-        unblock_thread(&buf->queue);
+        unblock_thread(h);
         if (!(buf->flag & BUF_DIRTY)) {
-            read_sector(buf);
+            read_sector(buf->data);
             buf->flag |= BUF_VALID;
         } else {
             buf->flag &= ~BUF_DIRTY;
         }
-        if (queue_empty(&ide_queue))
-            ide_start(buf_entry(&ide_queue.next));
+        if (!queue_empty(&ide_queue))
+            ide_start(buf_entry(queue_head(&ide_queue)));
     }
     pic2_eoi(46);
 }
@@ -167,7 +182,7 @@ static void ide_start(buf_t *buf) {
 
     if (buf->flag & BUF_DIRTY) {
         outb(IDE_CMD, CMD_WRITE_SECS);
-        write_sector(buf);
+        write_sector(buf->data);
     } else {
         outb(IDE_CMD, CMD_READ_SECS);
     }
@@ -175,7 +190,7 @@ static void ide_start(buf_t *buf) {
 
 
 void ide_rw(buf_t *buf) {
-    queue_put(&buf->queue,&ide_queue);
+    queue_put(&buf->queue, &ide_queue);
     if (&buf->queue == queue_head(&ide_queue)) {
         ide_start(buf);
     }

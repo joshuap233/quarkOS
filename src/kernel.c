@@ -6,18 +6,18 @@
 #include "isr.h"
 #include "sched/init.h"
 #include "lib/qlib.h"
-#include "bio.h"
+#include "fs/bio.h"
 
-#if defined(__linux__)
-#warning "你没有使用跨平台编译器进行编译"
+#ifdef __linux__
+#error "你没有使用跨平台编译器进行编译"
 #endif //__linux__
 
-#if !defined(__i386__)
-#warning "你没有使用 x86-elf 编译器进行编译"
+#ifndef __i386__
+#error "你没有使用 x86-elf 编译器进行编译"
 #endif //__i386__
 
-#if !defined(__STDC_HOSTED__)
-#warning "你没有使用 ffreestanding 模式"
+#ifndef __STDC_HOSTED__
+#error "你没有使用 ffreestanding 模式"
 #endif //__STDC_HOSTED__
 
 
@@ -57,8 +57,8 @@ void kernel_main() {
     vmm_init();
     heap_init();
 
-    ide_init();
-    bio_init();
+//    ide_init();
+//    bio_init();
 
     sched_init();
     enable_interrupt();

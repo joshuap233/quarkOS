@@ -40,6 +40,13 @@ INLINE uint16_t inw(uint16_t port) {
     return res;
 }
 
+
+INLINE uint32_t inl(uint16_t port) {
+    uint32_t res;
+    asm volatile ("inl %1,%0":"=a"(res):"dN"(port));
+    return res;
+}
+
 // 写一个字节
 INLINE void outb(uint16_t port, uint8_t value) {
     asm volatile ("outb %1,%0"::"dN"(port), "a"(value));
@@ -48,6 +55,11 @@ INLINE void outb(uint16_t port, uint8_t value) {
 //写一个字
 INLINE void outw(uint16_t port, uint16_t value) {
     asm volatile ("outw %1,%0"::"dN"(port), "a"(value));
+}
+
+// 写一个双字
+INLINE void outl(uint16_t port, uint32_t value) {
+    asm volatile ("outl %1,%0"::"dN"(port), "a"(value));
 }
 
 

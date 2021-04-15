@@ -10,7 +10,10 @@ ENABLE_LANGUAGE(ASM)
 set(TOOLS $ENV{HOME}/OS/tool)
 set(CMAKE_C_COMPILER ${TOOLS}/bin/i686-elf-gcc)
 set(CMAKE_ASM_COMPILER ${TOOLS}/bin/i686-elf-as)
-set(OBJCOPY ${TOOLS}/i686-elf-objcopy)
+set(CMAKE_AR ${TOOLS}/bin/i686-elf-ar)
+set(CMAKE_OBJCOPY ${TOOLS}/i686-elf-objcopy)
+set(CMAKE_OBJDUMP ${TOOLS}/i686-elf-objdump)
+
 
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_FLAGS "-ffreestanding -O0 -Wall -Wextra -g -mgeneral-regs-only")
@@ -22,7 +25,7 @@ set(INCLUDE ${PROJECT_SOURCE_DIR}/src/include)
 include_directories(${INCLUDE})
 
 set(S_SOURCE src/boot.s)
-set(C_SOURCE src/kernel.c src/multiboot2.c src/bio.c src/console.c)
+set(C_SOURCE src/kernel.c src/multiboot2.c src/console.c)
 
 add_executable(${KERNEL_BIN} ${C_SOURCE} ${S_SOURCE} ${mylib} ${drivers})
 set_target_properties(${KERNEL_BIN} PROPERTIES LINK_FLAGS "-T ${CMAKE_SOURCE_DIR}/linker.ld -ffreestanding -O0 -nostdlib -g")
