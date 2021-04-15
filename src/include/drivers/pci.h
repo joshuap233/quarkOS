@@ -22,25 +22,25 @@ typedef union {
 
 typedef struct pci_dev {
 //base address 在配置空间的偏移
-#define ba_offset0    0x10
-#define ba_offset1    0x14
-#define ba_offset2    0x18
-#define ba_offset3    0x1c
-#define ba_offset4    0x20
-#define ba_offset5    0x24
+#define PCI_BA_OFFSET0    0x10
+#define PCI_BA_OFFSET1    0x14
+#define PCI_BA_OFFSET2    0x18
+#define PCI_BA_OFFSET3    0x1c
+#define PCI_BA_OFFSET4    0x20
+#define PCI_BA_OFFSET5    0x24
     uint8_t class_code;
     uint8_t subclass;
     uint8_t prg_if;  //Programming Interface
     uint8_t hd_type: 7;  // header type
     uint8_t : 1;
     cfg_addr_t cfg;
-} pci_dev;
+} pci_dev_t;
 
-void pci_device_detect(pci_dev *dev);
-uint16_t pci_inw(pci_dev *dev, uint8_t offset);
-uint8_t pci_inb(pci_dev *dev, uint8_t offset);
-uint32_t pci_inl(pci_dev *dev, uint8_t offset);
-void pci_outl(pci_dev *dev, uint8_t offset, uint32_t value);
+int8_t pci_device_detect(pci_dev_t *dev);
+uint16_t pci_inw(pci_dev_t *dev, uint8_t offset);
+uint8_t pci_inb(pci_dev_t *dev, uint8_t offset);
+uint32_t pci_inl(pci_dev_t *dev, uint8_t offset);
+void pci_outl(pci_dev_t *dev, uint8_t offset, uint32_t value);
 
 
 #endif //QUARKOS_PCI_H

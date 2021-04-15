@@ -13,6 +13,8 @@
 #include "isr.h"
 #include "buf.h"
 #include "sched/kthread.h"
+#include "drivers/pci.h"
+
 
 //primary bus port
 #define IDE_IO_BASE     0x1F0
@@ -47,19 +49,17 @@
 
 #define LBA_DRIVE0     0xE0  // Drive/Head 寄存器 4-7位,选择 lba模式,0主盘
 
-//static struct ide_queue {
-//    buf_t *head;
-//    buf_t *tail;
-//} ide_queue = {NULL, NULL};
-
 QUEUE_HEAD(ide_queue);
 
 static struct ide_device {
-#define MAX_N_SECS (256 * M)         // lba28 总扇区数
+#define MAX_N_SECS (256 * M)          // lba28 总扇区数
     bool udma;                        // 是否支持 udma
-    bool lba48;                      // 是否支持 lba48
-    uint32_t size;                   // 扇区数量
-} ide_device;
+    bool lba48;                       // 是否支持 lba48
+    uint32_t size;                    // 扇区数量
+    uint32_t pci_iob;                // 支持 pci 时,io base
+    uint32_t pci_ctrl;               // 支持 pci 时,control io base
+    pci_dev_t pci_dev;
+} ide_dev;
 
 //Physical Region Descriptor
 //static struct prd {
@@ -97,6 +97,8 @@ static int32_t ide_wait(bool check_error);
 static void ide_start(buf_t *buf);
 
 
+static void udma_init();
+
 INT ide_isr(interrupt_frame_t *frame);
 
 INLINE void read_sector(void *buf) {
@@ -128,14 +130,16 @@ void ide_init() {
     uint16_t buffer[256];
     read_sector(buffer);
 
-    ide_device.lba48 = buffer[83] & (1 << 10);
-    //  88/93  dma 检测
+    ide_dev.lba48 = buffer[83] & (1 << 10);
+    // TODO: 88/93  dma 检测
+
     //  ide_device.size = buffer[60] + ((uint32_t) buffer[61] << 16);
 
     //开启磁盘中断
     outb(IDE_CTR, 0);
 
     reg_isr(46, ide_isr);
+    udma_init();
 }
 
 // 等待主盘可用
@@ -197,4 +201,15 @@ void ide_rw(buf_t *buf) {
 }
 
 
+static void udma_init() {
+    // ide 的 class 与 subclass 都为 1
+    pci_dev_t *pci_dev = &ide_dev.pci_dev;
+    pci_dev->class_code = 1;
+    pci_dev->subclass = 1;
+    assertk(pci_device_detect(pci_dev) == 0);
+    assertk(pci_dev->hd_type == 0);
 
+    uint32_t bar0 = pci_inl(pci_dev, PCI_BA_OFFSET0);
+    uint32_t bar1 = pci_inl(pci_dev, PCI_BA_OFFSET1);
+
+}

@@ -45,7 +45,10 @@ void kernel_main() {
     assertk(mba->zero == 0);
     multiboot_init(mba);
     hello();
+
     gdt_init();
+
+    pci_init();
 
     idt_init();
     pic_init(32, 40);
@@ -57,7 +60,7 @@ void kernel_main() {
     vmm_init();
     heap_init();
 
-//    ide_init();
+    ide_init();
 //    bio_init();
 
     sched_init();
