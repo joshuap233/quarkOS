@@ -1,19 +1,17 @@
 //
 // Created by pjs on 2021/3/17.
 //
-// pata pio/dma
+// pata pio
 // 驱动只处理一根线连接一个设备的情况
 // 使用 lba28 编址,因此磁盘大小 <= 128G
-
+// TODO: 错误处理?
 
 #include "drivers/ide.h"
-#include "types.h"
-#include "x86.h"
 #include "lib/qlib.h"
 #include "isr.h"
 #include "buf.h"
 #include "sched/kthread.h"
-#include "drivers/pci.h"
+#include "lib/list.h"
 
 
 //primary bus port
@@ -40,8 +38,8 @@
 #define IDE_CTR_DA     (IDE_CTR_BASE + 1) // Provides drive select and head select information.
 
 // 发送读写指令后需要等待 BSY 位清空再传输数据
-#define CMD_READ_SECS       0x20
-#define CMD_WRITE_SECS      0x30
+#define CMD_READ_PIO        0x20
+#define CMD_WRITE_PIO       0x30
 #define CMD_READ_MULTIPLE   0xC4
 #define CMD_WRITE_MULTIPLE  0xC5
 #define CMD_IDENTIFY        0xEC
@@ -49,31 +47,17 @@
 
 #define LBA_DRIVE0     0xE0  // Drive/Head 寄存器 4-7位,选择 lba模式,0主盘
 
+// 等待读写的缓冲块队列
 QUEUE_HEAD(ide_queue);
 
 static struct ide_device {
 #define MAX_N_SECS (256 * M)          // lba28 总扇区数
-    bool udma;                        // 是否支持 udma
+    bool dma;                        // 是否支持 dma
     bool lba48;                       // 是否支持 lba48
     uint32_t size;                    // 扇区数量
-    uint32_t pci_iob;                // 支持 pci 时,io base
-    uint32_t pci_ctrl;               // 支持 pci 时,control io base
-    pci_dev_t pci_dev;
 } ide_dev;
 
-//Physical Region Descriptor
-//static struct prd {
-//    uint32_t addr; // 需要传输的数据缓冲区物理地址
-//    uint16_t cnt;  // 需要传输的字节数
-//    uint16_t zero: 15;
-//    uint16_t end: 1; //最后一个 prd 设置该位
-//} prd;
-//
-//// prd table
-//static _Alignas(4) struct prd prdt[1];
-
 //struct error {
-
 //    uint8_t addr_mark_nf: 1;
 //    uint8_t track_zero_nf: 1;
 //    uint8_t aborted_cmd: 1;
@@ -109,7 +93,7 @@ INLINE void write_sector(void *b) {
     for (uint16_t *buf = b; (void *) buf < b + SECTOR_SIZE / sizeof(uint16_t); buf++) {
         outw(IDE_DAT, *buf);
         // 刷新缓存
-        outb(IDE_CMD, CMD_FLUSH);
+        ide_send_cmd(CMD_FLUSH);
     }
 }
 
@@ -121,7 +105,7 @@ void ide_init() {
     // 使用 LBA 寻址
     outb(IDE_DH, LBA_DRIVE0);
     //发送 IDENTIFY 指令
-    outb(IDE_CMD, CMD_IDENTIFY);
+    ide_send_cmd(CMD_IDENTIFY);
 
     // 检查设备是否存在
     assertk(inb(IDE_ALT_STAT) != 0 && ide_wait(1) == 0);
@@ -139,7 +123,6 @@ void ide_init() {
     outb(IDE_CTR, 0);
 
     reg_isr(46, ide_isr);
-    udma_init();
 }
 
 // 等待主盘可用
@@ -161,22 +144,24 @@ INT ide_isr(UNUSED interrupt_frame_t *frame) {
         buf_t *buf = buf_entry(h);
         unblock_thread(h);
         if (!(buf->flag & BUF_DIRTY)) {
-            read_sector(buf->data);
             buf->flag |= BUF_VALID;
-        } else {
-            buf->flag &= ~BUF_DIRTY;
+            read_sector(buf->data);
         }
+        buf->flag &= ~(BUF_DIRTY | BUF_BSY);
+
         if (!queue_empty(&ide_queue))
             ide_start(buf_entry(queue_head(&ide_queue)));
     }
     pic2_eoi(46);
 }
 
-static void ide_start(buf_t *buf) {
+
+void ide_driver_init(buf_t *buf, uint32_t secs_cnt) {
+    // 选择 ide 驱动, 发送 lba 值, 设置扇区数
     ide_wait(0);
 
     // 需要读取的扇区数
-    outb(IDE_COUNT, 1);
+    outb(IDE_COUNT, secs_cnt);
     // 写入 28 位 lba 值
     outb(IDE_NUM, buf->no_secs & 0xFF);
     outb(IDE_CYL_L, (buf->no_secs >> 8) & MASK_U8(8));
@@ -184,11 +169,15 @@ static void ide_start(buf_t *buf) {
     // 选择 drive0
     outb(IDE_DH, LBA_DRIVE0 | ((buf->no_secs >> 24) & MASK_U8(4)));
 
+}
+
+static void ide_start(buf_t *buf) {
+    ide_driver_init(buf, 1);
     if (buf->flag & BUF_DIRTY) {
-        outb(IDE_CMD, CMD_WRITE_SECS);
+        ide_send_cmd(CMD_WRITE_PIO);
         write_sector(buf->data);
     } else {
-        outb(IDE_CMD, CMD_READ_SECS);
+        ide_send_cmd(CMD_READ_PIO);
     }
 }
 
@@ -200,16 +189,3 @@ void ide_rw(buf_t *buf) {
     }
 }
 
-
-static void udma_init() {
-    // ide 的 class 与 subclass 都为 1
-    pci_dev_t *pci_dev = &ide_dev.pci_dev;
-    pci_dev->class_code = 1;
-    pci_dev->subclass = 1;
-    assertk(pci_device_detect(pci_dev) == 0);
-    assertk(pci_dev->hd_type == 0);
-
-    uint32_t bar0 = pci_inl(pci_dev, PCI_BA_OFFSET0);
-    uint32_t bar1 = pci_inl(pci_dev, PCI_BA_OFFSET1);
-
-}

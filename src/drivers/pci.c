@@ -46,12 +46,12 @@ uint16_t pci_inw(pci_dev_t *dev, uint8_t offset) {
 // 使用 dev 的 class_code 与 subclass 探测设备
 int8_t pci_device_detect(pci_dev_t *dev) {
     struct pci_cfg *cfg = &dev->cfg.field;
-    cfg->func_no = 0;
     cfg->zero = 0;
     cfg->enable = 1;
 
     for (cfg->bus_no = 0; cfg->bus_no <= 255; cfg->bus_no++) {
         for (cfg->dev_no = 0; cfg->dev_no < 32; cfg->dev_no++) {
+            cfg->func_no = 0;
             uint8_t func_num = 1;
             if (pci_inw(dev, VENDOR_OFFSET) == INVALID_VENDOR) continue;
             uint8_t hd_type = pci_inb(dev, HD_TYPE_OFFSET);

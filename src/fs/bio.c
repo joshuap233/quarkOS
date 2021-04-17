@@ -9,6 +9,7 @@
 #include "lib/list.h"
 #include "sched/kthread.h"
 #include "lib/qlib.h"
+#include "drivers/dma.h"
 
 static struct cache {
     buf_t buf[N_BUF];
@@ -62,19 +63,25 @@ static buf_t *bio_get(uint32_t no_secs) {
 void bio_read(uint32_t no_secs) {
     buf_t *buf = bio_get(no_secs);
     spinlock_lock(&buf->lock);
+
     if (buf->flag & BUF_VALID) {
-        spinlock_lock(&buf->lock);
-        return;
-    };
-    ide_rw(buf);
+        if (!(buf->flag & BUF_BSY)) {
+            buf->flag |= BUF_BSY;
+            spinlock_unlock(&buf->lock);
+            return;
+        }
+    } else {
+        dma_dev.dma ? dma_rw(buf) : ide_rw(buf);
+    }
+
     block_thread(&buf->queue, &buf->lock);
 }
 
 void bio_write(buf_t *buf, void *data) {
     spinlock_lock(&buf->lock);
     q_memcpy(buf->data, data, SECTOR_SIZE);
-    buf->flag |= (BUF_DIRTY | BUF_VALID);
-    ide_rw(buf);
+    buf->flag |= (BUF_DIRTY | BUF_VALID | BUF_BSY);
+    dma_dev.dma ? dma_rw(buf) : ide_rw(buf);
     block_thread(&buf->queue, &buf->lock);
 }
 
@@ -83,13 +90,12 @@ void bio_free(buf_t *_buf) {
     assertk(_buf->ref_cnt > 0);
     buf_t *buf;
     for_each_buf(buf) {
-        if (buf->no_secs == _buf->no_secs) {
-            buf->ref_cnt--;
-            if (buf->ref_cnt == 1 && !queue_empty(&cache.queue)) {
-                //唤醒等待获取 buf 的线程
-                unblock_thread(queue_head(&cache.queue));
-            }
+        if (buf->no_secs == _buf->no_secs && (--buf->ref_cnt) == 0 && !queue_empty(&cache.queue)) {
+            //唤醒等待获取 buf 的线程
+            unblock_thread(queue_head(&cache.queue));
             return;
         }
     }
 }
+
+

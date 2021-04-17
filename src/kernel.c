@@ -48,20 +48,23 @@ void kernel_main() {
 
     gdt_init();
 
-    pci_init();
-
+    // 中断初始化
     idt_init();
     pic_init(32, 40);
     pit_init(PIT_TIMER_FREQUENCY);
+    // ps2 设备初始化
     ps2_init();
-    kb_init();    //初始化 ps/2 键盘
+    kb_init();
 
+    // 内存管理模块初始化
     phymm_init();
     vmm_init();
     heap_init();
 
+    // 文件系统初始化
     ide_init();
-//    bio_init();
+    dma_init();
+    bio_init();
 
     sched_init();
     enable_interrupt();
