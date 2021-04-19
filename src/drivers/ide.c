@@ -7,8 +7,6 @@
 // TODO: 错误处理?
 
 #include "drivers/ide.h"
-#include "lib/qlib.h"
-#include "isr.h"
 #include "buf.h"
 #include "sched/kthread.h"
 #include "lib/list.h"
@@ -45,7 +43,7 @@
 #define CMD_IDENTIFY        0xEC
 #define CMD_FLUSH           0xE7
 
-#define LBA_DRIVE0     0xE0  // Drive/Head 寄存器 4-7位,选择 lba模式,0主盘
+#define LBA_DRIVE0          0xE0  // Drive/Head 寄存器 4-7位,选择 lba模式,0主盘
 
 // 等待读写的缓冲块队列
 QUEUE_HEAD(ide_queue);
@@ -81,28 +79,25 @@ static int32_t ide_wait(bool check_error);
 static void ide_start(buf_t *buf);
 
 
-static void udma_init();
-
-INT ide_isr(interrupt_frame_t *frame);
-
 INLINE void read_sector(void *buf) {
     insw(IDE_DAT, buf, SECTOR_SIZE / 2);
 }
 
 INLINE void write_sector(void *b) {
-    for (uint16_t *buf = b; (void *) buf < b + SECTOR_SIZE / sizeof(uint16_t); buf++) {
-        outw(IDE_DAT, *buf);
-        // 刷新缓存
-        ide_send_cmd(CMD_FLUSH);
-    }
+    outsw(IDE_DAT, b, SECTOR_SIZE / 2);
+    // 写成下面的样子触发不了中断:
+    //    for (uint16_t *buf = b; (void *) buf < b + SECTOR_SIZE / sizeof(uint16_t); buf++) {
+    //        outw(IDE_DAT, *buf);
+    //        // 刷新缓存
+    //        ide_send_cmd(CMD_FLUSH);
+    //    }
 }
 
 
 void ide_init() {
-    ide_wait(0);
+    assertk(ide_wait(0) == 0);
 
-    // 选择要操作的设备为主盘(primary bus, master drivers),
-    // 使用 LBA 寻址
+    // 选择要操作的设备为主盘, LBA 寻址
     outb(IDE_DH, LBA_DRIVE0);
     //发送 IDENTIFY 指令
     ide_send_cmd(CMD_IDENTIFY);
@@ -117,18 +112,16 @@ void ide_init() {
     ide_dev.lba48 = buffer[83] & (1 << 10);
     // TODO: 88/93  dma 检测
 
-    //  ide_device.size = buffer[60] + ((uint32_t) buffer[61] << 16);
+    ide_dev.size = buffer[60] + ((uint32_t) buffer[61] << 16);
 
     //开启磁盘中断
     outb(IDE_CTR, 0);
-
-    reg_isr(46, ide_isr);
 }
 
 // 等待主盘可用
 static int32_t ide_wait(bool check_error) {
     uint8_t r;
-    while ((r = inb(IDE_ALT_STAT)) & IDE_STAT_BSY);
+    while ((r = inb(IDE_STAT)) & IDE_STAT_BSY);
 
     if (check_error && (r & (IDE_STAT_DF | IDE_STAT_ERR)) != 0) {
         return -1;
@@ -136,42 +129,47 @@ static int32_t ide_wait(bool check_error) {
     return 0;
 }
 
-// PIC 14 号中断
-// ata primary bus
-INT ide_isr(UNUSED interrupt_frame_t *frame) {
+
+void ide_isr_handler(UNUSED interrupt_frame_t *frame) {
     queue_t *h = queue_get(&ide_queue);
     if (h) {
         buf_t *buf = buf_entry(h);
-        unblock_thread(h);
+        unblock_threads(&buf->sleep);
         if (!(buf->flag & BUF_DIRTY)) {
             buf->flag |= BUF_VALID;
             read_sector(buf->data);
         }
         buf->flag &= ~(BUF_DIRTY | BUF_BSY);
 
-        if (!queue_empty(&ide_queue))
+        if (!queue_empty(&ide_queue)) {
             ide_start(buf_entry(queue_head(&ide_queue)));
+        }
+
+        // 通知线程, 中断处理程序以及被执行
+        spinlock_unlock(&buf->lock);
     }
-    pic2_eoi(46);
 }
 
 
 void ide_driver_init(buf_t *buf, uint32_t secs_cnt) {
+    uint32_t no_sec = buf->no_secs;
     // 选择 ide 驱动, 发送 lba 值, 设置扇区数
-    ide_wait(0);
+    assertk(ide_wait(0) == 0);
 
     // 需要读取的扇区数
     outb(IDE_COUNT, secs_cnt);
     // 写入 28 位 lba 值
-    outb(IDE_NUM, buf->no_secs & 0xFF);
-    outb(IDE_CYL_L, (buf->no_secs >> 8) & MASK_U8(8));
-    outb(IDE_CYL_H, (buf->no_secs >> 16) & MASK_U8(8));
+    outb(IDE_NUM, no_sec & MASK_U8(8));
+    outb(IDE_CYL_L, (no_sec >> 8) & MASK_U8(8));
+    outb(IDE_CYL_H, (no_sec >> 16) & MASK_U8(8));
     // 选择 drive0
-    outb(IDE_DH, LBA_DRIVE0 | ((buf->no_secs >> 24) & MASK_U8(4)));
-
+    outb(IDE_DH, LBA_DRIVE0 | ((no_sec >> 24) & MASK_U8(4)));
+    // 触发一次中断
+    outb(IDE_CTR, 0);
 }
 
 static void ide_start(buf_t *buf) {
+    buf->flag |= BUF_BSY;
     ide_driver_init(buf, 1);
     if (buf->flag & BUF_DIRTY) {
         ide_send_cmd(CMD_WRITE_PIO);
@@ -188,4 +186,3 @@ void ide_rw(buf_t *buf) {
         ide_start(buf);
     }
 }
-

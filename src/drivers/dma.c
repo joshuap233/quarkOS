@@ -2,9 +2,9 @@
 // Created by pjs on 2021/4/14.
 //
 // ide dma
+
 #include "drivers/pci.h"
 #include "lib/qlib.h"
-#include "isr.h"
 #include "buf.h"
 #include "drivers/dma.h"
 #include "lib/list.h"
@@ -48,29 +48,27 @@ QUEUE_HEAD(dma_queue);
 
 struct ide_dma_dev dma_dev;
 
-INT dma_isr(UNUSED interrupt_frame_t *frame);
-
 static void prdt_init();
 
-void udma_init() {
+
+void dma_init() {
     // ide 的 class 与 subclass 都为 1
-    pci_dev_t *pci_dev = &dma_dev.pci_dev;
-    pci_dev->class_code = 1;
-    pci_dev->subclass = 1;
+    pci_dev_t *pci = &dma_dev.pci_dev;
+    pci->class_code = 1;
+    pci->subclass = 1;
 
     // 懒得处理其他情况了...就这样吧
-    // 事实上 prg_if 可能会有 8 钟
-    if (pci_device_detect(pci_dev) != 0 || pci_dev->hd_type != 0 || pci_dev->prg_if != 128) {
+    // 事实上 prg_if 可能会有 8 种
+    if (pci_device_detect(pci) != 0 || pci->hd_type != 0 || pci->prg_if != 128) {
         dma_dev.dma = false;
         return;
     }
 
     // hd_type=0 时, 后两位无效
-    dma_dev.iob = pci_inl(pci_dev, PCI_BA_OFFSET0) & (MASK_U32(30) << 2);
-    dma_dev.ctrl = pci_inl(pci_dev, PCI_BA_OFFSET1) & (MASK_U32(30) << 2);
-    dma_dev.bm = pci_inl(pci_dev, PCI_BA_OFFSET4) & (MASK_U32(30) << 2);
-
-    reg_isr(46, dma_isr);
+    uint32_t mask = MASK_U32(30) << 2;
+    dma_dev.iob = pci_inl(pci, PCI_BA_OFFSET0) & mask;
+    dma_dev.ctrl = pci_inl(pci, PCI_BA_OFFSET1) & mask;
+    dma_dev.bm = pci_inl(pci, PCI_BA_OFFSET4) & mask;
 
     prdt_init();
     // prdt 地址写入 bus master 寄存器
@@ -85,19 +83,41 @@ static void prdt_init() {
     prdt[i].end = 1;
 }
 
+void dma_buf_sort(buf_t *buf) {
+    // 将需要读/写的磁盘地址按照 no_secs 排序
+    bool dirty = buf->flag & BUF_DIRTY;
+    LH *head = &buf->queue, *last = &buf->queue;
+    for (LH *cur = head->next, *nxt = cur->next; cur != &dma_queue; cur = nxt, nxt = nxt->next) {
+        if ((buf_entry(cur)->flag & BUF_DIRTY) == dirty) {
+            LH *hdr = last;
+            for (; hdr != head && buf_entry(hdr)->no_secs > buf_entry(cur)->no_secs; hdr = hdr->prev);
+            list_del(cur);
+            list_add_next(cur, hdr);
+            if (hdr == last) last = cur;
+        }
+    }
+}
 
-void dma_start(buf_t *buf) {
-    // TODO: 将需要读/写的磁盘地址按照 no_secs 排序 ?
+// 返回需要读扇区数
+// TODO: 有些情况不需要排序,比如文件系统需要立即强制写入数据块
+uint32_t dma_set_prdt(buf_t *buf) {
+    dma_buf_sort(buf);
     uint32_t i = 0;
-
     bool dirty = buf->flag & BUF_DIRTY;
     for (LH *hdr = &buf->queue; hdr != &dma_queue; hdr = hdr->next) {
         if ((buf_entry(hdr)->flag & BUF_DIRTY) == dirty) {
             prdt[i++].addr = (pointer_t) buf->data;
+            buf->flag |= BUF_BSY;
         }
     }
     prdt[i - 1].end = 1;
+    return i;
+}
 
+void dma_start(buf_t *buf) {
+    uint32_t i = dma_set_prdt(buf);
+
+    bool dirty = buf->flag & BUF_DIRTY;
     uint8_t bm_cmd = dirty ? BM_CMD_WRITE : BM_CMD_READ;
     outb(dma_dev.bm + BM_CMD, bm_cmd);
 
@@ -117,7 +137,7 @@ void dma_rw(buf_t *buf) {
 }
 
 
-INT dma_isr(UNUSED interrupt_frame_t *frame) {
+void dma_isr_handler(UNUSED interrupt_frame_t *frame) {
     uint8_t stat = inb(dma_dev.bm + BM_STAT);
     assertk(!((stat & (BM_STAT_ERROR | BM_STAT_BSY))));
 
@@ -125,15 +145,17 @@ INT dma_isr(UNUSED interrupt_frame_t *frame) {
     list_for_each(&dma_queue) {
         buf_t *buf = buf_entry(hdr);
         if ((buf_entry(hdr)->flag & BUF_DIRTY) == dirty) {
-            unblock_thread(hdr);
+            unblock_threads(&buf_entry(hdr)->sleep);
             buf->flag |= BUF_VALID;
             buf->flag &= ~(BUF_DIRTY | BUF_BSY);
             list_del(hdr);
+
+            // 通知线程, 中断处理程序以及被执行
+            spinlock_unlock(&buf->lock);
         }
     }
 
     if (!queue_empty(&dma_queue)) {
         dma_start(buf_entry(queue_head(&dma_queue)));
     }
-    pic2_eoi(46);
 }

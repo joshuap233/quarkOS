@@ -1,12 +1,15 @@
 //
 // Created by pjs on 2021/2/19.
 //
+// 使用 LIST_DEL, 不要直接使用 list_del!!!
+
 #include "sched/kthread.h"
 #include "sched/klock.h"
 #include "lib/qlib.h"
 #include "sched/timer.h"
 #include "lib/qstring.h"
 #include "mm/heap.h"
+
 
 typedef struct thread_btm {
     void *entry;
@@ -46,7 +49,7 @@ static void *init_worker();
 
 _Noreturn static void *cleaner_worker();
 
-static void _block_thread(kthread_state_t state);
+static void kt_block(kthread_state_t state);
 
 static void cleaner_thread_init();
 
@@ -54,27 +57,18 @@ static void cleaner_thread_init();
 //添加 idle task 方便任务列表的管理
 static void init_thread_init();
 
-static int _kthread_create(list_head_t **_thread, kthread_t *tid, void *(worker)(void *), void *args);
-
+static int kt_create(list_head_t **_thread, kthread_t *tid, void *(worker)(void *), void *args);
 
 extern void kthread_worker(void *(worker)(void *), void *args, tcb_t *tcb);
 
+INLINE void unblock(list_head_t *head);
 
-_Noreturn INLINE void idle() {
-    while (1) {
-        halt();
-    }
-}
+_Noreturn INLINE void idle();
 
-INLINE void set_next_ready() {
-    //从运行队列删除节点前需要调用该方法
-    ready_to_run = CUR_HEAD.next;
-}
+INLINE void set_next_ready();
 
-INLINE void del_cur_task() {
-    set_next_ready();
-    list_del(&CUR_HEAD);
-}
+#define LIST_DEL(l) {set_next_ready();list_del(l);}
+#define del_cur_task() LIST_DEL(&CUR_HEAD);
 
 //初始化内核线程
 void sched_init() {
@@ -101,7 +95,7 @@ void kthread_exit() {
     tcb_t *ct = tcb_entry(cleaner_task);
     if (ct->state != TASK_RUNNING)
         unblock_thread(cleaner_task);
-    _block_thread(TASK_ZOMBIE);
+    kt_block(TASK_ZOMBIE);
 
     ir_unlock(&lock);
     idle();
@@ -110,7 +104,7 @@ void kthread_exit() {
 
 int kthread_create(kthread_t *tid, void *(worker)(void *), void *args) {
     list_head_t *thread;
-    return _kthread_create(&thread, tid, worker, args);
+    return kt_create(&thread, tid, worker, args);
 }
 
 void schedule() {
@@ -131,32 +125,53 @@ void schedule() {
     ir_unlock(&lock);
 }
 
-static void _block_thread(kthread_state_t state) {
+static void kt_block(kthread_state_t state) {
     CUR_TCB->state = state;
     schedule();
 }
 
-void block_thread(list_head_t *_block_list, spinlock_t *lk) {
+// 睡眠前释放锁,被唤醒后自动获取锁, 传入的锁没有被获取则不会睡眠
+int8_t block_thread(list_head_t *_block_list, spinlock_t *lk) {
     ir_lock_t lock;
     ir_lock(&lock);
-    if (lk) spinlock_unlock(lk);
+    if (lk) {
+        if (lk->flag == 0) {
+            ir_unlock(&lock);
+            return -1;
+        };
+        spinlock_unlock(lk);
+    }
 
     del_cur_task();
     list_add_next(&CUR_HEAD, _block_list);
-    _block_thread(TASK_SLEEPING);
+    kt_block(TASK_SLEEPING);
 
+    if (lk) spinlock_lock(lk);
     ir_unlock(&lock);
+    return 0;
+}
+
+INLINE void unblock(list_head_t *head) {
+    tcb_t *thread = tcb_entry(head);
+    thread->state = TASK_RUNNING;
+    LIST_DEL(&thread->run_list);
+    list_add_prev(&thread->run_list, init_task);
 }
 
 void unblock_thread(list_head_t *head) {
-    tcb_t *thread = tcb_entry(head);
     ir_lock_t lock;
     ir_lock(&lock);
+    unblock(head);
+    ir_unlock(&lock);
+}
 
-    thread->state = TASK_RUNNING;
-    list_del(&thread->run_list);
-    list_add_prev(&thread->run_list, init_task);
-
+// 唤醒从 head 开始的所有线程, head 为指针头(不是有效的 tcb)
+void unblock_threads(list_head_t *head) {
+    ir_lock_t lock;
+    ir_lock(&lock);
+    list_for_each_del(head) {
+        unblock(hdr);
+    }
     ir_unlock(&lock);
 }
 
@@ -204,7 +219,7 @@ _Noreturn static void *cleaner_worker() {
 
 static void cleaner_thread_init() {
     kthread_t tid;
-    _kthread_create(&cleaner_task, &tid, cleaner_worker, NULL);
+    kt_create(&cleaner_task, &tid, cleaner_worker, NULL);
     q_memcpy(tcb_entry(cleaner_task)->name, "cleaner", sizeof("cleaner"));
 }
 
@@ -212,14 +227,14 @@ static void cleaner_thread_init() {
 //添加 idle task 方便任务列表的管理
 static void init_thread_init() {
     kthread_t tid;
-    _kthread_create(&init_task, &tid, init_worker, NULL);
+    kt_create(&init_task, &tid, init_worker, NULL);
     list_header_init(init_task);
     q_memcpy(tcb_entry(init_task)->name, "init", sizeof("init"));
     assertk(tcb_entry(init_task)->tid == 0);
 }
 
 // 成功返回 0,否则返回错误码(<0)
-static int _kthread_create(list_head_t **_thread, kthread_t *tid, void *(worker)(void *), void *args) {
+static int kt_create(list_head_t **_thread, kthread_t *tid, void *(worker)(void *), void *args) {
     //tcb 结构放到栈顶(低地址)
     ir_lock_t lock;
     ir_lock(&lock);
@@ -251,6 +266,19 @@ static int _kthread_create(list_head_t **_thread, kthread_t *tid, void *(worker)
     list_add_prev(&thread->run_list, &CUR_HEAD);
     ir_unlock(&lock);
     return 0;
+}
+
+
+_Noreturn INLINE void idle() {
+    while (1) {
+        halt();
+    }
+}
+
+
+INLINE void set_next_ready() {
+    //从运行队列删除节点前必需调用该方法
+    ready_to_run = CUR_HEAD.next;
 }
 
 

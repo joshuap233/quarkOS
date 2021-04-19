@@ -49,16 +49,19 @@ int8_t pci_device_detect(pci_dev_t *dev) {
     cfg->zero = 0;
     cfg->enable = 1;
 
-    for (cfg->bus_no = 0; cfg->bus_no <= 255; cfg->bus_no++) {
-        for (cfg->dev_no = 0; cfg->dev_no < 32; cfg->dev_no++) {
-            cfg->func_no = 0;
+    for (uint32_t bus_no = 0; bus_no <= 255; bus_no++) {
+        for (uint32_t dev_no = 0; dev_no < 32; dev_no++) {
             uint8_t func_num = 1;
+            cfg->bus_no = bus_no;
+            cfg->dev_no = dev_no;
+            cfg->func_no = 0;
             if (pci_inw(dev, VENDOR_OFFSET) == INVALID_VENDOR) continue;
             uint8_t hd_type = pci_inb(dev, HD_TYPE_OFFSET);
 
             if (hd_type & MULTI_FUNC) func_num = 8;
 
-            for (; cfg->func_no < func_num; cfg->func_no++) {
+            for (uint32_t func_no = 0; func_no < func_num; func_no++) {
+                cfg->func_no = func_no;
                 uint16_t class_code = pci_inw(dev, CLASS_OFFSET);
                 if (class_code == ((dev->class_code << 8) | dev->subclass)) {
                     dev->hd_type = pci_inb(dev, HD_TYPE_OFFSET);

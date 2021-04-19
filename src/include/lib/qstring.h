@@ -23,7 +23,7 @@ void *q_memset16(void *s, uint16_t c, size_t n);
 void *q_memset(void *s, uint32_t c, size_t n);
 
 void q_bzero(void *s, size_t n);
-
+bool q_memcmp(const void *s1, const void *s2, size_t len);
 
 // 10 进制转 16 进制,结果存在 str中
 void hex(uint64_t n, char *str);
@@ -36,8 +36,5 @@ void q_utoa(uint64_t value, char *str);
 // 字符串反转
 void reverse(char *s, uint32_t li);
 
-//TODO:
-
-// q_strcpy,q_strncpy
 
 #endif //QUARKOS_LIB_QSTRING_H

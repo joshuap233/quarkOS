@@ -40,7 +40,7 @@ typedef struct tcb {
 #define KTHREAD_NAME_LEN   16
 #define KTHREAD_STACK_SIZE 4096
 #define KTHREAD_NUM        65536
-    list_head_t run_list; //运行队列
+    list_head_t run_list;    //运行队列
     kthread_t tid;
     kthread_state_t state;
     char name[KTHREAD_NAME_LEN];
@@ -54,14 +54,15 @@ void schedule();
 
 void kthread_exit();
 
-void block_thread(list_head_t *_block_list, spinlock_t *lock);
+int8_t block_thread(list_head_t *_block_list, spinlock_t *lock);
 
 void unblock_thread(list_head_t *head);
+void unblock_threads(list_head_t *head);
 
 // 通用阻塞列表
 extern list_head_t block_list;
 
-
+// i r esp / ~(uint32_t)(4096 - 1)
 INLINE tcb_t *cur_tcb() {
     tcb_t *tcb;
     asm("andl %%esp,%0; ":"=r" (tcb): "0" (~ALIGN_MASK));

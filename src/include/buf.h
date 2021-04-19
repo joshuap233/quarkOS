@@ -30,7 +30,8 @@ typedef struct buf {
     spinlock_t lock;
     uint32_t no_secs;
     uint8_t data[SECTOR_SIZE];
-    queue_t queue;
+    queue_t queue; // 等待读写队列
+    queue_t sleep; // 睡眠队列
 } buf_t;
 
 #define buf_entry(ptr) list_entry(ptr,buf_t,queue)

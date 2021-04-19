@@ -13,4 +13,5 @@ void ps2_init();
 void pit_init(uint32_t frequency);
 void gdt_init();
 void dma_init();
+
 #endif //QUARKOS_DRIVERS_INIT_H

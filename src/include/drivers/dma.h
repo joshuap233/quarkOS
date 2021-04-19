@@ -2,11 +2,13 @@
 // Created by pjs on 2021/4/15.
 //
 
-#ifndef QUARKOS_DMA_H
-#define QUARKOS_DMA_H
+#ifndef QUARKOS_DRIVERS_DMA_H
+#define QUARKOS_DRIVERS_DMA_H
 
 #include "types.h"
 #include "x86.h"
+#include "drivers/pci.h"
+#include "isr.h"
 
 void dma_rw(buf_t *buf);
 
@@ -19,4 +21,6 @@ struct ide_dma_dev {
 };
 extern struct ide_dma_dev dma_dev;
 
-#endif //QUARKOS_DMA_H
+void dma_isr_handler(UNUSED interrupt_frame_t *frame);
+
+#endif //QUARKOS_DRIVERS_DMA_H

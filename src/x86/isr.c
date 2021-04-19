@@ -137,12 +137,9 @@ INT ISR(1)(interrupt_frame_t *frame) {
 
 INT ISR(2)(interrupt_frame_t *frame) {
     panic();
-
 }
 
 INT ISR(3)(interrupt_frame_t *frame) {
-    panic();
-
 }
 
 INT ISR(4)(interrupt_frame_t *frame) {

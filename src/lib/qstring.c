@@ -30,8 +30,13 @@ char *q_strncat(char *dest, const char *src, size_t n) {
 
 bool q_strcmp(const char *s1, const char *s2) {
     size_t len = q_strlen(s1);
-    for (size_t i = 0; i <= len; ++i) {
-        if (s1[i] != s2[i])
+    return q_memcmp(s1, s2, len + 1);
+}
+
+bool q_memcmp(const void *s1, const void *s2, size_t len) {
+    const char *_s1 = s1, *_s2 = s2;
+    for (size_t i = 0; i < len; ++i) {
+        if (_s1[i] != _s2[i])
             return false;
     }
     return true;
