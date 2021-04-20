@@ -44,7 +44,10 @@ struct prd {
 
 // prd table
 _Alignas(4) struct prd prdt[N_PRD];
-QUEUE_HEAD(dma_queue);
+
+// 需要读写的缓冲块队列
+static QUEUE_HEAD(queue);
+#define HEAD  queue_head(&queue)
 
 struct ide_dma_dev dma_dev;
 
@@ -52,6 +55,7 @@ static void prdt_init();
 
 
 void dma_init() {
+    dma_dev.dma = true;
     // ide 的 class 与 subclass 都为 1
     pci_dev_t *pci = &dma_dev.pci_dev;
     pci->class_code = 1;
@@ -87,7 +91,7 @@ void dma_buf_sort(buf_t *buf) {
     // 将需要读/写的磁盘地址按照 no_secs 排序
     bool dirty = buf->flag & BUF_DIRTY;
     LH *head = &buf->queue, *last = &buf->queue;
-    for (LH *cur = head->next, *nxt = cur->next; cur != &dma_queue; cur = nxt, nxt = nxt->next) {
+    for (LH *cur = head->next, *nxt = cur->next; cur != &queue; cur = nxt, nxt = nxt->next) {
         if ((buf_entry(cur)->flag & BUF_DIRTY) == dirty) {
             LH *hdr = last;
             for (; hdr != head && buf_entry(hdr)->no_secs > buf_entry(cur)->no_secs; hdr = hdr->prev);
@@ -104,7 +108,7 @@ uint32_t dma_set_prdt(buf_t *buf) {
     dma_buf_sort(buf);
     uint32_t i = 0;
     bool dirty = buf->flag & BUF_DIRTY;
-    for (LH *hdr = &buf->queue; hdr != &dma_queue; hdr = hdr->next) {
+    for (LH *hdr = &buf->queue; hdr != &queue; hdr = hdr->next) {
         if ((buf_entry(hdr)->flag & BUF_DIRTY) == dirty) {
             prdt[i++].addr = (pointer_t) buf->data;
             buf->flag |= BUF_BSY;
@@ -130,19 +134,20 @@ void dma_start(buf_t *buf) {
 }
 
 void dma_rw(buf_t *buf) {
-    queue_put(&buf->queue, &dma_queue);
-    if (&buf->queue == queue_head(&dma_queue)) {
+    queue_put(&buf->queue, &queue);
+    if (&buf->queue == HEAD) {
         dma_start(buf);
     }
 }
 
 
 void dma_isr_handler(UNUSED interrupt_frame_t *frame) {
+    outb(dma_dev.bm + BM_CMD, BM_CMD_STOP);
     uint8_t stat = inb(dma_dev.bm + BM_STAT);
     assertk(!((stat & (BM_STAT_ERROR | BM_STAT_BSY))));
 
-    bool dirty = buf_entry(queue_head(&dma_queue))->flag & BUF_DIRTY;
-    list_for_each(&dma_queue) {
+    bool dirty = buf_entry(HEAD)->flag & BUF_DIRTY;
+    list_for_each_del(&queue) {
         buf_t *buf = buf_entry(hdr);
         if ((buf_entry(hdr)->flag & BUF_DIRTY) == dirty) {
             unblock_threads(&buf_entry(hdr)->sleep);
@@ -155,7 +160,7 @@ void dma_isr_handler(UNUSED interrupt_frame_t *frame) {
         }
     }
 
-    if (!queue_empty(&dma_queue)) {
-        dma_start(buf_entry(queue_head(&dma_queue)));
+    if (!queue_empty(&queue)) {
+        dma_start(buf_entry(HEAD));
     }
 }

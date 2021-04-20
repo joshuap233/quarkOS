@@ -44,7 +44,7 @@ void bio_init() {
     reg_isr(46, disk_isr);
 }
 
-static buf_t *bio_get(uint32_t no_secs) {
+buf_t *bio_get(uint32_t no_secs) {
     buf_t *temp = NULL;
     //用扇区号查找缓冲块, 阻塞直到有可以缓冲块
     spinlock_lock(&cache.lock);
@@ -76,20 +76,18 @@ static buf_t *bio_get(uint32_t no_secs) {
 }
 
 // 强制重新读取磁盘
-buf_t *bio_read_sync(uint32_t no_secs) {
-    buf_t *buf = bio_get(no_secs);
+buf_t *bio_read_sync(buf_t *buf) {
     spinlock_lock(&buf->lock);
 
     disk.rw(buf);
-    block_thread(&buf->sleep, &buf->lock);
-
-    spinlock_unlock(&buf->lock);
+    if (block_thread(&buf->sleep, &buf->lock) == 0) {
+        spinlock_unlock(&buf->lock);
+    }
     return buf;
 }
 
 // sync 被设置则强制重新读取磁盘
-buf_t *bio_read(uint32_t no_secs) {
-    buf_t *buf = bio_get(no_secs);
+buf_t *bio_read(buf_t *buf) {
     spinlock_lock(&buf->lock);
 
     if ((buf->flag & (BUF_VALID | BUF_BSY)) == BUF_VALID) {
@@ -129,9 +127,11 @@ void bio_free(buf_t *_buf) {
     assertk(_buf->ref_cnt > 0);
     buf_t *buf;
     for_each_buf(buf) {
-        if (buf->no_secs == _buf->no_secs && (--buf->ref_cnt) == 0 && !queue_empty(&cache.sleep)) {
-            //唤醒等待获取 buf 的线程
-            unblock_thread(queue_head(&cache.sleep));
+        if (buf->no_secs == _buf->no_secs) {
+            if ((--buf->ref_cnt) == 0 && !queue_empty(&cache.sleep)) {
+                //唤醒等待获取 buf 的线程
+                unblock_thread(queue_head(&cache.sleep));
+            }
             return;
         }
     }
@@ -149,15 +149,16 @@ void test_ide_rw() {
     test_start
 
     disk.rw = ide_rw;
-    reg_isr(46, disk_isr);
+    disk.isr = ide_isr_handler;
 
     uint8_t data[SECTOR_SIZE];
     q_memset(data, 1, SECTOR_SIZE);
+    buf_t *buf = bio_get(10);
 
-    buf_t *buf = bio_read(10);
+    bio_read(buf);
     bio_write(buf, data);
 
-    buf = bio_read_sync(10);
+    bio_read_sync(buf);
     q_memcmp(data, buf->data, SECTOR_SIZE);
     bio_free(buf);
 
@@ -165,9 +166,23 @@ void test_ide_rw() {
 }
 
 void test_dma_rw() {
-    disk.rw = dma_rw;
-    reg_isr(46, disk_isr);
+    test_start
     assertk(dma_dev.dma);
+    disk.rw = dma_rw;
+    disk.isr = dma_isr_handler;
+
+    uint8_t data[SECTOR_SIZE];
+    q_memset(data, 2, SECTOR_SIZE);
+    buf_t *buf = bio_get(11);
+
+    bio_read(buf);
+    bio_write(buf, data);
+
+    bio_read_sync(buf);
+    q_memcmp(data, buf->data, SECTOR_SIZE);
+    bio_free(buf);
+
+    test_pass
 }
 
 

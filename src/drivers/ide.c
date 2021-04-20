@@ -3,8 +3,7 @@
 //
 // pata pio
 // 驱动只处理一根线连接一个设备的情况
-// 使用 lba28 编址,因此磁盘大小 <= 128G
-// TODO: 错误处理?
+// 使用 lba28 编址, 磁盘大小 <= 128G
 
 #include "drivers/ide.h"
 #include "buf.h"
@@ -46,7 +45,8 @@
 #define LBA_DRIVE0          0xE0  // Drive/Head 寄存器 4-7位,选择 lba模式,0主盘
 
 // 等待读写的缓冲块队列
-QUEUE_HEAD(ide_queue);
+static QUEUE_HEAD(queue);
+#define HEAD  queue_head(&queue)
 
 static struct ide_device {
 #define MAX_N_SECS (256 * M)          // lba28 总扇区数
@@ -116,6 +116,8 @@ void ide_init() {
 
     //开启磁盘中断
     outb(IDE_CTR, 0);
+
+
 }
 
 // 等待主盘可用
@@ -131,7 +133,7 @@ static int32_t ide_wait(bool check_error) {
 
 
 void ide_isr_handler(UNUSED interrupt_frame_t *frame) {
-    queue_t *h = queue_get(&ide_queue);
+    queue_t *h = queue_get(&queue);
     if (h) {
         buf_t *buf = buf_entry(h);
         unblock_threads(&buf->sleep);
@@ -141,8 +143,8 @@ void ide_isr_handler(UNUSED interrupt_frame_t *frame) {
         }
         buf->flag &= ~(BUF_DIRTY | BUF_BSY);
 
-        if (!queue_empty(&ide_queue)) {
-            ide_start(buf_entry(queue_head(&ide_queue)));
+        if (!queue_empty(&queue)) {
+            ide_start(buf_entry(HEAD));
         }
 
         // 通知线程, 中断处理程序以及被执行
@@ -164,13 +166,13 @@ void ide_driver_init(buf_t *buf, uint32_t secs_cnt) {
     outb(IDE_CYL_H, (no_sec >> 16) & MASK_U8(8));
     // 选择 drive0
     outb(IDE_DH, LBA_DRIVE0 | ((no_sec >> 24) & MASK_U8(4)));
-    // 触发一次中断
-    outb(IDE_CTR, 0);
 }
 
 static void ide_start(buf_t *buf) {
     buf->flag |= BUF_BSY;
     ide_driver_init(buf, 1);
+    // 触发一次中断
+    outb(IDE_CTR, 0);
     if (buf->flag & BUF_DIRTY) {
         ide_send_cmd(CMD_WRITE_PIO);
         write_sector(buf->data);
@@ -181,8 +183,8 @@ static void ide_start(buf_t *buf) {
 
 
 void ide_rw(buf_t *buf) {
-    queue_put(&buf->queue, &ide_queue);
-    if (&buf->queue == queue_head(&ide_queue)) {
+    queue_put(&buf->queue, &queue);
+    if (&buf->queue == HEAD) {
         ide_start(buf);
     }
 }

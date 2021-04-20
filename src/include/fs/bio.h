@@ -15,9 +15,11 @@ void bio_write(buf_t *buf, void *data);
 
 void bio_free(buf_t *_buf);
 
-buf_t *bio_read_sync(uint32_t no_secs);
+buf_t *bio_read_sync(buf_t *buf);
 
-buf_t *bio_read(uint32_t no_secs);
+buf_t *bio_read(buf_t *buf);
+
+buf_t *bio_get(uint32_t no_secs);
 
 #ifdef TEST
 

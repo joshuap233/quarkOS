@@ -2,6 +2,7 @@
 // Created by pjs on 2021/2/3.
 //
 // 内核堆
+// TODO: 固定块分配器,不添加块头
 #include "types.h"
 #include "lib/list.h"
 #include "mm/heap.h"

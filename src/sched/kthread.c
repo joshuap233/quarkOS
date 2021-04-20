@@ -36,7 +36,7 @@ LIST_HEAD(block_list);   //阻塞中的线程
 
 
 list_head_t *cleaner_task = NULL;  //清理线程,用于清理其他线程
-list_head_t *init_task = NULL;  //空闲线程,始终    在可运行列表
+list_head_t *init_task = NULL;     //空闲线程,始终在可运行列表
 list_head_t *ready_to_run = NULL;  //指向运行队列节点
 
 extern void switch_to(context_t *cur_context, context_t *next_context);
@@ -111,15 +111,15 @@ void schedule() {
     ir_lock_t lock;
     ir_lock(&lock);
     list_head_t *next = ready_to_run;
-    if (&CUR_HEAD == init_task && next == init_task)
+    if (&CUR_HEAD == init_task && init_task->next == init_task)
         return;
+
     if (next == init_task) {
         if (next->next == &CUR_HEAD) return;
         next = next->next;
     }
     ready_to_run = next->next;
 
-    g_time_slice = TIME_SLICE_LENGTH;
     g_time_slice = next == init_task ? 0 : TIME_SLICE_LENGTH;
     switch_to(&CUR_TCB->context, &tcb_entry(next)->context);
     ir_unlock(&lock);
@@ -298,7 +298,7 @@ void test_thread() {
     test_start;
     spinlock_init(&lock);
     kthread_t a[10];
-    for (int i = 0; i < 10; ++i) {
+    for (int i = 0; i < 2; ++i) {
         kthread_create(&a[i], workerA, NULL);
     }
     test_pass;

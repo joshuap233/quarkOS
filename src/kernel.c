@@ -70,8 +70,8 @@ void kernel_main() {
     enable_interrupt();
 
 #ifdef TEST
-    test_ide_rw();
-    test_dma_rw();
+//    test_ide_rw();
+//    test_dma_rw();
     test_thread();
 #endif
 
