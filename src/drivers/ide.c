@@ -48,13 +48,7 @@
 static QUEUE_HEAD(queue);
 #define HEAD  queue_head(&queue)
 
-static struct ide_device {
-#define MAX_N_SECS (256 * M)          // lba28 总扇区数
-    bool dma;                        // 是否支持 dma
-    bool lba48;                       // 是否支持 lba48
-    uint32_t size;                    // 扇区数量
-} ide_dev;
-
+struct ide_device ide_dev;
 //struct error {
 //    uint8_t addr_mark_nf: 1;
 //    uint8_t track_zero_nf: 1;
@@ -112,7 +106,7 @@ void ide_init() {
     ide_dev.lba48 = buffer[83] & (1 << 10);
     // TODO: 88/93  dma 检测
 
-    ide_dev.size = buffer[60] + ((uint32_t) buffer[61] << 16);
+    ide_dev.size = buffer[60] | ((uint32_t) buffer[61] << 16);
 
     //开启磁盘中断
     outb(IDE_CTR, 0);
@@ -121,7 +115,7 @@ void ide_init() {
 }
 
 // 等待主盘可用
-static int32_t ide_wait(bool check_error) {
+int32_t ide_wait(bool check_error) {
     uint8_t r;
     while ((r = inb(IDE_STAT)) & IDE_STAT_BSY);
 
@@ -158,14 +152,14 @@ void ide_driver_init(buf_t *buf, uint32_t secs_cnt) {
     // 选择 ide 驱动, 发送 lba 值, 设置扇区数
     assertk(ide_wait(0) == 0);
 
+    // 选择 drive0
+    outb(IDE_DH, LBA_DRIVE0 | ((no_sec >> 24) & MASK_U8(4)));
     // 需要读取的扇区数
     outb(IDE_COUNT, secs_cnt);
     // 写入 28 位 lba 值
     outb(IDE_NUM, no_sec & MASK_U8(8));
     outb(IDE_CYL_L, (no_sec >> 8) & MASK_U8(8));
     outb(IDE_CYL_H, (no_sec >> 16) & MASK_U8(8));
-    // 选择 drive0
-    outb(IDE_DH, LBA_DRIVE0 | ((no_sec >> 24) & MASK_U8(4)));
 }
 
 static void ide_start(buf_t *buf) {

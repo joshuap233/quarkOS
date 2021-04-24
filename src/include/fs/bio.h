@@ -9,7 +9,6 @@
 #include "types.h"
 #include "buf.h"
 
-void bio_init();
 
 void bio_write(buf_t *buf, void *data);
 
@@ -21,12 +20,5 @@ buf_t *bio_read(buf_t *buf);
 
 buf_t *bio_get(uint32_t no_secs);
 
-#ifdef TEST
-
-void test_ide_rw();
-
-void test_dma_rw();
-
-#endif // TEST
 
 #endif //QUARKOS_FS_BIO_H

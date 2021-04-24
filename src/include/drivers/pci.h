@@ -6,17 +6,16 @@
 #define QUARKOS_DRIVERS_PCI_H
 #include "types.h"
 
-struct pci_cfg{
-    uint8_t offset;
-    uint8_t func_no: 3;
-    uint8_t dev_no: 5;
-    uint8_t bus_no;
-    uint8_t zero: 7;
-    uint8_t enable: 1;
-} ;
 
 typedef union {
-    struct pci_cfg field;
+    struct pci_cfg{
+        uint8_t offset;
+        uint8_t func_no: 3;
+        uint8_t dev_no: 5;
+        uint8_t bus_no;
+        uint8_t zero: 7;
+        uint8_t enable: 1;
+    } field;
     uint32_t data;
 } cfg_addr_t;
 

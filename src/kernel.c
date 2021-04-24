@@ -6,7 +6,8 @@
 #include "isr.h"
 #include "sched/init.h"
 #include "lib/qlib.h"
-#include "fs/bio.h"
+#include "fs/init.h"
+
 
 #ifdef __linux__
 #error "你没有使用跨平台编译器进行编译"
@@ -38,6 +39,7 @@ void hello() {
 extern multiboot_info_t *mba;
 extern uint32_t magic;
 
+
 //mba 为 multiboot info struct 首地址
 void kernel_main() {
     vga_init();
@@ -61,13 +63,15 @@ void kernel_main() {
     vmm_init();
     heap_init();
 
-    // 文件系统初始化
     ide_init();
     dma_init();
     bio_init();
 
     sched_init();
     enable_interrupt();
+
+    // 需要在多线程初始化之后
+    ext2_init();
 
 #ifdef TEST
 //    test_ide_rw();

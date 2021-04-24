@@ -45,6 +45,10 @@ INLINE void spinlock_lock(spinlock_t *lock) {
     opt_barrier();
 }
 
+INLINE bool spinlock_trylock(spinlock_t *lock) {
+    return test_and_set(&lock->flag) != 1;
+}
+
 INLINE void spinlock_unlock(spinlock_t *lock) {
     lock->flag = 0;
 }

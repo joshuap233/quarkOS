@@ -26,4 +26,13 @@ INLINE void ide_send_cmd(uint8_t cmd){
     assertk(inb(IDE_ERR)==0);
 }
 
+struct ide_device {
+#define MAX_N_SECS (256 * M)          // lba28 总扇区数
+    bool dma;                        // 是否支持 dma
+    bool lba48;                       // 是否支持 lba48
+    uint32_t size;                    // 扇区数量
+};
+
+extern struct ide_device ide_dev;
+
 #endif //QUARKOS_DRIVERS_IDE_H

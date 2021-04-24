@@ -12,12 +12,14 @@
 #include "mm/mm.h"
 #include "sched/klock.h"
 
+/*
+ * 线程切换时需要保存的上下文
+ * 根据x86 systemV ABI eax, ecx, edx 是临时寄存器,使用(schedule)函数手动切换时无需保存,
+ * 使用中断切换时, __attribute__((interrupt)) 会保存 eax ecx, edx
+ * 段选择子固定, 不使用 ldt, 都无需保存
+ * 内核线程不需要保存 cr3, call 指令保存 eip
+ */
 typedef struct context {
-    //线程切换时需要保存的上下文
-    //根据x86 systemV ABI eax, ecx, edx 是临时寄存器,使用(schedule)函数手动切换时无需保存,
-    //使用中断切换时, __attribute__((interrupt)) 会保存 eax ecx, edx
-    //段选择子固定, 不使用 ldt, 都无需保存
-    //内核线程不需要保存 cr3, call 指令保存 eip
     uint32_t esp;
     uint32_t eflags;
     uint32_t ebx;
@@ -34,8 +36,6 @@ typedef uint32_t kthread_state_t;
 
 typedef uint32_t kthread_t; //线程id
 
-//为了使 tcb_t 内元素对齐,kthread_state_t 不使用枚举
-//否则 tcb_t 需要添加 __attribute__((packed))  属性
 typedef struct tcb {
 #define KTHREAD_NAME_LEN   16
 #define KTHREAD_STACK_SIZE 4096
@@ -57,10 +57,14 @@ void kthread_exit();
 int8_t block_thread(list_head_t *_block_list, spinlock_t *lock);
 
 void unblock_thread(list_head_t *head);
+
 void unblock_threads(list_head_t *head);
 
 // 通用阻塞列表
 extern list_head_t block_list;
+
+// 可运行进程队列
+extern list_head_t *init_task;
 
 // i r esp / ~(uint32_t)(4096 - 1)
 INLINE tcb_t *cur_tcb() {

@@ -24,12 +24,13 @@ typedef struct buf {
 #define BUF_VALID   (1<<1)
 #define BUF_BSY     (1<<2)
 #define SECTOR_SIZE 512
+#define BUF_SIZE    SECTOR_SIZE
 #define N_BUF       30
     uint8_t flag;
     uint16_t ref_cnt;
     spinlock_t lock;
     uint32_t no_secs;
-    uint8_t data[SECTOR_SIZE];
+    uint8_t *data;
     queue_t queue; // 等待读写队列
     queue_t sleep; // 睡眠队列
 } buf_t;

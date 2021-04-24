@@ -1,7 +1,7 @@
 //
 // Created by pjs on 2021/2/19.
 //
-// 使用 LIST_DEL, 不要直接使用 list_del!!!
+// TODO: join 等待子线程退出, tcb 添添加子线程列表
 
 #include "sched/kthread.h"
 #include "sched/klock.h"
@@ -34,10 +34,9 @@ static struct kthread_map {
 LIST_HEAD(finish_list);  //已执行完成等待销毁的线程
 LIST_HEAD(block_list);   //阻塞中的线程
 
-
-list_head_t *cleaner_task = NULL;  //清理线程,用于清理其他线程
 list_head_t *init_task = NULL;     //空闲线程,始终在可运行列表
-list_head_t *ready_to_run = NULL;  //指向运行队列节点
+static list_head_t *cleaner_task = NULL;  //清理线程,用于清理其他线程
+static list_head_t *ready_to_run = NULL;  //指向运行队列节点
 
 extern void switch_to(context_t *cur_context, context_t *next_context);
 
@@ -67,8 +66,7 @@ _Noreturn INLINE void idle();
 
 INLINE void set_next_ready();
 
-#define LIST_DEL(l) {set_next_ready();list_del(l);}
-#define del_cur_task() LIST_DEL(&CUR_HEAD);
+#define del_cur_task() {set_next_ready();list_del(&CUR_HEAD);};
 
 //初始化内核线程
 void sched_init() {
@@ -154,7 +152,7 @@ int8_t block_thread(list_head_t *_block_list, spinlock_t *lk) {
 INLINE void unblock(list_head_t *head) {
     tcb_t *thread = tcb_entry(head);
     thread->state = TASK_RUNNING;
-    LIST_DEL(&thread->run_list);
+    list_del(&thread->run_list);
     list_add_prev(&thread->run_list, init_task);
 }
 
@@ -286,10 +284,11 @@ INLINE void set_next_ready() {
 #ifdef TEST
 
 spinlock_t lock;
+int32_t foo[10] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
 
 void *workerA(UNUSED void *args) {
     spinlock_lock(&lock);
-    printfk("lock\n");
+    printfk("lock, %d\n", (*(int32_t *) args));
     spinlock_unlock(&lock);
     return NULL;
 }
@@ -298,8 +297,8 @@ void test_thread() {
     test_start;
     spinlock_init(&lock);
     kthread_t a[10];
-    for (int i = 0; i < 2; ++i) {
-        kthread_create(&a[i], workerA, NULL);
+    for (int i = 0; i < 10; ++i) {
+        kthread_create(&a[i], workerA, &foo[i]);
     }
     test_pass;
 }

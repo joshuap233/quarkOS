@@ -2,6 +2,7 @@
 // Created by pjs on 2021/4/14.
 //
 // ide dma
+// 有个 BUG 找不出来,我都快要疯了,我再也不想写驱动了!!!
 
 #include "drivers/pci.h"
 #include "lib/qlib.h"
@@ -36,14 +37,14 @@
 
 //Physical Region Descriptor
 struct prd {
-    uint32_t addr; // 需要传输的数据缓冲区物理地址
-    uint16_t size;  // 需要传输的字节数,
+    uint32_t addr;   // 需要传输的数据缓冲区物理地址
+    uint16_t size;   // 需要传输的字节数,
     uint16_t zero: 15;
-    uint16_t end: 1; //最后一个 prd 设置该位
+    uint16_t end: 1; // 最后一个 prd 设置该位
 };
 
 // prd table
-_Alignas(4) struct prd prdt[N_PRD];
+static _Alignas(_Alignof(uint32_t)) struct prd prdt[N_PRD];
 
 // 需要读写的缓冲块队列
 static QUEUE_HEAD(queue);
@@ -70,13 +71,13 @@ void dma_init() {
 
     // hd_type=0 时, 后两位无效
     uint32_t mask = MASK_U32(30) << 2;
-    dma_dev.iob = pci_inl(pci, PCI_BA_OFFSET0) & mask;
-    dma_dev.ctrl = pci_inl(pci, PCI_BA_OFFSET1) & mask;
+//    dma_dev.iob = pci_inl(pci, PCI_BA_OFFSET0) & mask;
+//    dma_dev.ctrl = pci_inl(pci, PCI_BA_OFFSET1) & mask;
     dma_dev.bm = pci_inl(pci, PCI_BA_OFFSET4) & mask;
 
     prdt_init();
     // prdt 地址写入 bus master 寄存器
-    outl(dma_dev.bm + BM_PRDT_ADDR, (pointer_t) prdt);
+    // outl(dma_dev.bm + BM_PRDT_ADDR, (pointer_t) prdt);
 }
 
 static void prdt_init() {
@@ -84,7 +85,7 @@ static void prdt_init() {
     for (i = 0; i < N_PRD; ++i) {
         prdt[i].size = SECTOR_SIZE;
     }
-    prdt[i].end = 1;
+    prdt[i - 1].end = 1;
 }
 
 void dma_buf_sort(buf_t *buf) {
@@ -110,6 +111,7 @@ uint32_t dma_set_prdt(buf_t *buf) {
     bool dirty = buf->flag & BUF_DIRTY;
     for (LH *hdr = &buf->queue; hdr != &queue; hdr = hdr->next) {
         if ((buf_entry(hdr)->flag & BUF_DIRTY) == dirty) {
+            prdt[i].end = 0;
             prdt[i++].addr = (pointer_t) buf->data;
             buf->flag |= BUF_BSY;
         }
@@ -118,18 +120,20 @@ uint32_t dma_set_prdt(buf_t *buf) {
     return i;
 }
 
+
 void dma_start(buf_t *buf) {
     uint32_t i = dma_set_prdt(buf);
+    outl(dma_dev.bm + BM_PRDT_ADDR, (pointer_t) prdt);
 
     bool dirty = buf->flag & BUF_DIRTY;
     uint8_t bm_cmd = dirty ? BM_CMD_WRITE : BM_CMD_READ;
     outb(dma_dev.bm + BM_CMD, bm_cmd);
 
-    uint8_t stat = inb(dma_dev.bm + BM_STAT);
-    outb(dma_dev.bm + BM_STAT, stat & (~(BM_STAT_IRQ | BM_STAT_ERROR)));
+    uint8_t state = inb(dma_dev.bm + BM_STAT);
+    outb(dma_dev.bm + BM_STAT, state & (~(BM_STAT_IRQ | BM_STAT_ERROR)));
+
     ide_driver_init(buf, i);
     ide_send_cmd(dirty ? ATA_CMD_WRITE_DMA : ATA_CMD_READ_DMA);
-
     outb(dma_dev.bm + BM_CMD, bm_cmd | BM_CMD_START);
 }
 
@@ -143,14 +147,13 @@ void dma_rw(buf_t *buf) {
 
 void dma_isr_handler(UNUSED interrupt_frame_t *frame) {
     outb(dma_dev.bm + BM_CMD, BM_CMD_STOP);
-    uint8_t stat = inb(dma_dev.bm + BM_STAT);
-    assertk(!((stat & (BM_STAT_ERROR | BM_STAT_BSY))));
+    assertk(!(inb(dma_dev.bm + BM_STAT) & (BM_STAT_ERROR | BM_STAT_BSY)));
 
     bool dirty = buf_entry(HEAD)->flag & BUF_DIRTY;
     list_for_each_del(&queue) {
         buf_t *buf = buf_entry(hdr);
-        if ((buf_entry(hdr)->flag & BUF_DIRTY) == dirty) {
-            unblock_threads(&buf_entry(hdr)->sleep);
+        if ((buf->flag & BUF_DIRTY) == dirty) {
+            unblock_threads(&buf->sleep);
             buf->flag |= BUF_VALID;
             buf->flag &= ~(BUF_DIRTY | BUF_BSY);
             list_del(hdr);
