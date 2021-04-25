@@ -43,14 +43,19 @@ typedef struct table {
     entry entry[PAGE_ENTRY_NUM];
 } table_t;
 
+//#define pdr_t  entry[PAGE_ENTRY_NUM];
+
 typedef table_t pdr_t;
 typedef table_t ptb_t;
 
 
-void vmm_mapv(pointer_t va, uint32_t size, uint32_t flags);
+void vmm_mapv(ptr_t va, uint32_t size, uint32_t flags);
 
 void vmm_unmap(void *va, uint32_t size);
 
-void vmm_map(pointer_t va, pointer_t pa, uint32_t size, uint32_t flags);
+void vmm_map(ptr_t va, ptr_t pa, uint32_t size, uint32_t flags);
 
+void vmm_mapPage(ptr_t va, ptr_t pa, uint32_t flags);
+
+typedef ptr_t pointer_t;
 #endif //QUARKOS_MM_VMM_H

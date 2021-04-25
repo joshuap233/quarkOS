@@ -14,13 +14,13 @@ elf_string_table_t g_shstrtab = {0}, g_strtab = {0};
 elf_symbol_table_t g_symtab = {0};
 
 uint32_t g_mem_total;  // 可用物理内存大小
-pointer_t g_vmm_start; //vmm 虚拟内存开始地址, vmm_start 以下的虚拟内存需要预留且与物理内存直接映射
+ptr_t g_vmm_start; //vmm 虚拟内存开始地址, vmm_start 以下的虚拟内存需要预留且与物理内存直接映射
 
 
 //最原始的内存分配函数
 //切割内核后的空闲内存块, 被切割的物理内存与虚拟内存直接映射
 //内存不足返回 0
-pointer_t split_mmap(uint32_t size) {
+ptr_t split_mmap(uint32_t size) {
     for_each_mmap {
         assertk(entry->zero == 0);
         if (entry->type == MULTIBOOT_MEMORY_AVAILABLE && entry->len >= size) {
@@ -116,7 +116,7 @@ static void parse_elf_section() {
     for (uint32_t num = elf_symbols->num; num > 0; num--) {
         switch (sh->sh_type) {
             case SHT_STRTAB:
-                if (sh->sh_addr != (pointer_t) g_shstrtab.addr) {
+                if (sh->sh_addr != (ptr_t) g_shstrtab.addr) {
                     g_strtab.addr = (void *) (sh->sh_addr);
                     g_strtab.size = sh->sh_size;
                 }
@@ -137,11 +137,11 @@ static void parse_elf_section() {
 void multiboot_init(multiboot_info_t *bia) {
     multiboot_tag_t *tag;
     //指向最大地址
-    pointer_t tail = (pointer_t) bia + bia->total;
+    ptr_t tail = (ptr_t) bia + bia->total;
     // 第一个标签首地址
     tag = (multiboot_tag_t *) (bia + 1);
 
-    while ((pointer_t) tag < tail) {
+    while ((ptr_t) tag < tail) {
         switch (tag->type) {
             case MULTIBOOT_TAG_TYPE_MMAP:
                 g_mmap = (multiboot_tag_mmap_t *) tag;

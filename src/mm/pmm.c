@@ -12,7 +12,7 @@
 static struct mm_stack {
 #define STACK_EMPTY(stack) ((stack).top == 0)
 #define STACK_FULL(stack) ((stack).top == (stack).size)
-    pointer_t *page;
+    ptr_t *page;
     uint32_t top;
     uint32_t size; //page 大小+1
 } mm_page = {
@@ -21,12 +21,12 @@ static struct mm_stack {
         .size = 0
 };
 
-INLINE void push(pointer_t addr) {
+INLINE void push(ptr_t addr) {
     assertk(!STACK_FULL(mm_page));
     mm_page.page[mm_page.top++] = addr;
 }
 
-INLINE pointer_t pop() {
+INLINE ptr_t pop() {
     if (STACK_EMPTY(mm_page)) return PMM_NLL;
     return mm_page.page[--mm_page.top];
 }
@@ -38,7 +38,7 @@ static void push_free_page() {
         assertk(entry->zero == 0);
         if (entry->type == MULTIBOOT_MEMORY_AVAILABLE) {
             uint64_t length = entry->len;
-            uint64_t start = SIZE_ALIGN(entry->addr);
+            uint64_t start = PAGE_ALIGN(entry->addr);
             //遇到小于 4k 的内存块直接舍弃
             while (length >= PAGE_SIZE) {
                 push(start);
@@ -52,7 +52,7 @@ static void push_free_page() {
 //初始化 mm_page,为 mm_page.page 分配内存
 static void page_stack_init() {
     mm_page.size = DIV_CEIL(g_mem_total, PAGE_SIZE);
-    mm_page.page = (pointer_t *) split_mmap(mm_page.size * sizeof(pointer_t));
+    mm_page.page = (ptr_t *) split_mmap(mm_page.size * sizeof(ptr_t));
 }
 
 void phymm_init() {
@@ -65,18 +65,18 @@ void phymm_init() {
 }
 
 
-pointer_t phymm_alloc() {
+ptr_t phymm_alloc() {
     return pop();
 }
 
-void phymm_free(pointer_t addr) {
+void phymm_free(ptr_t addr) {
     push(PAGE_ADDR(addr));
 }
 
 #ifdef TEST
 void test_physical_mm() {
     test_start;
-    pointer_t addr[3];
+    ptr_t addr[3];
     size_t size = mm_page.top;
     addr[0] = phymm_alloc();
     assertk(mm_page.top == size - 1);

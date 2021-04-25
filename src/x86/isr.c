@@ -90,7 +90,7 @@ void idt_set_ig(idt_t *_idt, uint32_t offset, uint16_t selector, uint8_t type) {
 void idt_init() {
     idtr_t idtr = {
             .limit = IDT_SIZE * IDT_COUNT - 1,
-            .address = (pointer_t) idt
+            .address = (ptr_t) idt
     };
     //暂时全部使用 interrupt gate(调用 ISR 时自动清除 IF 位)
     reg_isr(0, ISR(0));
@@ -114,11 +114,11 @@ void idt_init() {
     reg_isr(19, ISR(19));
     reg_isr(20, ISR(20));
 
-    idtr_set((pointer_t) &idtr);
+    idtr_set((ptr_t) &idtr);
 }
 
 void reg_isr(uint8_t n,void *isr){
-    idt_set_ig(&idt[n], (pointer_t) isr, IDT_SC, IDT_TYPE);
+    idt_set_ig(&idt[n], (ptr_t) isr, IDT_SC, IDT_TYPE);
 }
 
 // 忽略 -Wunused-parameter

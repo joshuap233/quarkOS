@@ -11,9 +11,9 @@
 
 void phymm_init();
 
-pointer_t phymm_alloc();
+ptr_t phymm_alloc();
 
-void phymm_free(pointer_t addr);
+void phymm_free(ptr_t addr);
 
 #ifdef TEST
 void test_physical_mm();

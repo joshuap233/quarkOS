@@ -12,15 +12,15 @@
 #define PAGE_ADDR(addr)     ((addr) & (~MASK_U32(12)))
 
 
-#define K_START ((pointer_t) _startKernel)
-#define K_END   ((pointer_t) _endKernel)
+#define K_START ((ptr_t) _startKernel)
+#define K_END   ((ptr_t) _endKernel)
 #define K_SIZE  (K_END - K_START)
 
 
 // 内核最大地址+1, 不要修改成 *_end,
 extern char _endKernel[], _startKernel[];
 
-#define SIZE_ALIGN(s)       (((s) & ALIGN_MASK) ?(((s)&(~ALIGN_MASK))+PAGE_SIZE):(s))
-
+#define MEM_ALIGN(s, align) (((s)+(align)-1)&(~((align)-1)))
+#define PAGE_ALIGN(s)       (((s)+ALIGN_MASK)&(~ALIGN_MASK))
 
 #endif //QUARKOS_MM_MM_H

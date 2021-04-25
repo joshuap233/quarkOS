@@ -9,8 +9,8 @@
 #include <stdbool.h>
 #include <stddef.h> // size_t and NULL
 
-// pointer_t 存地址值, 万一以后写64位 OS 呢,233
-typedef uint32_t pointer_t;
+// ptr_t 存地址值, 万一以后写64位 OS 呢,233
+typedef uint32_t ptr_t;
 
 
 typedef uint32_t useconds_t;

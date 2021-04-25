@@ -4,7 +4,7 @@
 
 #include "sched/user.h"
 //#define U_PD_INDEX 767
-//#define U_PTE_VA        ((pointer_t)U_PD_INDEX << 22) //PDE 虚拟地址
+//#define U_PTE_VA        ((ptr_t)U_PD_INDEX << 22) //PDE 虚拟地址
 //#define PTE_ADDR(pde_index) (U_PTE_VA + (pde_index)*PAGE_SIZE)
 
 

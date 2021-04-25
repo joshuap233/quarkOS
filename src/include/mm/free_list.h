@@ -11,7 +11,7 @@
 // 管理空闲空间链表
 typedef struct free_list {
     list_head_t head;
-    pointer_t addr;     //空闲空间起始地址
+    ptr_t addr;     //空闲空间起始地址
     uint32_t size;
 } free_list_t;
 
@@ -31,12 +31,12 @@ typedef struct vmm_list {
     uint32_t size;           //剩余总虚拟内存
 } vmm_list_t;
 
-bool list_split(pointer_t va, uint32_t size);
+bool list_split(ptr_t va, uint32_t size);
 
 // 使用首次适应查找,返回空闲页虚拟地址
 void *list_split_ff(uint32_t size);
 
-void list_free(pointer_t va, uint32_t size);
+void list_free(ptr_t va, uint32_t size);
 
 
 void free_list_init(uint32_t size);

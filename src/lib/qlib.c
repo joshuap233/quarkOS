@@ -25,7 +25,7 @@ static void print_u(uint64_t num) {
 
 static void print_pointer(void *p) {
     char str[sizeof(uint64_t) + 1 + 2] = "0x";
-    hex((pointer_t) p, str + 2);
+    hex((ptr_t) p, str + 2);
     vga_put_string(str);
 }
 
@@ -46,14 +46,14 @@ void stack_trace() {
     struct stack_frame *stk;
     asm volatile("movl %%ebp,%0":"=r"(stk));
     while (stk->ebp) {
-        char *name = cur_func_name((pointer_t) stk->eip);
+        char *name = cur_func_name((ptr_t) stk->eip);
         printfk("ip: [%x], func: [%s]\n", stk->eip, name == NULL ? "NULL" : name);
         stk = stk->ebp;
     }
 }
 
 //addr 为函数中指令的地址
-char *cur_func_name(pointer_t addr) {
+char *cur_func_name(ptr_t addr) {
     for (uint32_t i = 0; i < (g_symtab.size / g_symtab.entry_size); ++i) {
         if (ELF32_ST_TYPE(g_symtab.header[i].st_info) == STT_FUNC) {
             elf32_symbol_t entry = g_symtab.header[i];

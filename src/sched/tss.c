@@ -8,8 +8,8 @@ static tss_t tss = {0};
 static tss_desc_t tss_desc = {0};
 
 void tss_set_desc() {
-    pointer_t base = (pointer_t) &tss;
-    pointer_t limit = sizeof(tss);
+    ptr_t base = (ptr_t) &tss;
+    ptr_t limit = sizeof(tss);
 
     tss_desc.base_l = base & (MASK_U32(16));
     tss_desc.base_m = (base >> 16) & (MASK_U32(8));
@@ -34,7 +34,7 @@ void tss_init() {
     tss.ss0 = 0x10;//内核数据段选择子
     tss_set_desc();
 
-    gdt_set(tss_desc_index, (pointer_t) &tss_desc);
+    gdt_set(tss_desc_index, (ptr_t) &tss_desc);
     tr_set((tss_desc_index << 3) & 0b011);
 }
 

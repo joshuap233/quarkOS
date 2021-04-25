@@ -2,7 +2,7 @@
 // Created by pjs on 2021/2/3.
 //
 // 内核堆
-// TODO: 固定块分配器,不添加块头
+// TODO: realloc
 #include "types.h"
 #include "lib/list.h"
 #include "mm/heap.h"
@@ -22,6 +22,37 @@ static heap_t heap;
 //计算剩余可用于扩展堆的虚拟内存
 #define HEAP_VMM_FREE (HEAP_SIZE - heap.size)
 
+INLINE void *alloc_addr(void *addr);
+
+INLINE void *chunk_header(void *addr);
+
+INLINE size_t chunk_size(size_t size);
+
+static void hdr_init(heap_ptr_t *c, uint32_t size);
+
+static bool expend(uint32_t size);
+
+static void shrink();
+
+void heap_init() {
+    list_header_init(&HEAD);
+    heap.size = PAGE_SIZE;
+
+    //初始空闲块
+    heap_ptr_t *hdr = (heap_ptr_t *) HEAP_START;
+    vmm_mapv(HEAP_START, PAGE_SIZE, VM_KW | VM_PRES);
+    hdr_init(hdr, PAGE_SIZE);
+
+    list_add_next(&hdr->head, &HEAD);
+
+#ifdef TEST
+    test_mallocK_and_freeK();
+    test_shrink_and_expand();
+    test_allocK_page();
+#endif //TEST
+}
+
+
 INLINE void *alloc_addr(void *addr) {
     //计算实际分配的内存块首地址
     return addr + sizeof(heap_ptr_t);
@@ -37,43 +68,23 @@ INLINE size_t chunk_size(size_t size) {
     return size + sizeof(heap_ptr_t);
 }
 
-
 //初始化一个新头块
-static void chunk_init(heap_ptr_t *c, uint32_t size) {
+static void hdr_init(heap_ptr_t *c, uint32_t size) {
     c->size = size;
     c->used = false;
     c->magic = HEAP_MAGIC;
 }
 
-void heap_init() {
-    list_header_init(&HEAD);
-    heap.size = PAGE_SIZE;
-
-    //初始空闲块
-    heap_ptr_t *hdr = (heap_ptr_t *) HEAP_START;
-    vmm_mapv(HEAP_START, PAGE_SIZE, VM_KW | VM_PRES);
-    chunk_init(hdr, PAGE_SIZE);
-
-    list_add_next(&hdr->head, &HEAD);
-
-#ifdef TEST
-    test_mallocK_and_freeK();
-    test_shrink_and_expand();
-    test_allocK_page();
-#endif //TEST
-}
-
 // size 为需要扩展的内存块大小
 static bool expend(uint32_t size) {
-    size = SIZE_ALIGN(size);
+    size = PAGE_ALIGN(size);
     if (HEAP_VMM_FREE < size) return false;
-
 
     vmm_mapv(HEAP_TAIL + 1, size, VM_KW | VM_PRES);
     if (TAL_CHUNK->used) {
         heap_ptr_t *new = (heap_ptr_t *) (HEAP_TAIL + 1);
         list_add_next(&new->head, &TAL_CHUNK->head);
-        chunk_init(new, size);
+        hdr_init(new, size);
     } else {
         TAL_CHUNK->size += size;
     }
@@ -81,11 +92,10 @@ static bool expend(uint32_t size) {
     return true;
 }
 
-INLINE void shrink() {
-
+static void shrink() {
     //保留需要释放的内存块所占用的第一页
     if (!TAL_CHUNK->used && TAL_CHUNK->size > HEAP_FREE_LIMIT) {
-        pointer_t chunk_end = (pointer_t) TAL_CHUNK + sizeof(heap_ptr_t);
+        ptr_t chunk_end = (ptr_t) TAL_CHUNK + sizeof(heap_ptr_t);
 
         void *addr = (void *) ((chunk_end & (~ALIGN_MASK)) + PAGE_SIZE);
 
@@ -130,7 +140,7 @@ static void *alloc_chunk(heap_ptr_t *chunk, size_t size) {
     } else {
         heap_ptr_t *new = (void *) chunk + size;
         list_add_next(&new->head, &chunk->head);
-        chunk_init(new, free_size);
+        hdr_init(new, free_size);
     }
     chunk->used = true;
     chunk->size = size;
@@ -138,7 +148,7 @@ static void *alloc_chunk(heap_ptr_t *chunk, size_t size) {
 }
 
 void *mallocK(size_t size) {
-    size = chunk_size(size);
+    size = MEM_ALIGN(chunk_size(size), HEAP_ALIGNMENT);
 
     list_for_each(&HEAD) {
         if (!cnk_entry(hdr)->used && cnk_entry(hdr)->size >= size)
@@ -155,7 +165,7 @@ void *allocK_page() {
     if (!expend(TAL_CHUNK->used ? PAGE_SIZE * 2 : PAGE_SIZE)) return NULL;
 
     heap_ptr_t *new = (heap_ptr_t *) (HEAP_TAIL + 1 - size);
-    chunk_init(new, size);
+    hdr_init(new, size);
     new->used = true;
 
     TAL_CHUNK->size -= size;
@@ -164,6 +174,23 @@ void *allocK_page() {
 }
 
 
+// 分配对齐内存, align > 16 (mallocK 默认 16 字节对齐)
+// align 为 4 的倍数
+void *align_mallocK(u32_t size, u32_t align) {
+    assertk(align > 16 && (align & 0x3) == 0);
+    u32_t offset = align - 1 + sizeof(void *);
+    void *p1 = (void *) mallocK(size + offset);
+    if (p1 == NULL) return NULL;
+    void **p2 = (void **) (((ptr_t) p1 + offset) & (~(align - 1)));
+    p2[-1] = p1;
+    return p2;
+}
+
+void *align_freeK(void *addr) {
+    void *p = ((void **) addr)[-1];
+    freeK(p);
+}
+
 void freeK(void *addr) {
     heap_ptr_t *alloc = chunk_header(addr);
     assertk(alloc->magic == HEAP_MAGIC);
@@ -171,6 +198,23 @@ void freeK(void *addr) {
     merge(alloc);
     shrink();
 }
+
+// 初始化固定块分配器, size 为需要预先分配的块数
+void chunk_init(blkAlloc_t *alloc, u32_t blockSize, u32_t size, u32_t align) {
+    alloc->blockSize = blockSize;
+    alloc->top = 1;
+    alloc->size = size;
+
+}
+
+void *chunk_alloc(blkAlloc_t *allocator, size_t size) {
+
+}
+
+void chunk_free(blkAlloc_t *allocator, void *addr) {
+
+}
+
 
 //=============== 测试 ================
 
@@ -257,15 +301,15 @@ void test_allocK_page() {
 
     addr[0] = allocK_page();
     assertk(addr[0] != NULL);
-    assertk(!((pointer_t) addr[0] & ALIGN_MASK));
+    assertk(!((ptr_t) addr[0] & ALIGN_MASK));
 
     addr[1] = allocK_page();
     assertk(addr[1] != NULL);
-    assertk(!((pointer_t) addr[1] & ALIGN_MASK));
+    assertk(!((ptr_t) addr[1] & ALIGN_MASK));
 
     addr[2] = allocK_page();
     assertk(addr[2] != NULL);
-    assertk(!((pointer_t) addr[2] & ALIGN_MASK));
+    assertk(!((ptr_t) addr[2] & ALIGN_MASK));
 
     freeK(addr[0]);
     assertk(get_unused_space() == PAGE_SIZE * 3 + unused - sizeof(heap_ptr_t) * 2);

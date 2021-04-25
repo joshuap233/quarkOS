@@ -122,7 +122,7 @@ INLINE bool is_paging() {
 }
 
 //获取产生错误的虚拟地址
-INLINE pointer_t pf_addr() {
+INLINE ptr_t pf_addr() {
     uint32_t cr2;
     asm volatile("mov %%cr2, %0":"=a"(cr2));
     return cr2;
@@ -143,7 +143,7 @@ INLINE uint32_t cpu_core() {
 }
 
 //刷新 tlb 缓存
-INLINE void tlb_flush(pointer_t va) {
+INLINE void tlb_flush(ptr_t va) {
     __asm__ volatile ("invlpg (%0)" : : "a" (va));
 }
 

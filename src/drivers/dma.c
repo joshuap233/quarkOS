@@ -77,7 +77,7 @@ void dma_init() {
 
     prdt_init();
     // prdt 地址写入 bus master 寄存器
-    // outl(dma_dev.bm + BM_PRDT_ADDR, (pointer_t) prdt);
+    // outl(dma_dev.bm + BM_PRDT_ADDR, (ptr_t) prdt);
 }
 
 static void prdt_init() {
@@ -112,7 +112,7 @@ uint32_t dma_set_prdt(buf_t *buf) {
     for (LH *hdr = &buf->queue; hdr != &queue; hdr = hdr->next) {
         if ((buf_entry(hdr)->flag & BUF_DIRTY) == dirty) {
             prdt[i].end = 0;
-            prdt[i++].addr = (pointer_t) buf->data;
+            prdt[i++].addr = (ptr_t) buf->data;
             buf->flag |= BUF_BSY;
         }
     }
@@ -123,7 +123,7 @@ uint32_t dma_set_prdt(buf_t *buf) {
 
 void dma_start(buf_t *buf) {
     uint32_t i = dma_set_prdt(buf);
-    outl(dma_dev.bm + BM_PRDT_ADDR, (pointer_t) prdt);
+    outl(dma_dev.bm + BM_PRDT_ADDR, (ptr_t) prdt);
 
     bool dirty = buf->flag & BUF_DIRTY;
     uint8_t bm_cmd = dirty ? BM_CMD_WRITE : BM_CMD_READ;

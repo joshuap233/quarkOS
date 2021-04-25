@@ -34,7 +34,7 @@ typedef struct gdtr {
     uint32_t address;
 } PACKED gdtr_t;
 
-void gdt_set(uint32_t index, pointer_t value_addr);
+void gdt_set(uint32_t index, ptr_t value_addr);
 
 extern void gdtr_set(uint32_t gdtr);
 

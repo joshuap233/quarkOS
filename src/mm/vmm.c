@@ -2,6 +2,7 @@
 // Created by pjs on 2021/2/1.
 //
 //虚拟内存管理
+// TODO: unmap 时回收空页表(内存不足时再回收?)
 #include "types.h"
 #include "mm/vmm.h"
 #include "mm/pmm.h"
@@ -14,109 +15,84 @@
 //内核页表本身在页表内的索引
 #define K_PD_INDEX        1023
 //PDE 虚拟地址
-#define K_PTE_VA         ((pointer_t)K_PD_INDEX << 22) \
+#define K_PTE_VA         ((ptr_t)K_PD_INDEX << 22)
 //返回页目录索引为index的页表项首地址
-#define PTE_ADDR(pde_index) (K_PTE_VA + (pde_index)*PAGE_SIZE)
+#define PTE_ADDR(pde_index) (K_PTE_VA + ((pde_index) << 12))
 
-extern void cr3_set(pointer_t);
+extern void cr3_set(ptr_t);
+
+static ptb_t *getPageTable(ptr_t va, u32_t flags);
 
 static pdr_t _Alignas(PAGE_SIZE) pageDir = {
         .entry = {[0 ...PAGE_ENTRY_NUM - 1]=(VM_KR | VM_NPRES)}
 };
 
-// pde 为页目录自身映射到的页目录项
-//ptb_t *get_ptb(pointer_t va, uint32_t flags, pde_t *pde, bool paging) {
-//
-//
-////    if (!(*pde & VM_PRES)) {
-////        *pde = phymm_alloc() | flags;
-////        pt = (ptb_t *) PAGE_ADDR(*pde);
-////        q_memset(pt, 0, sizeof(ptb_t));
-////    }
-//}
-
-// 用于直接线性映射,未开启分页时调用
-// 三个参数分别为: 需要映射的虚拟地址,物理地址, 需要映射的内存大小
-void vmm_map(pointer_t va, pointer_t pa, uint32_t size, uint32_t flags) {
-    assertk((va & ALIGN_MASK) == 0);
-
-    for (pointer_t end = va + size; va < end;) {
-        pde_t *pde = &pageDir.entry[PDE_INDEX(va)];
-        //没有开启分页,使用物理地址访问页表
-        ptb_t *pt = (ptb_t *) PAGE_ADDR(*pde);
-
-        if (!(*pde & VM_PRES)) {
-            *pde = phymm_alloc() | flags;
-            pt = (ptb_t *) PAGE_ADDR(*pde);
-            q_memset(pt, 0, sizeof(ptb_t));
-        }
-
-        for (; PTE_INDEX(va) < N_PTE && va < end; va += PAGE_SIZE) {
-            pt->entry[PTE_INDEX(va)] = pa | flags;
-            pa += PAGE_SIZE;
-
-            tlb_flush(va);
-        }
-    }
-}
-
-// 映射虚拟地址 va ~ va+size-1
-// 开启分页后才能使用
-void vmm_mapv(pointer_t va, uint32_t size, uint32_t flags) {
-    assertk((va & ALIGN_MASK) == 0);
-
-    for (pointer_t end = va + size; va < end;) {
-        pde_t *pde = &pageDir.entry[PDE_INDEX(va)];
-        //已经开启分页,使用虚拟地址访问页表
-        ptb_t *pt = (ptb_t *) PTE_ADDR(PDE_INDEX(va));
-
-        if (!(*pde & VM_PRES)) {
-            *pde = phymm_alloc() | flags;
-            q_memset(pt, 0, sizeof(ptb_t));
-        }
-
-        for (; PTE_INDEX(va) < N_PTE && va < end; va += PAGE_SIZE) {
-            pt->entry[PTE_INDEX(va)] = phymm_alloc() | flags;
-
-            tlb_flush(va);
-
-        }
-    }
-}
-
 // 初始化内核页表
 void vmm_init() {
-    cr3_t cr3 = CR3_CTRL | ((pointer_t) &pageDir);
-    //留出页表与堆的虚拟内存
-    pageDir.entry[N_PDE - 1] = (pointer_t) &pageDir | VM_KW | VM_PRES;
-
-    // _vmm_start 以下部分直接映射
-    vmm_map(0, 0, SIZE_ALIGN(g_vmm_start), VM_KW | VM_PRES);
-
+    cr3_t cr3 = CR3_CTRL | ((ptr_t) &pageDir);
+    pageDir.entry[N_PDE - 1] = (ptr_t) &pageDir | VM_KW | VM_PRES;
+    // 0 - g_vmm_start 的内存直接映射
+    vmm_map(0, 0, PAGE_ALIGN(g_vmm_start), VM_KW | VM_PRES);
     cr3_set(cr3);
 }
 
-// 开启分页后才能使用, size 为 PAGE_SIZE 的整数倍
-// 不会释放空闲列表的虚拟内存
-void vmm_unmap(void *_va, uint32_t size) {
+// 映射页目录
+static ptb_t *getPageTable(ptr_t va, u32_t flags) {
+    bool paging = is_paging();
+    pde_t *pde = &pageDir.entry[PDE_INDEX(va)];
+    ptb_t *pt = (ptb_t *) (paging ? PTE_ADDR(PDE_INDEX(va)) : PAGE_ADDR(*pde));
+
+    if (!(*pde & VM_PRES)) {
+        ptr_t pa;
+        assertk((pa = phymm_alloc()) != PMM_NLL);
+        *pde = pa | flags;
+        if (!paging) pt = (ptb_t *) pa;
+        q_memset(pt, 0, sizeof(ptb_t));
+    }
+    return pt;
+}
+
+void vmm_mapPage(ptr_t va, ptr_t pa, u32_t flags) {
+    assertk((va & ALIGN_MASK) == 0);
+    ptb_t *pt = getPageTable(va, flags);
+    pt->entry[PTE_INDEX(va)] = pa | flags;
+    tlb_flush(va);
+}
+
+// 直接映射
+void vmm_map(ptr_t va, ptr_t pa, u32_t size, u32_t flags) {
+    assertk((va & ALIGN_MASK) == 0);
+    ptr_t end = va + size;
+    for (; va < end; pa += PAGE_SIZE, va += PAGE_SIZE) {
+        vmm_mapPage(va, pa, flags);
+    }
+}
+
+// 映射 va ~ va+size-1
+void vmm_mapv(ptr_t va, u32_t size, u32_t flags) {
+    assertk((va & ALIGN_MASK) == 0);
+    ptr_t end = va + size;
+    for (; va < end; va += PAGE_SIZE) {
+        ptr_t pa;
+        assertk((pa = phymm_alloc()) != PMM_NLL);
+        vmm_mapPage(va, pa, flags);
+    }
+}
+
+
+void vmm_unmapPage(ptr_t va) {
+    ptb_t *pt = (ptb_t *) PTE_ADDR(PDE_INDEX(va));
+    phymm_free(pt->entry[PTE_INDEX(va)]);
+    pt->entry[PTE_INDEX(va)] = VM_NPRES;
+    tlb_flush(va);
+}
+
+// size 为需要释放的内存大小
+void vmm_unmap(void *va, u32_t size) {
     assertk((size & ALIGN_MASK) == 0);
-    pointer_t va = (pointer_t) _va;
-    for (pointer_t end = va + size; va < end;) {
-        uint32_t start = PTE_INDEX(va);
-        ptb_t *pt = (ptb_t *) PTE_ADDR(PDE_INDEX(va));
-
-        for (; PTE_INDEX(va) < N_PTE && va < end; va += PAGE_SIZE) {
-            phymm_free(pt->entry[PTE_INDEX(va)]);
-            pt->entry[PTE_INDEX(va)] = VM_NPRES;
-
-            tlb_flush((pointer_t) va);
-        }
-
-        //释放空页表物理内存,保留虚拟内存
-        if (start == 0 && PTE_INDEX(va) == N_PTE - 1) {
-            phymm_free(pageDir.entry[PDE_INDEX(va)]);
-            pageDir.entry[PDE_INDEX(va)] = VM_NPRES;
-        }
+    void *end = va + size;
+    for (; va < end; va += PAGE_SIZE) {
+        vmm_unmapPage((ptr_t) va);
     }
 }
 

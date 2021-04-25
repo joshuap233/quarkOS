@@ -241,7 +241,7 @@ static int kt_create(list_head_t **_thread, kthread_t *tid, void *(worker)(void 
 
     *_thread = &thread->run_list;
     assertk(thread != NULL);
-    assertk(((pointer_t) thread & ALIGN_MASK) == 0);
+    assertk(((ptr_t) thread & ALIGN_MASK) == 0);
 
     thread->state = TASK_RUNNING;
     thread->stack = thread;
@@ -252,7 +252,7 @@ static int kt_create(list_head_t **_thread, kthread_t *tid, void *(worker)(void 
     btm->ret = NULL;
     btm->entry = kthread_worker;
 
-    thread->context.esp = (pointer_t) btm;
+    thread->context.esp = (ptr_t) btm;
     // 必须关闭中断,且 schedule 必须关中断,否则 switch 函数恢复 eflags
     // 可能由于中断切换,导致 esp 还没有恢复(switch 时使用了临时 esp 用于保存 context)
     thread->context.eflags = 0;

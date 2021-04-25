@@ -28,7 +28,7 @@ void gdt_init() {
     // 使用平坦模型,
     gdtr_t gdtr = {
             .limit = GDT_COUNT * GDT_SIZE - 1,
-            .address = (pointer_t) gdt
+            .address = (ptr_t) gdt
     };
     // 第 0 个 gdt 为 NULL(0)
     gdt_set_(&gdt[1], 0, GDT_LIMIT, GDT_FLAG, GDT_SYS_CODE); //内核代码段
@@ -45,10 +45,10 @@ void gdt_init() {
     assertk(gdt[1].flag == 0xc)
     assertk(gdt[1].access == GDT_SYS_CODE)
     // 调用函数,参数压栈,返回地址压栈,因此参数地址 = (esp+4)
-    gdtr_set((pointer_t) &gdtr);
+    gdtr_set((ptr_t) &gdtr);
 }
 
 //可以用于设置 tss ldt 等
-void gdt_set(uint32_t index, pointer_t value_addr) {
+void gdt_set(uint32_t index, ptr_t value_addr) {
     q_memcpy(&gdt[index], (void *) value_addr, sizeof(uint64_t));
 }

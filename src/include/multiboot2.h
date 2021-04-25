@@ -364,7 +364,7 @@ typedef struct multiboot_tag multiboot_tag_t;
 typedef struct multiboot_mmap_entry multiboot_mmap_entry_t;
 typedef struct multiboot_tag_elf_sections multiboot_tag_elf_sections_t;
 
-pointer_t split_mmap(uint32_t size);
+ptr_t split_mmap(uint32_t size);
 
 extern multiboot_tag_mmap_t *g_mmap;
 extern multiboot_tag_apm_t *g_apm;
@@ -373,11 +373,11 @@ extern elf_string_table_t g_shstrtab, g_strtab;
 extern elf_symbol_table_t g_symtab;
 
 extern uint32_t g_mem_total;
-extern pointer_t g_vmm_start;
+extern ptr_t g_vmm_start;
 
 
 #define for_each_mmap \
-    for (multiboot_mmap_entry_t *entry = g_mmap->entries; (pointer_t) entry < (pointer_t) g_mmap + g_mmap->size; entry++)
+    for (multiboot_mmap_entry_t *entry = g_mmap->entries; (ptr_t) entry < (ptr_t) g_mmap + g_mmap->size; entry++)
 
 
 

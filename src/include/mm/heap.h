@@ -7,6 +7,7 @@
 
 #include "types.h"
 #include "lib/list.h"
+
 void *mallocK(size_t size);
 
 void freeK(void *addr);
@@ -32,6 +33,18 @@ typedef struct heap {
 //堆最后一个空闲块空闲空间大于 LIMIT 时,释放多余的页
 } heap_t;
 
+// 堆分配块的内存对齐字节数
+#define HEAP_ALIGNMENT   sizeof(heap_ptr_t)
+
+// 固定大小块分配器
+typedef struct blkAlloc {
+    ptr_t *stack;       // 使用栈管理固定块地址
+    u32_t blockSize;    // 块大小
+    u32_t size;         // 栈大小
+    u32_t top;          // 栈顶指针,初始为 0
+    struct blkAlloc *next;
+} blkAlloc_t;
+
 void *allocK_page();
 
 // =============== 测试 =================
@@ -40,7 +53,9 @@ void *allocK_page();
 void test_mallocK_and_freeK();
 
 void test_shrink_and_expand();
+
 void test_allocK_page();
+
 #endif //TEST
 
 #endif //QUARKOS_MM_HEAP_H
