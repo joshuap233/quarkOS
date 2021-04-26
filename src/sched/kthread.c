@@ -18,6 +18,7 @@ typedef struct thread_btm {
     void *args;    // entry 参数
 } thread_btm_t;
 
+blkAlloc_t stackAllocator;
 
 #define THREAD_BTM(top) ((void*)(top) + KTHREAD_STACK_SIZE-sizeof(thread_btm_t))
 
@@ -71,6 +72,7 @@ INLINE void set_next_ready();
 //初始化内核线程
 void sched_init() {
     thread_timer_init();
+    blkAlloc_init(&stackAllocator, KTHREAD_STACK_SIZE, 10, PAGE_SIZE);
     init_thread_init();
 
     CUR_TCB->tid = alloc_tid();
@@ -206,7 +208,7 @@ _Noreturn static void *cleaner_worker() {
             tcb_t *entry = tcb_entry(hdr);
             next = hdr->next;
             free_tid(entry->tid);
-            freeK(entry->stack);
+            blk_free(&stackAllocator, entry->stack);
         }
         list_header_init(&finish_list);
         block_thread(&block_list, NULL);
@@ -236,7 +238,7 @@ static int kt_create(list_head_t **_thread, kthread_t *tid, void *(worker)(void 
     //tcb 结构放到栈顶(低地址)
     ir_lock_t lock;
     ir_lock(&lock);
-    tcb_t *thread = allocK_page();
+    tcb_t *thread = blk_alloc(&stackAllocator);
     ir_unlock(&lock);
 
     *_thread = &thread->run_list;

@@ -48,7 +48,7 @@ void heap_init() {
 #ifdef TEST
     test_mallocK_and_freeK();
     test_shrink_and_expand();
-    test_allocK_page();
+    test_align_mallocK_and_freeK();
 #endif //TEST
 }
 
@@ -159,18 +159,14 @@ void *mallocK(size_t size) {
     return alloc_chunk(TAL_CHUNK, size);
 }
 
-// 分配页对齐的一页(页内不包括头块)
-void *allocK_page() {
-    size_t size = chunk_size(PAGE_SIZE);
-    if (!expend(TAL_CHUNK->used ? PAGE_SIZE * 2 : PAGE_SIZE)) return NULL;
 
-    heap_ptr_t *new = (heap_ptr_t *) (HEAP_TAIL + 1 - size);
-    hdr_init(new, size);
-    new->used = true;
-
-    TAL_CHUNK->size -= size;
-    list_add_prev(&new->head, &HEAD);
-    return alloc_addr(new);
+void freeK(void *addr) {
+    heap_ptr_t *alloc = chunk_header(addr);
+    assertk(alloc->magic == HEAP_MAGIC);
+    assertk(alloc->used == true);
+    alloc->used = false;
+    merge(alloc);
+    shrink();
 }
 
 
@@ -186,38 +182,95 @@ void *align_mallocK(u32_t size, u32_t align) {
     return p2;
 }
 
-void *align_freeK(void *addr) {
+void align_freeK(void *addr) {
     void *p = ((void **) addr)[-1];
     freeK(p);
 }
 
-void freeK(void *addr) {
-    heap_ptr_t *alloc = chunk_header(addr);
-    assertk(alloc->magic == HEAP_MAGIC);
-    alloc->used = false;
-    merge(alloc);
-    shrink();
-}
 
-// 初始化固定块分配器, size 为需要预先分配的块数
-void chunk_init(blkAlloc_t *alloc, u32_t blockSize, u32_t size, u32_t align) {
+/*
+ * 初始化固定块分配器, size 为需要预先分配的块数
+ * align:     align 字节对齐, align > 16,不需要对齐则 align 为 0
+ * blockSize: 固定块大小
+ * num:       需要预先分配的块数(管理器自动扩展时会扩展 size 块)
+ */
+#define MEM_START(alloc, data) ((void*)((data)->stack) - (alloc)->blockSize * (alloc)->size)
+
+void blkAlloc_init(blkAlloc_t *alloc, u32_t blockSize, u32_t num, u32_t align) {
+    struct blkData *data = &alloc->data;
+    u32_t total = (blockSize + sizeof(void *)) * num;
+    void *mem = align ? align_mallocK(total, align) : mallocK(total);
+    assertk(mem != NULL);
+
+    alloc->align = align;
     alloc->blockSize = blockSize;
-    alloc->top = 1;
-    alloc->size = size;
+    alloc->size = num;
 
+    data->next = NULL;
+    data->top = num;
+    data->stack = mem + blockSize * num;
+    for (u32_t i = 0; i < num; ++i) {
+        data->stack[i] = mem;
+        mem += blockSize;
+    }
 }
 
-void *chunk_alloc(blkAlloc_t *allocator, size_t size) {
-
+// 释放 prev 后的块
+static void blK_shrink(blkAlloc_t *alloc, struct blkData *prev) {
+    struct blkData *dst = prev->next;
+    if (dst != NULL && prev->top >= alloc->size / 2 && dst->top == alloc->size) {
+        void *memStart = MEM_START(alloc, dst);
+        alloc->align ? align_freeK(memStart) : freeK(memStart);
+        prev->next = NULL;
+    }
 }
 
-void chunk_free(blkAlloc_t *allocator, void *addr) {
+static void blK_expend(blkAlloc_t *alloc) {
+    u32_t size = (alloc->blockSize + sizeof(void *)) * alloc->size;
+    u32_t total = size + sizeof(struct blkData);
+    u32_t align = alloc->align;
+    void *mem = align ? align_mallocK(total, alloc->align) : mallocK(total);
+    assertk(mem != NULL);
 
+    alloc->data.next = mem + size;
+    struct blkData *data = alloc->data.next;
+    data->stack = mem + alloc->blockSize * alloc->size;
+    data->next = NULL;
+    data->top = alloc->size;
+    for (u32_t i = 0; i < alloc->size; ++i) {
+        data->stack[i] = mem;
+        mem += alloc->blockSize;
+    }
 }
+
+void *blk_alloc(blkAlloc_t *alloc) {
+    struct blkData *data = &alloc->data;
+    while (data->top == 0) {
+        if (data->next != NULL)
+            data = data->next;
+        else
+            blK_expend(alloc);
+    };
+    return data->stack[--data->top];
+}
+
+void blk_free(blkAlloc_t *alloc, void *addr) {
+    if (alloc->align) {assertk(((ptr_t) addr & (alloc->align - 1)) == 0)};
+    struct blkData *data = &alloc->data;
+    for (; data != NULL && data->top != alloc->size; data = data->next) {
+        void *memStart = MEM_START(alloc, data);
+        if (addr >= memStart && addr < (void *) data->stack) {
+            data->stack[data->top++] = addr;
+            blK_shrink(alloc, data);
+            return;
+        }
+    }
+    assertk(0);
+}
+
 
 
 //=============== 测试 ================
-
 #ifdef TEST
 
 static size_t get_unused_space() {
@@ -228,6 +281,10 @@ static size_t get_unused_space() {
     return size;
 }
 
+static size_t realSize(uint32_t size) {
+    return MEM_ALIGN(size + sizeof(heap_ptr_t), HEAP_ALIGNMENT);
+}
+
 static size_t get_used_space() {
     size_t size = 0;
     list_for_each(&HEAD) {
@@ -236,28 +293,28 @@ static size_t get_used_space() {
     return size;
 }
 
+size_t unused, used;
+void *addr[3];
 
 void test_mallocK_and_freeK() {
     test_start;
-    size_t unused = get_unused_space();
-    size_t used = get_used_space();
-    void *addr[3];
+    unused = get_unused_space();
+    used = get_used_space();
+    size_t size[3] = {20, 40, 30};
+    for (int i = 0; i < 3; ++i) {
+        addr[i] = mallocK(size[i]);
+        assertk(addr[i] != NULL);
+        assertk(((ptr_t) addr[i] & (HEAP_ALIGNMENT - 1)) == 0)
+    }
 
-    addr[0] = mallocK(20);
-    assertk(addr[0] != NULL);
-
-    addr[1] = mallocK(40);
-    assertk(addr[1] != NULL);
-
-    addr[2] = mallocK(30);
-    assertk(addr[2] != NULL);
-    assertk(get_unused_space() == unused - (3 * sizeof(heap_ptr_t) + 20 + 40 + 30));
-
-    freeK(addr[0]);
-    assertk(get_unused_space() == unused - (2 * sizeof(heap_ptr_t) + 40 + 30));
-    freeK(addr[1]);
-    assertk(get_unused_space() == unused - (sizeof(heap_ptr_t) + 30));
-    freeK(addr[2]);
+    for (int i = 0; i < 3; ++i) {
+        u32_t temp = 0;
+        for (int j = i; j < 3; ++j) {
+            temp += realSize(size[j]);
+        }
+        assertk(get_unused_space() == unused - temp);
+        freeK(addr[i]);
+    }
     assertk(unused == get_unused_space());
     assertk(used == get_used_space());
     assertk(HDR_CHUNK->size == heap.size);
@@ -267,55 +324,40 @@ void test_mallocK_and_freeK() {
 
 void test_shrink_and_expand() {
     test_start;
-    size_t unused = get_unused_space();
-    size_t used = get_used_space();
-    void *addr[3];
+    for (int i = 0; i < 3; ++i) {
+        addr[i] = mallocK(PAGE_SIZE);
+        assertk(get_unused_space() == unused - sizeof(heap_ptr_t) * (i + 1));
+        assertk(addr[i] != NULL);
+    }
 
-    addr[0] = mallocK(PAGE_SIZE);
-    assertk(get_unused_space() == unused - sizeof(heap_ptr_t));
-    assertk(addr[0] != NULL);
-
-    addr[1] = mallocK(PAGE_SIZE);
-    assertk(addr[1] != NULL);
-    assertk(get_unused_space() == unused - sizeof(heap_ptr_t) * 2);
-
-    addr[2] = mallocK(PAGE_SIZE);
-    assertk(addr[2] != NULL);
-    assertk(get_unused_space() == unused - sizeof(heap_ptr_t) * 3);
-
-    freeK(addr[0]);
-    freeK(addr[1]);
-    freeK(addr[2]);
-
+    for (int i = 0; i < 3; ++i) {
+        freeK(addr[i]);
+    }
     assertk(unused == get_unused_space());
     assertk(used == get_used_space());
     assertk(HDR_CHUNK->size == heap.size);
     test_pass;
 }
 
-void test_allocK_page() {
+void test_align_mallocK_and_freeK() {
     test_start;
-    size_t unused = get_unused_space();
-    size_t used = get_used_space();
-    void *addr[3];
+    size_t size[3] = {20, 40, 30};
+    for (int i = 0; i < 3; ++i) {
+        u32_t align = HEAP_ALIGNMENT * (i + 2);
+        addr[i] = align_mallocK(size[i], align);
+        assertk(addr[i] != NULL);
+        assertk(((ptr_t) addr[i] & (align - 1)) == 0)
+    }
 
-    addr[0] = allocK_page();
-    assertk(addr[0] != NULL);
-    assertk(!((ptr_t) addr[0] & ALIGN_MASK));
-
-    addr[1] = allocK_page();
-    assertk(addr[1] != NULL);
-    assertk(!((ptr_t) addr[1] & ALIGN_MASK));
-
-    addr[2] = allocK_page();
-    assertk(addr[2] != NULL);
-    assertk(!((ptr_t) addr[2] & ALIGN_MASK));
-
-    freeK(addr[0]);
-    assertk(get_unused_space() == PAGE_SIZE * 3 + unused - sizeof(heap_ptr_t) * 2);
-    freeK(addr[1]);
-    assertk(get_unused_space() == PAGE_SIZE * 4 + unused - sizeof(heap_ptr_t));
-    freeK(addr[2]);
+    for (int i = 0; i < 3; ++i) {
+        u32_t temp = 0;
+        for (int j = i; j < 3; ++j) {
+            u32_t align = HEAP_ALIGNMENT * (j + 2);
+            temp += realSize(size[j] + align - 1 + sizeof(void *));
+        }
+        assertk(get_unused_space() == unused - temp);
+        align_freeK(addr[i]);
+    }
     assertk(unused == get_unused_space());
     assertk(used == get_used_space());
     assertk(HDR_CHUNK->size == heap.size);

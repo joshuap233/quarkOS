@@ -17,7 +17,7 @@ void heap_init();
 // 堆内存块头块结构
 typedef struct heap_chunk_ptr {
     list_head_t head;
-    uint32_t size; //当前内存块长度,包括头块
+    uint32_t size;     //当前内存块长度,包括头块
     uint32_t used: 1;  //当前内存块是否被使用
     uint32_t magic: 31;
 #define HEAP_MAGIC 0x35e92b2e
@@ -38,14 +38,21 @@ typedef struct heap {
 
 // 固定大小块分配器
 typedef struct blkAlloc {
-    ptr_t *stack;       // 使用栈管理固定块地址
-    u32_t blockSize;    // 块大小
-    u32_t size;         // 栈大小
-    u32_t top;          // 栈顶指针,初始为 0
-    struct blkAlloc *next;
+    struct blkData{
+        void **stack;          // 管理固定块地址的栈(stack 在大块内存末尾)
+        u32_t top;             // 栈顶指针
+        struct blkData *next;  // 用于扩展管理器
+    } data;
+    u32_t size;                // 栈大小
+    u32_t blockSize;           // 块大小
+    u32_t align;               // 没有对齐要求则为 0
 } blkAlloc_t;
 
-void *allocK_page();
+void blkAlloc_init(blkAlloc_t *alloc, u32_t blockSize, u32_t size, u32_t align);
+
+void *blk_alloc(blkAlloc_t *alloc);
+
+void blk_free(blkAlloc_t *alloc, void *addr);
 
 // =============== 测试 =================
 #ifdef TEST
@@ -54,7 +61,7 @@ void test_mallocK_and_freeK();
 
 void test_shrink_and_expand();
 
-void test_allocK_page();
+void test_align_mallocK_and_freeK();
 
 #endif //TEST
 

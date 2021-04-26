@@ -38,7 +38,7 @@ typedef uint32_t kthread_t; //线程id
 
 typedef struct tcb {
 #define KTHREAD_NAME_LEN   16
-#define KTHREAD_STACK_SIZE 4096
+#define KTHREAD_STACK_SIZE PAGE_SIZE
 #define KTHREAD_NUM        65536
     list_head_t run_list;    //运行队列
     kthread_t tid;
