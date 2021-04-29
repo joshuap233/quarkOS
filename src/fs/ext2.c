@@ -6,18 +6,15 @@
 #include "fs/bio.h"
 #include "types.h"
 #include "lib/qlib.h"
+#include "mm/heap.h"
 
+blkAlloc_t blockAlloc;
 
 typedef struct block {
-    struct block_data {
-        buf_t *buf;
-        struct block *next;
-    } data;
-    uint32_t no;      // 块编号, 从 0 开始
+    buf_t **buf;
+    u32_t no;      // 块编号, 从 0 开始
 } block_t;
 
-// TODO: 我需要一个固定大小的块分配器
-struct block_data blockData[100];
 
 typedef struct node {
     buf_t *buf;
@@ -35,6 +32,12 @@ static node_t root;
 #define GET_INODE(node)      ((inode_t *)((node).buf->data + (node).offset))
 
 void ext2_readInode(struct node *node, uint32_t no, groupDesc_t *desc);
+
+static void block_init(block_t *block, uint32_t no);
+
+static void block_read(block_t *block);
+
+static void block_free(block_t *block);
 
 void ext2_init() {
     buf_t *buf = bio_get(2), *buf2;
@@ -55,6 +58,15 @@ void ext2_init() {
     ext2_readInode(&root, ROOT_INUM, descriptor);
     inode_t *inode = GET_INODE(root);
     assertk((inode->mode & MOD_DIR) == MOD_DIR);
+
+    blkAlloc_init(&blockAlloc, sizeof(buf_t *) * (blockSize / BUF_SIZE), 16, 0);
+
+    block_t block;
+    block_init(&block, inode->directPtr[0]);
+    block_read(&block);
+    directory_t *dir = (directory_t *) block.buf[0]->data;
+    dir = (void *) dir + dir->entrySize;
+    dir = (void *) dir + dir->entrySize;
 }
 
 // no 为 inode 在当前组的索引,
@@ -65,8 +77,26 @@ void ext2_readInode(node_t *node, uint32_t no, groupDesc_t *desc) {
     bio_read(node->buf);
 }
 
-void ext2_readBlock(block_t *block, uint32_t no) {
+static void block_init(block_t *block, uint32_t blkNo) {
+    block->no = blkNo;
+    u32_t no = BLOCK2LBA(blkNo);
+    block->buf = blk_alloc(&blockAlloc);
+    for (u32_t i = 0; i < blockSize / BUF_SIZE; i++) {
+        block->buf[i] = bio_get(no++);
+    }
+}
 
+static void block_read(block_t *block) {
+    for (u32_t i = 0; i < blockSize / BUF_SIZE; i++) {
+        bio_read(block->buf[i]);
+    }
+}
+
+static void block_free(block_t *block) {
+    for (u32_t i = 0; i < blockSize / BUF_SIZE; i++) {
+        bio_free(block->buf[i]);
+    }
+    blk_free(&blockAlloc, block->buf);
 }
 
 void ext2_mkdir(char *name) {

@@ -25,7 +25,7 @@ typedef struct buf {
 #define BUF_BSY     (1<<2)
 #define SECTOR_SIZE 512
 #define BUF_SIZE    SECTOR_SIZE
-#define N_BUF       30
+#define N_BUF       40
     uint8_t flag;
     uint16_t ref_cnt;
     spinlock_t lock;
