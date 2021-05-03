@@ -7,13 +7,13 @@
 
 #include "types.h"
 
-#define PMM_NLL 0xffffffff
+#define PMM_NULL 0xffffffff
 
-void phymm_init();
+void pm_init();
 
-ptr_t phymm_alloc();
+ptr_t pm_alloc();
 
-void phymm_free(ptr_t addr);
+void pm_free(ptr_t addr);
 
 #ifdef TEST
 void test_physical_mm();

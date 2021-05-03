@@ -54,11 +54,11 @@ void stack_trace() {
 
 //addr 为函数中指令的地址
 char *cur_func_name(ptr_t addr) {
-    for (uint32_t i = 0; i < (g_symtab.size / g_symtab.entry_size); ++i) {
-        if (ELF32_ST_TYPE(g_symtab.header[i].st_info) == STT_FUNC) {
-            elf32_symbol_t entry = g_symtab.header[i];
+    for (uint32_t i = 0; i < (bInfo.symtab.size / bInfo.symtab.entry_size); ++i) {
+        if (ELF32_ST_TYPE(bInfo.symtab.header[i].st_info) == STT_FUNC) {
+            elf32_symbol_t entry = bInfo.symtab.header[i];
             if ((addr >= entry.st_value) && (addr <= entry.st_value + entry.st_size)) {
-                return &g_strtab.addr[entry.st_name];
+                return &bInfo.strtab.addr[entry.st_name];
             }
         }
     }

@@ -6,7 +6,7 @@
 #define QUARKOS_MM_INIT_H
 
 void vmm_init();
-void phymm_init();
+void pm_init();
 void heap_init();
 
 #endif //QUARKOS_MM_INIT_H

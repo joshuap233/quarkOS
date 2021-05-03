@@ -358,27 +358,42 @@ struct multiboot_tag_load_base_addr {
 //解析 multiboot2 info struct
 void multiboot_init(multiboot_info_t *bia);
 
-typedef struct multiboot_tag_mmap multiboot_tag_mmap_t;
-typedef struct multiboot_tag_apm multiboot_tag_apm_t;
-typedef struct multiboot_tag multiboot_tag_t;
-typedef struct multiboot_mmap_entry multiboot_mmap_entry_t;
-typedef struct multiboot_tag_elf_sections multiboot_tag_elf_sections_t;
+typedef struct multiboot_tag_mmap boot_tag_mmap_t;
+typedef struct multiboot_tag_apm boot_tag_apm_t;
+typedef struct multiboot_tag boot_tag_t;
+typedef struct multiboot_mmap_entry boot_mmap_entry_t;
+typedef struct multiboot_tag_elf_sections boot_tag_elf_sections_t;
 
 ptr_t split_mmap(uint32_t size);
 
-extern multiboot_tag_mmap_t *g_mmap;
-extern multiboot_tag_apm_t *g_apm;
-
-extern elf_string_table_t g_shstrtab, g_strtab;
-extern elf_symbol_table_t g_symtab;
-
-extern uint32_t g_mem_total;
-extern ptr_t g_vmm_start;
-
 
 #define for_each_mmap \
-    for (multiboot_mmap_entry_t *entry = g_mmap->entries; (ptr_t) entry < (ptr_t) g_mmap + g_mmap->size; entry++)
+    for (boot_mmap_entry_t *entry = bInfo.mmap->entries; (ptr_t) entry < (ptr_t) bInfo.mmap + bInfo.mmap->size; entry++)
 
 
+struct bootInfo {
+    boot_tag_elf_sections_t *elf_symbols;
+    boot_tag_mmap_t *mmap;
+    boot_tag_apm_t *apm;
+    elf_string_table_t shstrtab, strtab;
+    elf_symbol_table_t symtab;
+    uint32_t mem_total;  // 可用物理内存大小
+    ptr_t vmm_start;    //虚拟内存开始地址,vmm_start以下的内存与物理内存直接映射
+};
+
+extern struct bootInfo bInfo;
+
+struct memMap {
+    ptr_t addr;
+    u32_t len;
+};
+
+struct memZones {
+    struct memMap able[5];
+    struct memMap rsv[5];
+    struct memMap acpi[5];
+    struct memMap nvs[5];
+    struct memMap badRam[5];
+};
 
 #endif //QUARKOS_MULTIBOOT2_H

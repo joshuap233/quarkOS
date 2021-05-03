@@ -59,7 +59,7 @@ void kernel_main() {
     kb_init();
 
     // 内存管理模块初始化
-    phymm_init();
+    pm_init();
     vmm_init();
     heap_init();
 

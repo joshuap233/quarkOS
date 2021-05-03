@@ -21,6 +21,7 @@
 extern char _endKernel[], _startKernel[];
 
 #define MEM_ALIGN(s, align) (((s)+(align)-1)&(~((align)-1)))
+
 #define PAGE_ALIGN(s)       (((s)+ALIGN_MASK)&(~ALIGN_MASK))
 
 #endif //QUARKOS_MM_MM_H

@@ -2,7 +2,7 @@
 // Created by pjs on 2021/4/14.
 //
 // ide dma
-// 有个 BUG 找不出来,我都快要疯了,我再也不想写驱动了!!!
+// TODO: 有个 BUG 找不出来,我都快要疯了,我再也不想写驱动了!!!
 
 #include "drivers/pci.h"
 #include "lib/qlib.h"
@@ -11,7 +11,7 @@
 #include "lib/list.h"
 #include "sched/kthread.h"
 #include "drivers/ide.h"
-
+#include "mm/vmm.h"
 
 #define N_PRD   N_BUF
 #define LH list_head_t

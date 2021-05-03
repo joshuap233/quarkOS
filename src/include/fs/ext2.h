@@ -195,7 +195,7 @@ typedef struct directory_entry {
 #define DIR_FIFO               5
 #define DIR_SOCKET             6
 #define DIR_SOFT_LINK          7
-    u8_t name[1];
+    u8_t name[0];
 }directory_t;
 
 
