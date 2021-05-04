@@ -97,11 +97,11 @@ static void shrink() {
     if (!TAL_CHUNK->used && TAL_CHUNK->size > HEAP_FREE_LIMIT) {
         ptr_t chunk_end = (ptr_t) TAL_CHUNK + sizeof(heap_ptr_t);
 
-        void *addr = (void *) ((chunk_end & (~ALIGN_MASK)) + PAGE_SIZE);
+        void *addr = (void *) ((chunk_end & (~PAGE_MASK)) + PAGE_SIZE);
 
         uint32_t size = addr - (void *) TAL_CHUNK;
         uint32_t free_size = TAL_CHUNK->size - size;
-        assertk(!(free_size & ALIGN_MASK));
+        assertk(!(free_size & PAGE_MASK));
 
         TAL_CHUNK->size = size;
         heap.size -= free_size;

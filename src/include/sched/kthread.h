@@ -69,7 +69,7 @@ extern list_head_t *init_task;
 // i r esp / ~(uint32_t)(4096 - 1)
 INLINE tcb_t *cur_tcb() {
     tcb_t *tcb;
-    asm("andl %%esp,%0; ":"=r" (tcb): "0" (~ALIGN_MASK));
+    asm("andl %%esp,%0; ":"=r" (tcb): "0" (~PAGE_MASK));
     return tcb;
 }
 

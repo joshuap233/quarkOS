@@ -23,7 +23,10 @@ ptr_t split_mmap(uint32_t size) {
             uint32_t addr = entry->addr;
             entry->addr += size;
             entry->len -= size;
-            if (addr == bInfo.vmm_start) bInfo.vmm_start = entry->addr;
+            if (addr == bInfo.vmm_start) {
+                bInfo.vmm_start = entry->addr;
+                bInfo.mem_total -= size;
+            };
             return addr;
         }
     }

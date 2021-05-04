@@ -61,7 +61,7 @@ static ptb_t *getPageTable(ptr_t va, u32_t flags) {
 }
 
 void vmm_mapPage(ptr_t va, ptr_t pa, u32_t flags) {
-    assertk((va & ALIGN_MASK) == 0);
+    assertk((va & PAGE_MASK) == 0);
     ptb_t *pt = getPageTable(va, flags);
     PTE(pt, va) = pa | flags;
     tlb_flush(va);
@@ -69,7 +69,7 @@ void vmm_mapPage(ptr_t va, ptr_t pa, u32_t flags) {
 
 // 直接映射
 void vmm_mapd(ptr_t va, ptr_t pa, u32_t size, u32_t flags) {
-    assertk((va & ALIGN_MASK) == 0);
+    assertk((va & PAGE_MASK) == 0);
     ptr_t end = va + size;
     for (; va < end; pa += PAGE_SIZE, va += PAGE_SIZE) {
         vmm_mapPage(va, pa, flags);
@@ -78,7 +78,7 @@ void vmm_mapd(ptr_t va, ptr_t pa, u32_t size, u32_t flags) {
 
 // 映射 va ~ va+size-1
 void vmm_mapv(ptr_t va, u32_t size, u32_t flags) {
-    assertk((va & ALIGN_MASK) == 0);
+    assertk((va & PAGE_MASK) == 0);
     ptr_t end = va + size;
     for (; va < end; va += PAGE_SIZE) {
         ptr_t pa;
@@ -91,19 +91,19 @@ void vmm_mapv(ptr_t va, u32_t size, u32_t flags) {
 // 使用虚拟地址找到物理地址
 ptr_t vmm_vm2pm(ptr_t va) {
     ptb_t *pt = (ptb_t *) PTB(va);
-    return PAGE_ADDR(PTE(pt, va)) + (va & ALIGN_MASK);
+    return PAGE_ADDR(PTE(pt, va)) + (va & PAGE_MASK);
 }
 
 void vmm_unmapPage(ptr_t va) {
     ptb_t *pt = (ptb_t *) PTB(va);
-    pm_free(PTE(pt, va));
+    pm_free(PAGE_ADDR(PTE(pt, va)));
     PTE(pt, va) = VM_NPRES;
     tlb_flush(va);
 }
 
 // size 为需要释放的内存大小
 void vmm_unmap(void *va, u32_t size) {
-    assertk((size & ALIGN_MASK) == 0);
+    assertk((size & PAGE_MASK) == 0);
     void *end = va + size;
     for (; va < end; va += PAGE_SIZE) {
         vmm_unmapPage((ptr_t) va);

@@ -243,7 +243,7 @@ static int kt_create(list_head_t **_thread, kthread_t *tid, void *(worker)(void 
 
     *_thread = &thread->run_list;
     assertk(thread != NULL);
-    assertk(((ptr_t) thread & ALIGN_MASK) == 0);
+    assertk(((ptr_t) thread & PAGE_MASK) == 0);
 
     thread->state = TASK_RUNNING;
     thread->stack = thread;
