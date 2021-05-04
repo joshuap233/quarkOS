@@ -7,69 +7,79 @@
 #include "mm/mm.h"
 #include "mm/pmm.h"
 #include "multiboot2.h"
-#include "lib/list.h"
-#include "mm/buddy.h"
-
-#define entry(ptr) list_entry(ptr,struct block,node)
 
 
 typedef struct treeNode {
-    u16_t idx;
+#define SIZE(sizeLog) (2<<(sizeLog)) // 获取实际内存单元个数
+    u32_t sizeLog: 8;                // 当前节点管理的内存单元(4K)个数取log2
+    u32_t pn: 24;                    // 页帧号
     struct treeNode *left;
     struct treeNode *right;
-    struct buddy buddy[0];
 } node_t;
 
+
 #define VALID_CHILD(node) ((node)->left ? (node)->left : (node)->right)
-#define NEXT_NODE(node, v) (((node)->idx > (v)) ? (node)->left : (node)->right)
-#define NEXT_NODE_ADDR(node, v) ((node)->idx > (v) ? &(node)->left : &(node)->right)
+#define NEXT_NODE(node, v) (((node)->pn > (v)) ? (node)->left : (node)->right)
+#define NEXT_NODE_ADDR(node, v) ((node)->pn > (v) ? &(node)->left : &(node)->right)
+#define LIST_NEXT(node) ((node).right)
 
 static node_t *sortedArrayToBST(u16_t start, u16_t size);
 
-static node_t *bst_search(node_t *node, u16_t idx);
+static node_t *bst_search(node_t *node, u32_t pn);
 
-static node_t *bst_delete(node_t *root, u16_t key);
+static node_t *bst_delete(node_t *root, u32_t pn, node_t **del);
 
 static node_t *bst_insert(node_t *root, node_t *target);
 
+static node_t *bst_deleteMin(node_t *root, node_t **del);
+
+static node_t *bst_findMin(node_t *root);
+
+static void node2freeList(node_t *node);
+
+static u8_t log2(uint16_t val);
+
+INLINE node_t *next_free_node();
+
+INLINE void list_free(node_t *node);
+
 /*
- * 物理内存分配器,管理多个 buddy 分配器
- * root: 管理可分配4K-4M内存块的buddy分配器,root[0]管理已经完全分配的buddy分配器
- *       buddy分配器根节点值为可分配最大内存块(2的幂),而不是该分配器可用内存
- * node     :  buddy 分配器列表
- * cnt      :  buddy 分配器个数
- * blockSize:  buddy 分配器基本内存单元大小(4K的整数倍)
- * buddySize:  一个 buddy 分配器管理的内存大小
- * addr     :  物理内存分配器管理的内存起始地址
+ * 物理内存分配器
+ * root:        root[11] 管理已分配块,root[0]-root[10] 对应 4K - 4M 内存块
+ * addr:        物理内存分配器管理的内存起始地址
+ * blockSize:   最小内存单元大小
+ * list:        list 空闲节点链表
  */
 struct allocator {
-#define MAX_ORDER 12
-    node_t *root[MAX_ORDER + 1];
-    node_t *node;
-    u16_t cnt;
-    u16_t blockSize;
-    u32_t buddySize;
+#define MAX_ORDER 10
+    node_t *root[MAX_ORDER + 2];
+    node_t *list;
     uint32_t addr;
-} pm;
+    u16_t blockSize;
+} pmm;
+
 
 void pm_init() {
-    //TODO:不足 4M 的内存分个 slab
-    pm.buddySize = 4 * M;
-    pm.blockSize = PAGE_SIZE;
-    pm.cnt = DIV_CEIL(bInfo.mem_total, pm.buddySize);
-    u32_t bSize = (sizeof(node_t) + BUDDY_SIZE(MAX_ORDER));
+    // TODO:不足 4M 的内存用于 slab
+    pmm.blockSize = PAGE_SIZE;
+    u16_t size = bInfo.mem_total / (4 * K) / 2;//需要分配的节点数
+    node_t *list = (node_t *) split_mmap(sizeof(node_t) * size);
 
-    pm.node = (node_t *) split_mmap(pm.cnt * bSize);
-
-    for (u16_t i = 0; i < MAX_ORDER; ++i) {
-        pm.root[i] = NULL;
+    // 初始化空闲链表
+    for (int i = 0; i < size - 1; ++i) {
+        LIST_NEXT(list[i]) = &list[i + 1];
     }
-    pm.root[MAX_ORDER] = sortedArrayToBST(0, pm.cnt);
+    LIST_NEXT(list[size - 1]) = NULL;
+    pmm.list = &list[0];
 
-    //TODO: 以及被 split_mmap 的内存?
-    for (u16_t i = 0; i < pm.cnt; ++i) {
-        buddy_new(pm.node[i].buddy, pm.buddySize / pm.buddySize);
+    // 初始化用与管理 4M 内存块的节点
+    for (int i = 0; i < MAX_ORDER; ++i) {
+        pmm.root[i] = NULL;
     }
+    pmm.addr = PAGE_ALIGN(bInfo.vmm_start);
+    uint16_t rSize = (bInfo.mem_total - (pmm.addr - bInfo.vmm_start)) / (4 * M);
+    pmm.root[MAX_ORDER] = sortedArrayToBST(0, rSize);
+
 #ifdef TEST
     test_physical_mm();
 #endif //TEST
@@ -77,72 +87,113 @@ void pm_init() {
 
 
 ptr_t pm_alloc(size_t size) {
-    size = PAGE_ALIGN(size);
-}
+    assertk(size < 4 * M);
+    size = log2(PAGE_ALIGN(size) >> 12);
 
-void pm_free(ptr_t addr) {
-    // TODO: 释放的时候需要使用 addr 算出buddy需要的偏移
-    // 并且 使用 addr 算出 addr 属于哪个 buddy 分配器???
-}
+    for (uint16_t i = size; i <= MAX_ORDER; ++i) {
+        node_t *root = pmm.root[i];
+        if (root) {
+            node_t *del;
+            pmm.root[i] = bst_deleteMin(root, &del);
+            del->sizeLog = size;
+            // 被分配内存块插入 pmm[0]
+            pmm.root[0] = bst_insert(&pmm.list[0], del);
 
-ptr_t pm_alloc_page() {
-    for (int i = 1; i < MAX_ORDER; ++i) {
-        if (pm.root[i]) {
-            u16_t offset = buddy_alloc(pm.root[i]->buddy, pm.blockSize / PAGE_SIZE);
-            pm.root[i] = bst_delete(pm.root[i], pm.root[i]->idx);
-            bst_insert(pm.root[i - 1], pm.root[i]);
-            return pm.addr + pm.buddySize * pm.root[i]->idx + offset * pm.blockSize;
+            u32_t pn = del->pn;
+            for (u16_t j = i - 1, sizeLog = pmm.list[j].sizeLog; j > 0 && sizeLog >= size; j--, sizeLog--) {
+                node_t *new = next_free_node();
+                new->sizeLog = sizeLog;
+                new->pn = pn + SIZE(sizeLog) / 2;
+                pmm.root[j] = bst_insert(&pmm.list[j], new);
+            }
+            return pmm.addr + (pn << 12);
         }
     }
     return PMM_NULL;
 }
+
+void pm_free(ptr_t addr) {
+    u32_t pn = (pmm.addr - addr) >> 12;
+    node_t *node = bst_search(pmm.root[0], pn), *del;
+    uint32_t buddy_pn = pn + SIZE(node->sizeLog);
+    bst_delete(pmm.root[0], pn, &del);
+    list_free(del);
+
+    for (uint16_t i = node->sizeLog; i <= MAX_ORDER; ++i) {
+        bst_delete(pmm.root[i], buddy_pn, &del);
+        if (del == NULL) {
+            bst_insert(pmm.root[i], node);
+            break;
+        }
+    }
+}
+
+ptr_t pm_alloc_page() {
+    return pm_alloc(PAGE_SIZE);
+}
+
 
 static node_t *sortedArrayToBST(u16_t start, u16_t size) {
     if (size == 0) return NULL;
     u16_t temp = size;
     size >>= 1;
     u16_t mid = start + size;
-    node_t *root = &pm.node[mid];
-    root->idx = mid;
+    node_t *root = next_free_node();
+    root->sizeLog = MAX_ORDER;    //4M
+    root->pn = mid * (1 << MAX_ORDER);
     root->left = sortedArrayToBST(start, size);
     root->right = sortedArrayToBST(mid + 1, temp - size - 1);
     return root;
 }
 
-static node_t *bst_search(node_t *node, u16_t idx) {
+static node_t *bst_findMin(node_t *root) {
+    assertk(root);
+    while (root->left != NULL)
+        root = root->left;
+    return root;
+}
+
+static node_t *bst_search(node_t *node, u32_t pn) {
     assertk(node);
     while (node != NULL) {
-        if (node->idx == idx) return node;
-        node = NEXT_NODE(node, idx);
+        if (node->pn == pn) return node;
+        node = NEXT_NODE(node, pn);
     }
     return NULL;
 }
 
 
-static node_t *bst_del_right_min(node_t *root) {
-    node_t **node = &root->right, *temp;
-    while ((*node)->left != NULL)
-        node = &(*node)->left;
-    temp = *node;
-    *node = (*node)->right;
-    return temp;
-}
-
 // 返回新根
-static node_t *bst_delete(node_t *root, u16_t key) {
+static node_t *bst_delete(node_t *root, u32_t pn, node_t **del) {
+    assertk(root);
     node_t **node = &root;
-    while (*node != NULL && key != (*node)->idx)
-        node = NEXT_NODE_ADDR(*node, key);
+    while (*node != NULL && pn != (*node)->pn)
+        node = NEXT_NODE_ADDR(*node, pn);
 
-    assertk(*node);
-//    if (*node == NULL) return root;
+    if (*node == NULL) {
+        if (del)*del = NULL;
+        return root;
+    }
 
     if (!(*node)->left || !(*node)->right) {
+        if (del)*del = *node;
         (*node) = VALID_CHILD(*node);
     } else {
-        node_t *min = bst_del_right_min(*node);
-        (*node)->idx = min->idx;
+        node_t *min;
+        (*node)->right = bst_deleteMin((*node)->right, &min);
+        if (del)*del = min;
+        (*node)->pn = min->pn;
     }
+    return root;
+}
+
+static node_t *bst_deleteMin(node_t *root, node_t **del) {
+    assertk(root);
+    node_t **node = &root;
+    while ((*node)->left != NULL)
+        node = &(*node)->left;
+    if (del)*del = *node;
+    (*node) = (*node)->right;
     return root;
 }
 
@@ -150,11 +201,35 @@ static node_t *bst_insert(node_t *root, node_t *target) {
     assertk(root && target);
     node_t **node = &root;
     while (*node != NULL)
-        node = NEXT_NODE_ADDR(*node, target->idx);
+        node = NEXT_NODE_ADDR(*node, target->pn);
     target->left = NULL;
     target->right = NULL;
     *node = target;
     return root;
+}
+
+INLINE node_t *next_free_node() {
+    assertk(pmm.list != NULL);
+    node_t *ret = pmm.list;
+    pmm.list = LIST_NEXT(*ret);
+    return ret;
+}
+
+INLINE void list_free(node_t *node) {
+    assertk(node);
+    LIST_NEXT(*node) = pmm.list;
+    if (pmm.list == NULL) {
+        pmm.list = node;
+    }
+}
+
+static u8_t log2(uint16_t val) {
+    u8_t cnt = 0;
+    while (val != 1) {
+        cnt++;
+        val >>= 1;
+    }
+    return cnt;
 }
 
 #ifdef TEST

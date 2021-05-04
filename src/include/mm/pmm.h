@@ -12,6 +12,7 @@
 void pm_init();
 
 ptr_t pm_alloc();
+ptr_t pm_alloc_page();
 
 void pm_free(ptr_t addr);
 

@@ -52,7 +52,7 @@ static ptb_t *getPageTable(ptr_t va, u32_t flags) {
 
     if (!(*pde & VM_PRES)) {
         ptr_t pa;
-        assertk((pa = phymm_alloc()) != PMM_NLL);
+        assertk((pa = pm_alloc_page()) != PMM_NULL);
         *pde = pa | flags;
         if (!paging) pt = (ptb_t *) pa;
         q_memset(pt, 0, sizeof(ptb_t));
@@ -82,7 +82,7 @@ void vmm_mapv(ptr_t va, u32_t size, u32_t flags) {
     ptr_t end = va + size;
     for (; va < end; va += PAGE_SIZE) {
         ptr_t pa;
-        assertk((pa = phymm_alloc()) != PMM_NLL);
+        assertk((pa = pm_alloc_page()) != PMM_NULL);
         vmm_mapPage(va, pa, flags);
     }
 }
