@@ -9,9 +9,7 @@
 
 #define PMM_NULL 0xffffffff
 
-void pm_init();
-
-ptr_t pm_alloc(int32_t size);
+ptr_t pm_alloc(u32_t size);
 ptr_t pm_alloc_page();
 
 void pm_free(ptr_t addr);

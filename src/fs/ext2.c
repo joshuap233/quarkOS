@@ -6,9 +6,7 @@
 #include "fs/bio.h"
 #include "types.h"
 #include "lib/qlib.h"
-#include "mm/heap.h"
-
-blkAlloc_t blockAlloc;
+#include "mm/kmalloc.h"
 
 typedef struct block {
     buf_t **buf;
@@ -59,7 +57,6 @@ void ext2_init() {
     inode_t *inode = GET_INODE(root);
     assertk((inode->mode & MOD_DIR) == MOD_DIR);
 
-    blkAlloc_init(&blockAlloc, sizeof(buf_t *) * (blockSize / BUF_SIZE), 16, 0);
 
     block_t block;
     block_init(&block, inode->directPtr[0]);
@@ -80,7 +77,7 @@ void ext2_readInode(node_t *node, uint32_t no, groupDesc_t *desc) {
 static void block_init(block_t *block, uint32_t blkNo) {
     block->no = blkNo;
     u32_t no = BLOCK2LBA(blkNo);
-    block->buf = blk_alloc(&blockAlloc);
+    block->buf = kmalloc(sizeof(buf_t *) * (blockSize / BUF_SIZE));
     for (u32_t i = 0; i < blockSize / BUF_SIZE; i++) {
         block->buf[i] = bio_get(no++);
     }
@@ -96,7 +93,7 @@ static void block_free(block_t *block) {
     for (u32_t i = 0; i < blockSize / BUF_SIZE; i++) {
         bio_free(block->buf[i]);
     }
-    blk_free(&blockAlloc, block->buf);
+    kfree(block->buf);
 }
 
 void ext2_mkdir(char *name) {

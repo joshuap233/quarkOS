@@ -59,9 +59,9 @@ void kernel_main() {
     kb_init();
 
     // 内存管理模块初始化
-    pm_init();
+    pmm_init();
+    slab_init();
     vmm_init();
-    heap_init();
 
     ide_init();
     dma_init();

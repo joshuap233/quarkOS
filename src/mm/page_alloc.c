@@ -2,10 +2,12 @@
 // Created by pjs on 2021/2/1.
 //
 // 使用栈结构管理物理内存
+// TODO: 分配需要分配 3K, 5K, 9K...这种内存依然会造成大量内存碎片
 #include "types.h"
 #include "lib/qlib.h"
 #include "mm/mm.h"
-#include "mm/pmm.h"
+#include "mm/page_alloc.h"
+#include "mm/vmm.h"
 #include "multiboot2.h"
 
 
@@ -61,7 +63,7 @@ struct allocator {
 } pmm;
 
 
-void pm_init() {
+void pmm_init() {
     // TODO:不足 4M 的内存用于 slab
     pmm.blockSize = PAGE_SIZE;
     u16_t size = bInfo.mem_total / (4 * K) / 2;//需要分配的节点数
@@ -88,7 +90,7 @@ void pm_init() {
 }
 
 
-ptr_t pm_alloc(int32_t size) {
+ptr_t pm_alloc(u32_t size) {
     assertk(size > 0 && size < 4 * M);
     size = log2(PAGE_ALIGN(size) >> 12);
 
@@ -102,13 +104,17 @@ ptr_t pm_alloc(int32_t size) {
             pmm.allocated = bst_insert(pmm.allocated, del);
 
             u32_t pn = del->pn;
-            for (int32_t j = i - 1; j >= size; j--) {
+            // 不要删 j <= MAX_ORDER
+            for (u32_t j = i - 1; j >= size && j <= MAX_ORDER; j--) {
                 node_t *new = new_node();
                 new->sizeLog = j;
                 new->pn = pn + SIZE(j + 1) / 2;
                 pmm.root[j] = bst_insert(pmm.root[j], new);
             }
-            return pmm.addr + (pn << 12);
+            // 映射到虚拟地址空间
+            ptr_t addr = pmm.addr + (pn << 12);
+            vmm_mapd(addr, addr, SIZE(size) << 12, VM_PRES | VM_KW);
+            return addr;
         }
     }
     return PMM_NULL;
@@ -116,17 +122,24 @@ ptr_t pm_alloc(int32_t size) {
 
 void pm_free(ptr_t addr) {
     assertk(addr > pmm.addr && (addr & PAGE_MASK) == 0)
-    u32_t pn = (addr - pmm.addr) >> 12;
+    u32_t pn = (addr - pmm.addr) >> 12, buddy_pn;
     node_t *node, *buddy;
     pmm.allocated = bst_delete(pmm.allocated, pn, &node);
     assertk(node);
 
-    uint32_t buddy_pn = get_buddy_pn(pn, node->sizeLog);
+    // 取消虚拟地址空间映射
+    vmm_unmap((void *) addr, SIZE(node->sizeLog) << 12);
+
     for (uint16_t i = node->sizeLog; i <= MAX_ORDER; ++i) {
+        buddy_pn = get_buddy_pn(pn, node->sizeLog);
         pmm.root[i] = bst_delete(pmm.root[i], buddy_pn, &buddy);
         if (!buddy) {
+            node->sizeLog = i;
             pmm.root[i] = bst_insert(pmm.root[i], node);
             break;
+        } else {
+            pn = MIN(buddy_pn, pn);
+            list_free(buddy);
         }
     }
 }

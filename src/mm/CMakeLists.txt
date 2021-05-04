@@ -1,3 +1,3 @@
-add_library(mm OBJECT heap.c paging.s pmm.c vmm.c slab.c)
+add_library(mm OBJECT paging.s page_alloc.c vmm.c slab.c kmalloc.c)
 
 

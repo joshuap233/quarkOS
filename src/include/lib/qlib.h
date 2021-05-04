@@ -11,6 +11,7 @@
 #include "x86.h"
 #include "drivers/timer.h"
 
+
 #ifdef __i386__
 
 #define assertk(condition) {\
@@ -42,6 +43,7 @@ void printfk(char *__restrict str, ...);
 #define MASK_U16(n) BIT_MASK(uint16_t, n)
 #define MASK_U8(n)  BIT_MASK(uint8_t, n)
 
+#define MIN(a, b) ((b)<(a)? (b):(a))
 
 // 向上取整除法,可能溢出, y 为被除数
 #define DIV_CEIL(x, y)  (((x) + (y) - 1) / (y))
@@ -65,6 +67,7 @@ char *cur_func_name(ptr_t addr);
 void stack_trace();
 
 void panic();
+
 
 #ifdef TEST
 #define test_start   printfk("test start: %s\n",__FUNCTION__);

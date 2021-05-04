@@ -2,10 +2,9 @@
 // Created by pjs on 2021/2/1.
 //
 //虚拟内存管理
-// TODO: unmap 时回收空页表(内存不足时再回收?)
 #include "types.h"
 #include "mm/vmm.h"
-#include "mm/pmm.h"
+#include "mm/page_alloc.h"
 
 #include "lib/qstring.h"
 #include "multiboot2.h"
@@ -110,3 +109,7 @@ void vmm_unmap(void *va, u32_t size) {
     }
 }
 
+
+void vmm_recycle(){
+    // TODO: 内存不足时再回收 unmap 没有释放的空页表
+}
