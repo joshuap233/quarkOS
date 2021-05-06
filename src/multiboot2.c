@@ -1,8 +1,5 @@
-// TODO: 管理 1M 以下 内存
 #include "multiboot2.h"
 #include "lib/qlib.h"
-#include "mm/mm.h"
-#include "lib/qstring.h"
 #include "elf.h"
 
 struct bootInfo bInfo = {
@@ -11,96 +8,6 @@ struct bootInfo bInfo = {
         .symtab = {0}
 };
 
-
-//最原始的内存分配函数
-//切割内核后的空闲内存块, 被切割的物理内存与虚拟内存直接映射
-//内存不足返回 0
-ptr_t split_mmap(uint32_t size) {
-    size = MEM_ALIGN(size, 4);
-    for_each_mmap {
-        assertk(entry->zero == 0);
-        if (entry->type == MULTIBOOT_MEMORY_AVAILABLE && entry->len >= size) {
-            uint32_t addr = entry->addr;
-            entry->addr += size;
-            entry->len -= size;
-            if (addr == bInfo.vmm_start) {
-                bInfo.vmm_start = entry->addr;
-                bInfo.mem_total -= size;
-            };
-            return addr;
-        }
-    }
-    return 0;
-}
-
-
-//移动 信息块
-static void *move(void *addr, size_t size) {
-    //如果需要移动的内存在 1M 以下,则不移动
-    if (addr > (void *) (1 * M)) {
-        void *new = (void *) split_mmap(size);
-        assertk(new != 0);
-        q_memcpy(new, addr, size);
-        return new;
-    }
-    return addr;
-}
-
-
-//移动 memory map, shstrtab, strtab, symtab 结构到空闲内存块头
-//先移动地址最小的结构,防止覆盖其他结构
-static void reload() {
-    void *addr[4] = {bInfo.mmap, bInfo.shstrtab.addr, bInfo.strtab.addr, bInfo.symtab.header};
-
-    //排序
-    for (int j = 0; j < 3; ++j) {
-        for (int i = j + 1; i < 4; ++i) {
-            if (addr[i] < addr[j]) {
-                void *temp = addr[i];
-                addr[i] = addr[j];
-                addr[j] = temp;
-            };
-        }
-    }
-
-    for (int i = 0; i < 4; ++i) {
-        if (addr[i] == bInfo.mmap) {
-            bInfo.mmap = move(bInfo.mmap, bInfo.mmap->size);
-        } else if (addr[i] == bInfo.shstrtab.addr) {
-            bInfo.shstrtab.addr = move(bInfo.shstrtab.addr, bInfo.shstrtab.size);
-            assertk(bInfo.shstrtab.addr != 0);
-        } else if (addr[i] == bInfo.strtab.addr) {
-            bInfo.strtab.addr = move(bInfo.strtab.addr, bInfo.strtab.size);
-            assertk(bInfo.strtab.addr != 0);
-        } else {
-            bInfo.symtab.header = move(bInfo.symtab.header, bInfo.symtab.size);
-            assertk(bInfo.symtab.header != 0);
-        }
-    }
-
-}
-
-//计算所有可用物理内存大小(不包括内核以下部分)
-//移除内核以下可用内存
-static void parse_mmap() {
-    for_each_mmap {
-        assertk(entry->zero == 0);
-        if (entry->type == MULTIBOOT_MEMORY_AVAILABLE) {
-            //移除内核以下可用内存
-            if (entry->addr < K_END) {
-                uint64_t end_addr = entry->addr + entry->len;
-                if (end_addr < K_END) {
-                    entry->type = MULTIBOOT_MEMORY_RESERVED;
-                    continue;
-                }
-                entry->addr = K_END;
-                entry->len = end_addr - entry->addr;
-            }
-            bInfo.mem_total += entry->len;
-        }
-    }
-
-}
 
 static void parse_elf_section() {
     boot_tag_elf_sections_t *elf_symbols = bInfo.elf_symbols;
@@ -160,8 +67,6 @@ void multiboot_init(multiboot_info_t *bia) {
 
     assertk(bInfo.mmap->entry_version == 0);
     assertk(bInfo.apm->type == MULTIBOOT_TAG_TYPE_APM);
-    bInfo.vmm_start = MEM_ALIGN(K_END, 4);
+
     parse_elf_section();
-    parse_mmap();
-    reload();
 }

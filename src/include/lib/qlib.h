@@ -11,6 +11,7 @@
 #include "x86.h"
 #include "drivers/timer.h"
 
+u8_t log2(uint16_t val);
 
 #ifdef __i386__
 

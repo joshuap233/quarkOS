@@ -166,7 +166,9 @@ void unblock_thread(list_head_t *head) {
 void unblock_threads(list_head_t *head) {
     ir_lock_t lock;
     ir_lock(&lock);
-    list_for_each_del(head) {
+
+    list_head_t *hdr, *next;
+    list_for_each_del(hdr, next, head) {
         unblock(hdr);
     }
     ir_unlock(&lock);
@@ -201,7 +203,8 @@ _Noreturn static void *cleaner_worker() {
         ir_lock_t lock;
         ir_lock(&lock);
 
-        list_for_each_del(&finish_list) {
+        list_head_t *hdr, *next;
+        list_for_each_del(hdr, next, &finish_list) {
             tcb_t *entry = tcb_entry(hdr);
             next = hdr->next;
             free_tid(entry->tid);

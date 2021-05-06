@@ -70,7 +70,8 @@ bool ms_sleep(mseconds_t msc) {
 INT clock_isr(UNUSED interrupt_frame_t *frame) {
     G_TIME_SINCE_BOOT++;
 
-    list_for_each_del(&HEAD) {
+    list_head_t *hdr, *next;
+    list_for_each_del(hdr, next, &HEAD) {
         timer_t *tmp = timer_entry(hdr);
         if (tmp->time >= G_TIME_SINCE_BOOT) {
             unblock_thread(hdr);

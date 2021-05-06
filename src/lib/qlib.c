@@ -72,6 +72,19 @@ void panic() {
     halt();
 }
 
+u8_t log2(uint16_t val) {
+    u8_t cnt = 0;
+    while (val != 1) {
+        cnt++;
+        val >>= 1;
+    }
+    return cnt;
+}
+
+void sort(){
+
+}
+
 #ifdef __i386__
 
 __attribute__ ((format (printf, 1, 2))) void printfk(char *__restrict str, ...) {

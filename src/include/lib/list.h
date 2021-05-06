@@ -74,12 +74,12 @@ INLINE list_head_t *list_get_first(list_head_t *header) {
 }
 
 
-#define list_for_each(head) \
-    for (list_head_t *hdr = (head)->next; hdr != (head); hdr = hdr->next)
+#define list_for_each(hdr, head) \
+    for ((hdr) = (head)->next; (hdr) != (head); (hdr) = (hdr)->next)
 
 
-#define list_for_each_del(head) \
-    for (list_head_t *hdr = (head)->next, *next=hdr->next; hdr != (head); hdr = next,next=next->next)
+#define list_for_each_del(hdr, nxt, head) \
+        for ((hdr) = (head)->next, (nxt)=(hdr)->next; (hdr) != (head); (hdr) = (nxt),(nxt)=(nxt)->next)
 
 
 #define queue_empty list_empty

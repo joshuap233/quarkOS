@@ -5,9 +5,8 @@
 #include "types.h"
 #include "mm/vmm.h"
 #include "mm/page_alloc.h"
-
+#include "mm/block_alloc.h"
 #include "lib/qstring.h"
-#include "multiboot2.h"
 #include "x86.h"
 #include "lib/qlib.h"
 
@@ -39,7 +38,7 @@ void vmm_init() {
     cr3_t cr3 = CR3_CTRL | ((ptr_t) &pageDir);
     pageDir.entry[N_PDE - 1] = (ptr_t) &pageDir | VM_KW | VM_PRES;
     // 0 - g_vmm_start 的内存直接映射
-    vmm_mapd(0, 0, PAGE_ALIGN(bInfo.vmm_start), VM_KW | VM_PRES);
+    vmm_mapd(0, 0, PAGE_ALIGN(blkAllocator.addr), VM_KW | VM_PRES);
     cr3_set(cr3);
 }
 
@@ -95,7 +94,6 @@ ptr_t vmm_vm2pm(ptr_t va) {
 
 void vmm_unmapPage(ptr_t va) {
     ptb_t *pt = (ptb_t *) PTB(va);
-    pm_free(PAGE_ADDR(PTE(pt, va)));
     PTE(pt, va) = VM_NPRES;
     tlb_flush(va);
 }
@@ -110,6 +108,6 @@ void vmm_unmap(void *va, u32_t size) {
 }
 
 
-void vmm_recycle(){
+void vmm_recycle() {
     // TODO: 内存不足时再回收 unmap 没有释放的空页表
 }

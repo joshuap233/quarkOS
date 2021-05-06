@@ -56,7 +56,10 @@ void vmm_unmap(void *va, uint32_t size);
 void vmm_mapd(ptr_t va, ptr_t pa, uint32_t size, uint32_t flags);
 
 void vmm_mapPage(ptr_t va, ptr_t pa, uint32_t flags);
+
 ptr_t vmm_vm2pm(ptr_t va);
+
+void vmm_unmapPage(ptr_t va);
 
 typedef ptr_t pointer_t;
 #endif //QUARKOS_MM_VMM_H

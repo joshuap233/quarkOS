@@ -1,15 +1,16 @@
 //
 // Created by pjs on 2021/2/1.
 //
-// 使用栈结构管理物理内存
 // TODO: 分配需要分配 3K, 5K, 9K...这种内存依然会造成大量内存碎片
+// TODO: 平衡树
+// 可以将多余的内存划分给 slab 分配器?
+// 如果多余的内存没有划分给slab,多余的内存是否需要映射到虚拟地址空间?
+
 #include "types.h"
 #include "lib/qlib.h"
 #include "mm/mm.h"
 #include "mm/page_alloc.h"
-#include "mm/vmm.h"
-#include "multiboot2.h"
-
+#include "mm/block_alloc.h"
 
 typedef struct treeNode {
 #define SIZE(sizeLog) (1<<(sizeLog)) // 获取实际内存单元个数
@@ -37,13 +38,11 @@ static node_t *bst_deleteMin(node_t *root, node_t **del);
 
 static void bst_print(node_t *root);
 
-static u8_t log2(uint16_t val);
-
 INLINE uint32_t get_buddy_pn(uint32_t pn, uint8_t sizeLog);
 
 INLINE node_t *new_node();
 
-INLINE void list_free(node_t *node);
+INLINE void node_free(node_t *node);
 
 /*
  * 物理内存分配器
@@ -51,6 +50,7 @@ INLINE void list_free(node_t *node);
  * allocated:   以分配内存块
  * addr:        物理内存分配器管理的内存起始地址
  * blockSize:   最小内存单元大小
+ * listCnt:     list 链表剩余节点数量
  * list:        list 空闲节点链表
  */
 struct allocator {
@@ -58,16 +58,17 @@ struct allocator {
     node_t *root[MAX_ORDER + 1];
     node_t *allocated;
     node_t *list;
-    uint32_t addr;
+    u16_t listCnt;
     u16_t blockSize;
+    uint32_t addr;
 } pmm;
 
 
 void pmm_init() {
-    // TODO:不足 4M 的内存用于 slab
+    // TODO:还有不足 4M 的内存
     pmm.blockSize = PAGE_SIZE;
-    u16_t size = bInfo.mem_total / (4 * K) / 2;//需要分配的节点数
-    node_t *list = (node_t *) split_mmap(sizeof(node_t) * size);
+    u16_t size = blkAllocator.total / (4 * K) / 2;//需要分配的节点数
+    node_t *list = (node_t *) block_alloc(sizeof(node_t) * size);
 
     // 初始化空闲链表
     for (int i = 0; i < size - 1; ++i) {
@@ -75,35 +76,41 @@ void pmm_init() {
     }
     LIST_NEXT(list[size - 1]) = NULL;
     pmm.list = &list[0];
+    pmm.listCnt = size;
 
     // 初始化用与管理 4M 内存块的节点
     for (int i = 0; i < MAX_ORDER; ++i) {
         pmm.root[i] = NULL;
     }
-    pmm.addr = PAGE_ALIGN(bInfo.vmm_start);
-    uint16_t rSize = (bInfo.mem_total - (pmm.addr - bInfo.vmm_start)) / (4 * M);
+    pmm.addr = PAGE_ALIGN(blkAllocator.addr);
+    uint16_t rSize = (blkAllocator.total - (pmm.addr - blkAllocator.addr)) / (4 * M);
     pmm.root[MAX_ORDER] = sortedArrayToBST(0, rSize);
     pmm.allocated = NULL;
+
 #ifdef TEST
-    test_physical_mm();
+    test_alloc();
 #endif //TEST
 }
 
 
 ptr_t pm_alloc(u32_t size) {
-    assertk(size > 0 && size < 4 * M);
+    assertk(size > 0 && size <= 4 * M);
+    node_t *root, *del;
+    u32_t pn;
     size = log2(PAGE_ALIGN(size) >> 12);
 
     for (uint16_t i = size; i <= MAX_ORDER; ++i) {
-        node_t *root = pmm.root[i];
+        root = pmm.root[i];
         if (root) {
-            node_t *del;
             pmm.root[i] = bst_deleteMin(root, &del);
+            assertk(del);
+
             del->sizeLog = size;
+            pn = del->pn;
+
             // 被分配内存块插入 allocated
             pmm.allocated = bst_insert(pmm.allocated, del);
 
-            u32_t pn = del->pn;
             // 不要删 j <= MAX_ORDER
             for (u32_t j = i - 1; j >= size && j <= MAX_ORDER; j--) {
                 node_t *new = new_node();
@@ -111,37 +118,34 @@ ptr_t pm_alloc(u32_t size) {
                 new->pn = pn + SIZE(j + 1) / 2;
                 pmm.root[j] = bst_insert(pmm.root[j], new);
             }
-            // 映射到虚拟地址空间
-            ptr_t addr = pmm.addr + (pn << 12);
-            vmm_mapd(addr, addr, SIZE(size) << 12, VM_PRES | VM_KW);
-            return addr;
+            return pmm.addr + (pn << 12);
         }
     }
     return PMM_NULL;
 }
 
-void pm_free(ptr_t addr) {
-    assertk(addr > pmm.addr && (addr & PAGE_MASK) == 0)
-    u32_t pn = (addr - pmm.addr) >> 12, buddy_pn;
+u32_t pm_free(ptr_t addr) {
+    assertk(addr >= pmm.addr && (addr & PAGE_MASK) == 0)
+    uint16_t i;
+    u32_t buddy_pn, pn, retSize;
     node_t *node, *buddy;
+
+    pn = (addr - pmm.addr) >> 12;
+
     pmm.allocated = bst_delete(pmm.allocated, pn, &node);
     assertk(node);
+    retSize = SIZE(node->sizeLog) << 12;
 
-    // 取消虚拟地址空间映射
-    vmm_unmap((void *) addr, SIZE(node->sizeLog) << 12);
-
-    for (uint16_t i = node->sizeLog; i <= MAX_ORDER; ++i) {
+    for (i = node->sizeLog; i < MAX_ORDER; ++i) {
         buddy_pn = get_buddy_pn(pn, node->sizeLog);
         pmm.root[i] = bst_delete(pmm.root[i], buddy_pn, &buddy);
-        if (!buddy) {
-            node->sizeLog = i;
-            pmm.root[i] = bst_insert(pmm.root[i], node);
-            break;
-        } else {
-            pn = MIN(buddy_pn, pn);
-            list_free(buddy);
-        }
+        node->sizeLog++;
+        if (!buddy) break;
+        pn = MIN(buddy_pn, pn);
+        node_free(buddy);
     }
+    pmm.root[i] = bst_insert(pmm.root[i], node);
+    return retSize;
 }
 
 ptr_t pm_alloc_page() {
@@ -160,7 +164,7 @@ static node_t *sortedArrayToBST(u16_t start, u16_t size) {
     u16_t mid = start + size;
     node_t *root = new_node();
     root->pn = mid * (1 << MAX_ORDER);
-    root->pn = mid;
+    root->sizeLog = MAX_ORDER;
     root->left = sortedArrayToBST(start, size);
     root->right = sortedArrayToBST(mid + 1, temp - size - 1);
     return root;
@@ -187,14 +191,15 @@ static node_t *bst_delete(node_t *root, u32_t pn, node_t **del) {
         return root;
     }
 
+    if (del) *del = *node;
     if (!(*node)->left || !(*node)->right) {
-        if (del)*del = *node;
         (*node) = VALID_CHILD(*node);
     } else {
         node_t *min;
         (*node)->right = bst_deleteMin((*node)->right, &min);
-        if (del)*del = min;
-        (*node)->pn = min->pn;
+        min->right = (*node)->right;
+        min->left = (*node)->left;
+        *node = min;
     }
     return root;
 }
@@ -231,33 +236,107 @@ static void bst_print(node_t *root) {
 }
 
 INLINE node_t *new_node() {
-    assertk(pmm.list != NULL);
+    assertk(pmm.list != NULL && pmm.listCnt != 0);
+    pmm.listCnt--;
     node_t *ret = pmm.list;
     pmm.list = LIST_NEXT(*ret);
     return ret;
 }
 
-INLINE void list_free(node_t *node) {
+INLINE void node_free(node_t *node) {
     assertk(node);
+    pmm.listCnt++;
     LIST_NEXT(*node) = pmm.list;
-    if (pmm.list == NULL) {
-        pmm.list = node;
-    }
+    pmm.list = node;
 }
 
-static u8_t log2(uint16_t val) {
-    u8_t cnt = 0;
-    while (val != 1) {
-        cnt++;
-        val >>= 1;
-    }
-    return cnt;
-}
 
 #ifdef TEST
 
-void test_physical_mm() {
+size_t cnt = 0;
 
+static void node_cnt(node_t *root) {
+    if (!root) return;
+    node_cnt(root->left);
+    cnt++;
+    node_cnt(root->right);
+}
+
+static void except_cnt(node_t *root, size_t except) {
+    cnt = 0;
+    node_cnt(root);
+    assertk(cnt == except);
+}
+
+static void except_list_cnt(size_t except) {
+    size_t count = 0;
+    node_t *node = pmm.list;
+    while (node) {
+        count++;
+        node = LIST_NEXT(*node);
+    }
+    assertk(count == except);
+}
+
+void test_alloc() {
+    test_start
+    ptr_t addr[MAX_ORDER + 1] = {[1 ...MAX_ORDER] = 0};
+    size_t total, alloc = 0, listCnt = pmm.listCnt;
+    except_list_cnt(listCnt);
+
+    // 测试内存块分配
+    node_cnt(pmm.root[MAX_ORDER]);
+    total = cnt;
+
+    ptr_t temp_adr = pm_alloc(PAGE_SIZE);
+    alloc++;
+    for (int i = 0; i < MAX_ORDER; ++i)
+        except_cnt(pmm.root[i], 1);
+    except_cnt(pmm.root[MAX_ORDER], total - 1);
+    except_cnt(pmm.allocated, alloc);
+
+    for (int i = 0; i <= MAX_ORDER; ++i) {
+        addr[i] = pm_alloc(PAGE_SIZE << i);
+        alloc++;
+        // 统计 root[0] - root[11] 树节点个数
+        for (int j = 0; j <= MAX_ORDER; ++j) {
+            if (j == MAX_ORDER) {
+                if (i != MAX_ORDER)
+                    except_cnt(pmm.root[MAX_ORDER], total - 1);
+                else
+                    except_cnt(pmm.root[MAX_ORDER], total - 2);
+            } else
+                except_cnt(pmm.root[j], j <= i ? 0 : 1);
+            except_cnt(pmm.allocated, alloc);
+        }
+    }
+
+    // 测试内存块释放
+    for (int i = 0; i <= MAX_ORDER; ++i) {
+        pm_free(addr[i]);
+        alloc--;
+
+        for (int j = 0; j <= MAX_ORDER; ++j) {
+            if (j == MAX_ORDER) {
+                if (i != MAX_ORDER)
+                    except_cnt(pmm.root[MAX_ORDER], total - 2);
+                else
+                    except_cnt(pmm.root[MAX_ORDER], total - 1);
+            } else
+                except_cnt(pmm.root[j], j <= i ? 1 : 0);
+            except_cnt(pmm.allocated, alloc);
+        }
+    }
+
+    pm_free(temp_adr);
+    alloc--;
+    assertk(alloc == 0);
+    for (int i = 0; i < MAX_ORDER; ++i)
+        except_cnt(pmm.root[i], 0);
+    except_cnt(pmm.root[MAX_ORDER], total);
+    except_cnt(pmm.allocated, 0);
+    except_list_cnt(listCnt);
+    test_pass
 }
 
 #endif //TEST

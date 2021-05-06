@@ -150,7 +150,9 @@ void dma_isr_handler(UNUSED interrupt_frame_t *frame) {
     assertk(!(inb(dma_dev.bm + BM_STAT) & (BM_STAT_ERROR | BM_STAT_BSY)));
 
     bool dirty = buf_entry(HEAD)->flag & BUF_DIRTY;
-    list_for_each_del(&queue) {
+
+    list_head_t *hdr, *next;
+    list_for_each_del(hdr, next, &queue) {
         buf_t *buf = buf_entry(hdr);
         if ((buf->flag & BUF_DIRTY) == dirty) {
             unblock_threads(&buf->sleep);

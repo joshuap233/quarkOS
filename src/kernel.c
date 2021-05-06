@@ -46,6 +46,7 @@ void kernel_main() {
     assertk(magic == 0x36d76289);
     assertk(mba->zero == 0);
     multiboot_init(mba);
+    memBlock_init();
     hello();
 
     gdt_init();

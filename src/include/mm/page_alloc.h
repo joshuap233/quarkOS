@@ -12,10 +12,10 @@
 ptr_t pm_alloc(u32_t size);
 ptr_t pm_alloc_page();
 
-void pm_free(ptr_t addr);
+u32_t pm_free(ptr_t addr);
 
 #ifdef TEST
-void test_physical_mm();
+void test_alloc();
 #endif //TEST
 
 #endif //QUARKOS_MM_PMM_H
