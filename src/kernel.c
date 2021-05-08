@@ -48,7 +48,6 @@ void kernel_main() {
     multiboot_init(mba);
     memBlock_init();
     hello();
-
     gdt_init();
 
     // 中断初始化
@@ -60,19 +59,21 @@ void kernel_main() {
     kb_init();
 
     // 内存管理模块初始化
+    vm_area_init();
     pmm_init();
     slab_init();
     vmm_init();
 
     ide_init();
-    dma_init();
+//    dma_init();
     bio_init();
 
     sched_init();
+    cmos_init();
     enable_interrupt();
 
     // 需要在多线程初始化之后
-    ext2_init();
+//    ext2_init();
 
 #ifdef TEST
 //    test_ide_rw();

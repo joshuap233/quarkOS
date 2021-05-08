@@ -9,19 +9,11 @@
 #include "lib/list.h"
 
 
-typedef struct blockInfo {
-    list_head_t head;
-    u32_t size; // 块大小,包括该块头
-} blockInfo_t;
-
-struct block_allocator {
-    list_head_t head;
-    ptr_t addr;  // 管理器起始地址, <= addr 部分内存需要直接映射
-    u32_t total;
-};
-
-extern struct block_allocator blkAllocator;
 
 ptr_t block_alloc(u32_t size);
+
+ptr_t block_alloc_align(u32_t size, u32_t align);
+u32_t block_size();
+u32_t block_start();
 
 #endif //QUARKOS_MM_MEMBLOCK_H

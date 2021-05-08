@@ -41,6 +41,7 @@
 #define CMD_WRITE_MULTIPLE  0xC5
 #define CMD_IDENTIFY        0xEC
 #define CMD_FLUSH           0xE7
+#define CMD_MULTIPLE_MODE   0xc6
 
 #define LBA_DRIVE0          0xE0  // Drive/Head 寄存器 4-7位,选择 lba模式,0主盘
 
@@ -73,18 +74,13 @@ static int32_t ide_wait(bool check_error);
 static void ide_start(buf_t *buf);
 
 
-INLINE void read_sector(void *buf) {
-    insw(IDE_DAT, buf, SECTOR_SIZE / 2);
+// size 为扇区数
+INLINE void read_sector(void *buf, int size) {
+    insw(IDE_DAT, buf, size * SECTOR_SIZE / 2);
 }
 
-INLINE void write_sector(void *b) {
-    outsw(IDE_DAT, b, SECTOR_SIZE / 2);
-    // 写成下面的样子触发不了中断:
-    //    for (uint16_t *buf = b; (void *) buf < b + SECTOR_SIZE / sizeof(uint16_t); buf++) {
-    //        outw(IDE_DAT, *buf);
-    //        // 刷新缓存
-    //        ide_send_cmd(CMD_FLUSH);
-    //    }
+INLINE void write_sector(void *b, int size) {
+    outsw(IDE_DAT, b, size * SECTOR_SIZE / 2);
 }
 
 
@@ -93,6 +89,10 @@ void ide_init() {
 
     // 选择要操作的设备为主盘, LBA 寻址
     outb(IDE_DH, LBA_DRIVE0);
+
+    outb(IDE_COUNT,8);
+    ide_send_cmd(CMD_MULTIPLE_MODE);
+
     //发送 IDENTIFY 指令
     ide_send_cmd(CMD_IDENTIFY);
 
@@ -101,7 +101,7 @@ void ide_init() {
 
     // 读取IDE设备信息
     uint16_t buffer[256];
-    read_sector(buffer);
+    read_sector(buffer, 1);
 
     ide_dev.lba48 = buffer[83] & (1 << 10);
     // TODO: 88/93  dma 检测
@@ -110,7 +110,6 @@ void ide_init() {
 
     //开启磁盘中断
     outb(IDE_CTR, 0);
-
 
 }
 
@@ -133,7 +132,7 @@ void ide_isr_handler(UNUSED interrupt_frame_t *frame) {
         unblock_threads(&buf->sleep);
         if (!(buf->flag & BUF_DIRTY)) {
             buf->flag |= BUF_VALID;
-            read_sector(buf->data);
+            read_sector(buf->data, 8);
         }
         buf->flag &= ~(BUF_DIRTY | BUF_BSY);
 
@@ -164,14 +163,14 @@ void ide_driver_init(buf_t *buf, uint32_t secs_cnt) {
 
 static void ide_start(buf_t *buf) {
     buf->flag |= BUF_BSY;
-    ide_driver_init(buf, 1);
+    ide_driver_init(buf, 8);
     // 触发一次中断
     outb(IDE_CTR, 0);
     if (buf->flag & BUF_DIRTY) {
-        ide_send_cmd(CMD_WRITE_PIO);
-        write_sector(buf->data);
+        ide_send_cmd(CMD_WRITE_MULTIPLE);
+        write_sector(buf->data, 8);
     } else {
-        ide_send_cmd(CMD_READ_PIO);
+        ide_send_cmd(CMD_READ_MULTIPLE);
     }
 }
 

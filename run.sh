@@ -1,9 +1,6 @@
 #!/bin/zsh
 
-if [ ! -f "disk.img" ]; then
-  dd if=/dev/zero of=disk.img bs=1M seek=1024 count=0
-  mkfs -t ext2 disk.img
-fi
+./generate-disk.sh
 
 
 qemu-system-i386                                 \

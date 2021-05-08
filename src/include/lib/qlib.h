@@ -9,7 +9,7 @@
 #include <stdarg.h>
 #include "drivers/vga.h"
 #include "x86.h"
-#include "drivers/timer.h"
+#include "drivers/pit.h"
 
 u8_t log2(uint16_t val);
 
@@ -45,6 +45,7 @@ void printfk(char *__restrict str, ...);
 #define MASK_U8(n)  BIT_MASK(uint8_t, n)
 
 #define MIN(a, b) ((b)<(a)? (b):(a))
+#define MAX(a, b) ((b)>(a)? (b):(a))
 
 // 向上取整除法,可能溢出, y 为被除数
 #define DIV_CEIL(x, y)  (((x) + (y) - 1) / (y))

@@ -3,7 +3,7 @@
 //
 //磁盘缓冲块
 
-#include "fs/bio.h"
+#include "fs/page_cache.h"
 #include "drivers/ide.h"
 #include "lib/qstring.h"
 #include "lib/list.h"
@@ -18,7 +18,7 @@ static _Alignas(BUF_SIZE) uint8_t buf_data[N_BUF][BUF_SIZE];
 static struct cache {
     buf_t buf[N_BUF];
     spinlock_t lock;
-    queue_t sleep; // 睡眠等待缓存块队列
+    queue_t sleep;   // 睡眠等待缓存块队列
 } cache;
 
 #define for_each_buf(buf) for ((buf) = &cache.buf[0]; (buf) < cache.buf + N_BUF; (buf)++)
@@ -49,6 +49,8 @@ void bio_init() {
     disk.isr = ide_isr_handler;
 //    disk.rw = dma_dev.dma ? dma_rw : ide_rw;
 //    disk.isr = dma_dev.dma ? dma_isr_handler : ide_isr_handler;
+
+   // 注册 ide 中断
     reg_isr(32 + 14, disk_isr);
 }
 
@@ -83,7 +85,7 @@ buf_t *bio_get(uint32_t no_secs) {
 }
 
 
-// 不适用缓冲区数据,强制重新读取磁盘
+// 不使用缓冲区数据,强制重新读取磁盘
 buf_t *bio_read_sync(buf_t *buf) {
     spinlock_lock(&buf->lock);
 
@@ -121,7 +123,7 @@ void bio_write(buf_t *buf, void *data) {
     }
 
     assertk(data != NULL);
-    q_memcpy(buf->data, data, SECTOR_SIZE);
+    q_memcpy(buf->data, data, BUF_SIZE);
     buf->flag |= (BUF_DIRTY | BUF_VALID);
     disk.rw(buf);
 
@@ -150,6 +152,8 @@ INT disk_isr(UNUSED interrupt_frame_t *frame) {
 
 // ============ test =========
 #ifdef TEST
+// data 放 test_ide_rw 函数里面会导致栈溢出
+uint8_t data[BUF_SIZE];
 
 void test_ide_rw() {
     test_start
@@ -157,15 +161,14 @@ void test_ide_rw() {
     disk.rw = ide_rw;
     disk.isr = ide_isr_handler;
 
-    uint8_t data[SECTOR_SIZE];
-    q_memset(data, 1, SECTOR_SIZE);
+    q_memset(data, 1, BUF_SIZE);
     buf_t *buf = bio_get(1);
     buf_t *buf2 = bio_get(2);
     buf2->no_secs = 1;
 
     bio_write(buf, data);
     bio_read_sync(buf2);
-    assertk(q_memcmp(data, buf2->data, SECTOR_SIZE));
+    assertk(q_memcmp(data, buf2->data, BUF_SIZE));
 
     bio_free(buf);
     bio_free(buf2);
@@ -174,9 +177,9 @@ void test_ide_rw() {
 
 void test_dma_rw() {
     test_start
-    assertk(dma_dev.dma);
-    disk.rw = dma_rw;
-    disk.isr = dma_isr_handler;
+//    assertk(dma_dev.dma);
+//    disk.rw = dma_rw;
+//    disk.isr = dma_isr_handler;
 
     uint8_t data[SECTOR_SIZE];
     q_memset(data, 2, SECTOR_SIZE);

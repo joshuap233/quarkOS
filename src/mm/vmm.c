@@ -2,13 +2,11 @@
 // Created by pjs on 2021/2/1.
 //
 //虚拟内存管理
-#include "types.h"
 #include "mm/vmm.h"
 #include "mm/page_alloc.h"
-#include "mm/block_alloc.h"
 #include "lib/qstring.h"
-#include "x86.h"
 #include "lib/qlib.h"
+#include "mm/vm_area.h"
 
 //内核页表本身在页表内的索引
 #define K_PD_INDEX        1023
@@ -37,8 +35,19 @@ static pdr_t _Alignas(PAGE_SIZE) pageDir = {
 void vmm_init() {
     cr3_t cr3 = CR3_CTRL | ((ptr_t) &pageDir);
     pageDir.entry[N_PDE - 1] = (ptr_t) &pageDir | VM_KW | VM_PRES;
-    // 0 - g_vmm_start 的内存直接映射
-    vmm_mapd(0, 0, PAGE_ALIGN(blkAllocator.addr), VM_KW | VM_PRES);
+
+    struct vm_area *vm_area;
+    for_each_vm_area(vm_area) {
+        if (vm_area->type == KERNEL_AREA) {
+            struct area *area;
+            for_each_area(area, vm_area->area) {
+                assertk((area->size & PAGE_MASK) == 0);
+                vmm_mapd(area->addr, area->addr, area->size, area->flag);
+            }
+            break;
+        }
+    }
+
     cr3_set(cr3);
 }
 

@@ -5,7 +5,7 @@
 #include "types.h"
 #include "sched/timer.h"
 #include "sched/kthread.h"
-#include "drivers/timer.h"
+#include "drivers/pit.h"
 #include "isr.h"
 #include "lib/list.h"
 

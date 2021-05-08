@@ -3,7 +3,7 @@
 //
 #include "types.h"
 #include "x86.h"
-#include "drivers/timer.h"
+#include "drivers/pit.h"
 #include "lib/qlib.h"
 #include "drivers/init.h"
 
@@ -36,10 +36,3 @@ void pit_init(uint32_t frequency) {
     outb(PIT_C0_DAT, (uint8_t) (divisor >> 8));
 
 }
-
-
-
-// rtc 实时时钟
-//void rtc_init(){
-//
-//}

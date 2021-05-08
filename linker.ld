@@ -18,12 +18,14 @@ SECTIONS
 	/* 只读数据 */
 	.rodata BLOCK(4K) : ALIGN(4K)
 	{
+	    _rodataStart = .;
 		*(.rodata)
 	}
 
 	/* 可读写数据 */
 	.data BLOCK(4K) : ALIGN(4K)
 	{
+	    _dataStart = .;
 		*(.data)
 	}
 

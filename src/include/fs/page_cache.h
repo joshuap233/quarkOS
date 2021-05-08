@@ -3,12 +3,13 @@
 //
 // 磁盘缓冲区
 
-#ifndef QUARKOS_FS_BIO_H
-#define QUARKOS_FS_BIO_H
+#ifndef QUARKOS_FS_PAGE_CACHE_H
+#define QUARKOS_FS_PAGE_CACHE_H
 
 #include "types.h"
 #include "buf.h"
 
+#define WRITE_BACK_INTERVAL 5
 
 void bio_write(buf_t *buf, void *data);
 
@@ -21,4 +22,4 @@ buf_t *bio_read(buf_t *buf);
 buf_t *bio_get(uint32_t no_secs);
 
 
-#endif //QUARKOS_FS_BIO_H
+#endif //QUARKOS_FS_PAGE_CACHE_H

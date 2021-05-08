@@ -2,7 +2,7 @@
 // Created by pjs on 2021/2/1.
 //
 // TODO: 分配需要分配 3K, 5K, 9K...这种内存依然会造成大量内存碎片
-// TODO: 平衡树
+// TODO: 平衡树,跳表?
 // 可以将多余的内存划分给 slab 分配器?
 // 如果多余的内存没有划分给slab,多余的内存是否需要映射到虚拟地址空间?
 
@@ -11,6 +11,7 @@
 #include "mm/mm.h"
 #include "mm/page_alloc.h"
 #include "mm/block_alloc.h"
+#include "mm/vm_area.h"
 
 typedef struct treeNode {
 #define SIZE(sizeLog) (1<<(sizeLog)) // 获取实际内存单元个数
@@ -65,13 +66,15 @@ struct allocator {
 
 
 void pmm_init() {
-    // TODO:还有不足 4M 的内存
+    // TODO:还有不足 4M 的内存, 且该管理器管理固定大小内存,而不是所有剩余内存
     pmm.blockSize = PAGE_SIZE;
-    u16_t size = blkAllocator.total / (4 * K) / 2;//需要分配的节点数
+    u32_t size = block_size() / (4 * K) / 2; //需要分配的节点数
     node_t *list = (node_t *) block_alloc(sizeof(node_t) * size);
+    // pmm.add 以下区域为内核
+    vm_area_expand(PAGE_ALIGN(block_start()), KERNEL_AREA);
 
     // 初始化空闲链表
-    for (int i = 0; i < size - 1; ++i) {
+    for (u32_t i = 0; i < size - 1; ++i) {
         LIST_NEXT(list[i]) = &list[i + 1];
     }
     LIST_NEXT(list[size - 1]) = NULL;
@@ -82,9 +85,12 @@ void pmm_init() {
     for (int i = 0; i < MAX_ORDER; ++i) {
         pmm.root[i] = NULL;
     }
-    pmm.addr = PAGE_ALIGN(blkAllocator.addr);
-    uint16_t rSize = (blkAllocator.total - (pmm.addr - blkAllocator.addr)) / (4 * M);
-    pmm.root[MAX_ORDER] = sortedArrayToBST(0, rSize);
+
+    size = block_size() & (~(u32_t) (4 * M - 1));
+    pmm.addr = block_alloc_align(size, PAGE_SIZE);
+
+
+    pmm.root[MAX_ORDER] = sortedArrayToBST(0, size / (4 * M));
     pmm.allocated = NULL;
 
 #ifdef TEST
@@ -278,9 +284,9 @@ static void except_list_cnt(size_t except) {
     assertk(count == except);
 }
 
+ptr_t addr[MAX_ORDER + 1] = {[1 ...MAX_ORDER] = 0};
 void test_alloc() {
     test_start
-    ptr_t addr[MAX_ORDER + 1] = {[1 ...MAX_ORDER] = 0};
     size_t total, alloc = 0, listCnt = pmm.listCnt;
     except_list_cnt(listCnt);
 

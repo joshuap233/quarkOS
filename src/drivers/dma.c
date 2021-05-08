@@ -106,7 +106,7 @@ void dma_buf_sort(buf_t *buf) {
 // 返回需要读扇区数
 // TODO: 有些情况不需要排序,比如文件系统需要立即强制写入数据块
 uint32_t dma_set_prdt(buf_t *buf) {
-    dma_buf_sort(buf);
+//    dma_buf_sort(buf);
     uint32_t i = 0;
     bool dirty = buf->flag & BUF_DIRTY;
     for (LH *hdr = &buf->queue; hdr != &queue; hdr = hdr->next) {

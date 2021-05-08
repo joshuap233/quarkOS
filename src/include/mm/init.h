@@ -9,5 +9,6 @@ void vmm_init();
 void pmm_init();
 void slab_init();
 void memBlock_init();
+void vm_area_init();
 
 #endif //QUARKOS_MM_INIT_H

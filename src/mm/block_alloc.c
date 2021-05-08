@@ -9,14 +9,25 @@
 #include "mm/mm.h"
 #include "lib/qstring.h"
 
+
+typedef struct blockInfo {
+    list_head_t head;
+    u32_t size; // 块大小,包括该块头
+} blockInfo_t;
+
+static struct block_allocator {
+    list_head_t head;
+    ptr_t addr;  // 管理器起始地址, <= addr 部分内存需要直接映射
+    u32_t total;
+} allocator;
+
 #define entry(ptr) list_entry(ptr, blockInfo_t, head)
-struct block_allocator blkAllocator;
 
 static void reload();
 
 void memBlock_init() {
-    blkAllocator.total = 0;
-    list_header_init(&blkAllocator.head);
+    allocator.total = 0;
+    list_header_init(&allocator.head);
 
     boot_mmap_entry_t *entry;
     for_each_mmap(entry) {
@@ -35,32 +46,32 @@ void memBlock_init() {
             if (entry->len >= sizeof(blockInfo_t)) {
                 blockInfo_t *info = (void *) MEM_ALIGN(entry->addr, 4);
                 info->size = entry->len - ((ptr_t) info - entry->addr);
-                list_add_prev(&info->head, &blkAllocator.head);
+                list_add_prev(&info->head, &allocator.head);
             }
-            blkAllocator.total += entry->len;
+            allocator.total += entry->len;
         }
     }
 
     // blockInfo_t 按地址大小排序
     list_head_t *hdr, *next;
-    list_for_each_del(hdr, next, &blkAllocator.head) {
+    list_for_each_del(hdr, next, &allocator.head) {
         list_head_t *tmp = hdr->prev;
-        for (; tmp != &blkAllocator.head && (ptr_t) entry(hdr) < (ptr_t) entry(tmp); tmp = tmp->prev);
+        for (; tmp != &allocator.head && (ptr_t) entry(hdr) < (ptr_t) entry(tmp); tmp = tmp->prev);
         if (tmp != hdr->prev) {
             list_del(hdr);
             list_add_next(hdr, tmp);
         }
     }
-    blkAllocator.addr = (ptr_t) blkAllocator.head.next;
+    allocator.addr = (ptr_t) allocator.head.next;
     reload();
 }
 
 
 ptr_t block_alloc(u32_t size) {
-    assertk(blkAllocator.total >= size);
+    assertk(allocator.total >= size);
     size = MEM_ALIGN(size, 4);
     list_head_t *hdr;
-    list_for_each(hdr, &blkAllocator.head) {
+    list_for_each(hdr, &allocator.head) {
         blockInfo_t *info = entry(hdr);
         u32_t blkSize = info->size;
         if (blkSize >= size) {
@@ -70,16 +81,30 @@ ptr_t block_alloc(u32_t size) {
                 blockInfo_t *new = (void *) info + size;
                 new->size = info->size - size;
                 list_add_next(&new->head, prev);
-                blkAllocator.total -= size;
+                allocator.total -= size;
             } else {
-                blkAllocator.total -= info->size;
+                allocator.total -= info->size;
             }
-            blkAllocator.addr = (ptr_t) blkAllocator.head.next;
+            allocator.addr = (ptr_t) allocator.head.next;
             return (ptr_t) info;
         }
     }
     assertk(0);
     return 0;
+}
+
+ptr_t block_alloc_align(u32_t size, u32_t align) {
+    assertk(align > 4 && (align & 0x3) == 0);
+    ptr_t addr = block_alloc(size + align - 1);
+    return PAGE_ALIGN(addr);
+}
+
+u32_t block_size() {
+    return allocator.total;
+}
+
+u32_t block_start() {
+    return allocator.addr;
 }
 
 //移动 信息块
