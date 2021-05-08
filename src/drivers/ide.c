@@ -6,7 +6,6 @@
 // 使用 lba28 编址, 磁盘大小 <= 128G
 
 #include "drivers/ide.h"
-#include "buf.h"
 #include "sched/kthread.h"
 #include "lib/list.h"
 
@@ -71,8 +70,6 @@ struct ide_device ide_dev;
 
 static int32_t ide_wait(bool check_error);
 
-static void ide_start(buf_t *buf);
-
 
 // size 为扇区数
 INLINE void read_sector(void *buf, int size) {
@@ -90,7 +87,7 @@ void ide_init() {
     // 选择要操作的设备为主盘, LBA 寻址
     outb(IDE_DH, LBA_DRIVE0);
 
-    outb(IDE_COUNT,8);
+    outb(IDE_COUNT, 8);
     ide_send_cmd(CMD_MULTIPLE_MODE);
 
     //发送 IDENTIFY 指令
@@ -125,23 +122,9 @@ int32_t ide_wait(bool check_error) {
 }
 
 
-void ide_isr_handler(UNUSED interrupt_frame_t *frame) {
-    queue_t *h = queue_get(&queue);
-    if (h) {
-        buf_t *buf = buf_entry(h);
-        unblock_threads(&buf->sleep);
-        if (!(buf->flag & BUF_DIRTY)) {
-            buf->flag |= BUF_VALID;
-            read_sector(buf->data, 8);
-        }
-        buf->flag &= ~(BUF_DIRTY | BUF_BSY);
-
-        if (!queue_empty(&queue)) {
-            ide_start(buf_entry(HEAD));
-        }
-
-        // 通知线程, 中断处理程序以及被执行
-        spinlock_unlock(&buf->lock);
+void ide_isr(buf_t *buf, bool write) {
+    if (!write) {
+        read_sector(buf->data, 8);
     }
 }
 
@@ -161,23 +144,14 @@ void ide_driver_init(buf_t *buf, uint32_t secs_cnt) {
     outb(IDE_CYL_H, (no_sec >> 16) & MASK_U8(8));
 }
 
-static void ide_start(buf_t *buf) {
-    buf->flag |= BUF_BSY;
+void ide_start(buf_t *buf,bool write) {
     ide_driver_init(buf, 8);
     // 触发一次中断
     outb(IDE_CTR, 0);
-    if (buf->flag & BUF_DIRTY) {
+    if (write) {
         ide_send_cmd(CMD_WRITE_MULTIPLE);
         write_sector(buf->data, 8);
     } else {
         ide_send_cmd(CMD_READ_MULTIPLE);
-    }
-}
-
-
-void ide_rw(buf_t *buf) {
-    queue_put(&buf->queue, &queue);
-    if (&buf->queue == HEAD) {
-        ide_start(buf);
     }
 }

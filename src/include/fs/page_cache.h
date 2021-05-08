@@ -11,15 +11,18 @@
 
 #define WRITE_BACK_INTERVAL 5
 
-void bio_write(buf_t *buf, void *data);
+void page_write(buf_t *buf, void *data);
 
-void bio_free(buf_t *_buf);
+buf_t *page_read_sync(buf_t *buf);
 
-buf_t *bio_read_sync(buf_t *buf);
+buf_t *page_read(buf_t *buf);
 
-buf_t *bio_read(buf_t *buf);
+buf_t *page_get(uint32_t no_secs);
 
-buf_t *bio_get(uint32_t no_secs);
+void page_write_sync(buf_t *buf, void *data);
 
+void page_recycle();
+
+void page_flash();
 
 #endif //QUARKOS_FS_PAGE_CACHE_H

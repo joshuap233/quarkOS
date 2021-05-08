@@ -66,10 +66,12 @@ void kernel_main() {
 
     ide_init();
 //    dma_init();
-    bio_init();
 
     sched_init();
     cmos_init();
+
+    page_cache_init();
+
     enable_interrupt();
 
     // 需要在多线程初始化之后

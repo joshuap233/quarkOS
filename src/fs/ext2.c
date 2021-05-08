@@ -38,8 +38,8 @@ static void block_read(block_t *block);
 static void block_free(block_t *block);
 
 void ext2_init() {
-    buf_t *buf = bio_get(2), *buf2;
-    bio_read(buf);
+    buf_t *buf = page_get(2), *buf2;
+    page_read(buf);
 
     suBlock = (superBlock_t *) buf->data;
     assertk(suBlock->magic == EXT2_SIGNATURE);
@@ -49,8 +49,8 @@ void ext2_init() {
     // 懒得解析 > SECTOR_SIZE 的情况....
     assertk(suBlock->inodeSize <= SECTOR_SIZE);
 
-    buf2 = bio_get(BLOCK2LBA(blockSize == 1024 ? 2 : 1));
-    bio_read(buf2);
+    buf2 = page_get(BLOCK2LBA(blockSize == 1024 ? 2 : 1));
+    page_read(buf2);
     descriptor = (groupDesc_t *) buf2->data;
 
     ext2_readInode(&root, ROOT_INUM, descriptor);
@@ -69,9 +69,9 @@ void ext2_init() {
 // no 为 inode 在当前组的索引,
 void ext2_readInode(node_t *node, uint32_t no, groupDesc_t *desc) {
     node->no = no;
-    node->buf = bio_get(INO2LBA(desc->inodeTableAddr, no));
+    node->buf = page_get(INO2LBA(desc->inodeTableAddr, no));
     node->offset = suBlock->inodeSize * (node->no - 1) % SECTOR_SIZE;
-    bio_read(node->buf);
+    page_read(node->buf);
 }
 
 static void block_init(block_t *block, uint32_t blkNo) {
@@ -79,19 +79,19 @@ static void block_init(block_t *block, uint32_t blkNo) {
     u32_t no = BLOCK2LBA(blkNo);
     block->buf = kmalloc(sizeof(buf_t *) * (blockSize / BUF_SIZE));
     for (u32_t i = 0; i < blockSize / BUF_SIZE; i++) {
-        block->buf[i] = bio_get(no++);
+        block->buf[i] = page_get(no++);
     }
 }
 
 static void block_read(block_t *block) {
     for (u32_t i = 0; i < blockSize / BUF_SIZE; i++) {
-        bio_read(block->buf[i]);
+        page_read(block->buf[i]);
     }
 }
 
 static void block_free(block_t *block) {
     for (u32_t i = 0; i < blockSize / BUF_SIZE; i++) {
-        bio_free(block->buf[i]);
+//        bio_free(block->buf[i]);
     }
     kfree(block->buf);
 }

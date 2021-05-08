@@ -6,7 +6,7 @@
 #define QUARKOS_INIT_H
 
 void ext2_init();
-void bio_init();
+void page_cache_init();
 
 
 #ifdef TEST

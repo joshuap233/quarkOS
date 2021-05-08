@@ -8,6 +8,7 @@
 #include "types.h"
 #include "sched/sleeplock.h"
 #include "lib/list.h"
+#include "mm/mm.h"
 
 /*
  * BUF_DIRTY: 数据需要更新
@@ -19,20 +20,23 @@
  *            等待同步到磁盘的队列,DIRTY位被设置时则需要写回磁盘,
  *            否则需要从磁盘读取,操作完成后从队列删除,并清空 dirty 位
  */
-typedef struct buf {
+typedef struct page_cache {
 #define BUF_DIRTY   1
 #define BUF_VALID   (1<<1)
 #define BUF_BSY     (1<<2)
 #define SECTOR_SIZE 512
-#define BUF_SIZE    (SECTOR_SIZE*8)
-#define N_BUF       40
-    uint8_t flag;
-    uint16_t ref_cnt;
-    spinlock_t lock;
-    uint32_t no_secs;
+#define BUF_SIZE    PAGE_SIZE
+
+    u32_t timestamp; // 上次访问该页的时间
+
     uint8_t *data;
-    queue_t queue; // 等待读写队列
-    queue_t sleep; // 睡眠队列
+    uint16_t flag;
+//    uint16_t ref_cnt;
+    uint32_t no_secs; // 页对应的起始扇区lab值
+
+    spinlock_t lock;
+    queue_t queue;    // 等待读写队列
+    queue_t sleep;    // 睡眠线程队列
 } buf_t;
 
 #define buf_entry(ptr) list_entry(ptr,buf_t,queue)

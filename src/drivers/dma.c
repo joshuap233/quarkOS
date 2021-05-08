@@ -6,7 +6,6 @@
 
 #include "drivers/pci.h"
 #include "lib/qlib.h"
-#include "buf.h"
 #include "drivers/dma.h"
 #include "lib/list.h"
 #include "sched/kthread.h"

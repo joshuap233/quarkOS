@@ -6,7 +6,7 @@
 #define QUARKOS_FS_FAT_H
 
 #include "types.h"
-#include "buf.h"
+#include "fs/page_cache.h"
 
 #define ROOT_INUM    2 // 根目录的 inode 索引, inode 索引从 1 开始
 
