@@ -44,10 +44,6 @@
 
 #define LBA_DRIVE0          0xE0  // Drive/Head 寄存器 4-7位,选择 lba模式,0主盘
 
-// 等待读写的缓冲块队列
-static QUEUE_HEAD(queue);
-#define HEAD  queue_head(&queue)
-
 struct ide_device ide_dev;
 //struct error {
 //    uint8_t addr_mark_nf: 1;

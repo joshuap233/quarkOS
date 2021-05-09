@@ -70,6 +70,8 @@ void stack_trace();
 
 void panic();
 
+#define container_of(ptr, type, member) \
+    ((type *)((void *)(ptr) - offsetof(type,member)))
 
 #ifdef TEST
 #define test_start   printfk("test start: %s\n",__FUNCTION__);

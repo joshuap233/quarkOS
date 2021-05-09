@@ -6,12 +6,12 @@
 #define QUARKOS_LIB_LIST_H
 
 #include "types.h"
+#include "lib/qlib.h"
 
 #define LIST_HEAD(name) \
     list_head_t name = { &(name), &(name) }
 
-#define list_entry(ptr, type, member) \
-    ((type *)((void *)(ptr) - offsetof(type,member)))
+#define list_entry container_of
 
 
 //双向链表指针域
@@ -65,6 +65,7 @@ INLINE list_head_t *list_tail(list_head_t *header) {
 
 // 获取第一个元素并将该元素删除
 INLINE list_head_t *list_get_first(list_head_t *header) {
+
     if (!list_empty(header)) {
         list_head_t *h = list_first(header);
         list_del(h);

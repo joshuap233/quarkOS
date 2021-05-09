@@ -55,8 +55,6 @@ static void cleaner_thread_init();
 //添加 idle task 方便任务列表的管理
 static void init_thread_init();
 
-static int kt_create(list_head_t **_thread, kthread_t *tid, void *(worker)(void *), void *args);
-
 extern void kthread_worker(void *(worker)(void *), void *args, tcb_t *tcb);
 
 INLINE void unblock(list_head_t *head);
@@ -234,7 +232,7 @@ static void init_thread_init() {
 }
 
 // 成功返回 0,否则返回错误码(<0)
-static int kt_create(list_head_t **_thread, kthread_t *tid, void *(worker)(void *), void *args) {
+int kt_create(list_head_t **_thread, kthread_t *tid, void *(worker)(void *), void *args) {
     //tcb 结构放到栈顶(低地址)
     ir_lock_t lock;
     ir_lock(&lock);

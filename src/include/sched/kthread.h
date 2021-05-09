@@ -50,6 +50,8 @@ typedef struct tcb {
 
 int kthread_create(kthread_t *tid, void *(worker)(void *), void *args);
 
+int kt_create(list_head_t **_thread, kthread_t *tid, void *(worker)(void *), void *args);
+
 void schedule();
 
 void kthread_exit();
