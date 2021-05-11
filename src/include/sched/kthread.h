@@ -10,7 +10,7 @@
 #include "lib/list.h"
 #include "x86.h"
 #include "mm/mm.h"
-#include "sched/klock.h"
+#include "lib/spinlock.h"
 
 /*
  * 线程切换时需要保存的上下文
@@ -41,6 +41,10 @@ typedef struct tcb {
 #define KTHREAD_STACK_SIZE PAGE_SIZE
 #define KTHREAD_NUM        65536
     list_head_t run_list;    //运行队列
+#ifdef TEST
+#define THREAD_MAGIC       0x18ee7305
+    u32_t magic;
+#endif // TEST
     kthread_t tid;
     kthread_state_t state;
     char name[KTHREAD_NAME_LEN];
@@ -58,15 +62,9 @@ void kthread_exit();
 
 int8_t block_thread(list_head_t *_block_list, spinlock_t *lock);
 
-void unblock_thread(list_head_t *head);
+void unblock_thread(list_head_t *thread);
 
 void unblock_threads(list_head_t *head);
-
-// 通用阻塞列表
-extern list_head_t block_list;
-
-// 可运行进程队列
-extern list_head_t *init_task;
 
 // i r esp / ~(uint32_t)(4096 - 1)
 INLINE tcb_t *cur_tcb() {
@@ -75,8 +73,38 @@ INLINE tcb_t *cur_tcb() {
     return tcb;
 }
 
+#ifdef DEBUG
+
+INLINE tcb_t *_cur_tcb() {
+    tcb_t *tcb = cur_tcb();
+    assertk(tcb->magic == THREAD_MAGIC);
+    return tcb;
+}
+
+#define CUR_TCB  _cur_tcb()
+
+#else
+
 #define CUR_TCB  cur_tcb()
+
+#endif //DEBUG
+
+
 #define CUR_HEAD (CUR_TCB->run_list)
+
+#ifdef DEBUG
+
+INLINE tcb_t *tcb_entry(list_head_t *ptr) {
+    tcb_t *thread = list_entry(ptr, tcb_t, run_list);
+    assertk(((ptr_t) thread & PAGE_MASK) == 0);
+    assertk(thread->magic == THREAD_MAGIC);
+    return thread;
+}
+
+#else
+
 #define tcb_entry(ptr) list_entry(ptr,tcb_t,run_list)
+
+#endif // DEBUG
 
 #endif //QUARKOS_SCHED_KTHREAD_H

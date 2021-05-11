@@ -6,14 +6,13 @@
 #define QUARKOS_SCHED_TIMER_H
 
 #include "types.h"
-#include "kthread.h"
 #include "lib/list.h"
 
 #define TIMER_COUNT 20
 typedef struct timer {
-    list_head_t head;
-    volatile uint64_t time;
-    tcb_t *thread;
+    list_head_t head;         //timer 列表
+    list_head_t *thread;      //睡眠线程
+    volatile uint64_t time;   //睡眠到 time 唤醒线程
 } timer_t;
 
 

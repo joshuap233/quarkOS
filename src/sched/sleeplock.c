@@ -8,7 +8,7 @@
 
 void sleeplock_init(sleeplock_t *lock) {
     spinlock_init(&lock->lock);
-    list_header_init(&lock->head);
+    list_header_init(&lock->sleep);
 }
 
 void sleeplock_lock(sleeplock_t *lock) {
@@ -16,15 +16,17 @@ void sleeplock_lock(sleeplock_t *lock) {
     if (!lock->locked) {
         lock->locked = true;
     } else {
-        block_thread(&lock->head, &lock->lock);
+        block_thread(&lock->sleep, NULL);
     }
     spinlock_unlock(&lock->lock);
 };
 
 void sleeplock_unlock(sleeplock_t *lock) {
     spinlock_lock(&lock->lock);
-    if (!lock->locked) {
-        lock->locked = false;
+    assertk(lock->locked);
+    lock->locked = false;
+    if (!list_empty(&lock->sleep)) {
+        unblock_thread(&lock->sleep);
     }
     spinlock_unlock(&lock->lock);
 }

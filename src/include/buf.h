@@ -9,6 +9,7 @@
 #include "sched/sleeplock.h"
 #include "lib/list.h"
 #include "mm/mm.h"
+#include "lib/rwlock.h"
 
 /*
  * BUF_DIRTY: 数据需要更新
@@ -25,7 +26,6 @@
 typedef struct page_cache {
 #define BUF_DIRTY   1
 #define BUF_VALID   (1<<1)
-#define BUF_BSY     (1<<2)
 #define SECTOR_SIZE 512
 #define BUF_SIZE    PAGE_SIZE
     u32_t timestamp;
@@ -37,7 +37,7 @@ typedef struct page_cache {
     uint32_t no_secs; // 页对应的起始扇区lab值
 
     list_head_t list;    // 等待读写队列
-    queue_t sleep;       // 睡眠线程队列
+    rwlock_t rwlock;
 } buf_t;
 
 #define buf_entry(ptr) list_entry(ptr,buf_t,list)

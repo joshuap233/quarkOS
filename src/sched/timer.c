@@ -41,7 +41,7 @@ INLINE void free_timer(timer_t *t) {
 }
 
 void thread_timer_init() {
-    timer_pool.top = 0;
+    timer_pool.top = TIMER_COUNT;
     timer_pool.size = TIMER_COUNT;
     list_header_init(&HEAD);
     for (int i = 0; i < TIMER_COUNT; ++i) {
@@ -55,9 +55,9 @@ bool ms_sleep_until(uint64_t msc) {
     timer_t *t = alloc_timer();
     if (t == NULL) return false;
     t->time = msc;
-    t->thread = CUR_TCB;
-
-    block_thread(&HEAD, NULL);
+    t->thread = &CUR_TCB->run_list;
+    list_add_prev(&t->head, &HEAD);
+    block_thread(NULL, NULL);
     return true;
 }
 
@@ -70,15 +70,15 @@ bool ms_sleep(mseconds_t msc) {
 INT clock_isr(UNUSED interrupt_frame_t *frame) {
     G_TIME_SINCE_BOOT++;
 
-    list_head_t *hdr, *next;
-    list_for_each_del(hdr, next, &HEAD) {
+    list_head_t *hdr = (&HEAD)->next;
+    while (hdr != &HEAD) {
         timer_t *tmp = timer_entry(hdr);
-        if (tmp->time >= G_TIME_SINCE_BOOT) {
-            unblock_thread(hdr);
+        hdr = hdr->next;
+        if (tmp->time <= G_TIME_SINCE_BOOT) {
+            unblock_thread(tmp->thread);
             free_timer(tmp);
         }
     }
-
     pic1_eoi();
 
     if (g_time_slice == 0) {

@@ -3,7 +3,6 @@
 //
 
 #include "sched/schedule.h"
-#include "sched/klock.h"
 
 //void schedule() {
 //

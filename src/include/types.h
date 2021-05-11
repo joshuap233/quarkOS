@@ -32,5 +32,6 @@ typedef uint32_t lba28;
 #define UNUSED __attribute__((unused))
 
 #define TEST
+#define DEBUG
 
 #endif //QUARKOS_TYPES_H

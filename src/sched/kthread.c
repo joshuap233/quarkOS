@@ -4,11 +4,12 @@
 // TODO: join 等待子线程退出, tcb 添添加子线程列表
 
 #include "sched/kthread.h"
-#include "sched/klock.h"
+#include "lib/spinlock.h"
 #include "lib/qlib.h"
 #include "sched/timer.h"
 #include "lib/qstring.h"
 #include "mm/kmalloc.h"
+#include "lib/irlock.h"
 
 typedef struct thread_btm {
     void *entry;
@@ -30,8 +31,8 @@ static struct kthread_map {
         .map = {0},
 };
 
-LIST_HEAD(finish_list);  //已执行完成等待销毁的线程
-LIST_HEAD(block_list);   //阻塞中的线程
+static LIST_HEAD(finish_list);  //已执行完成等待销毁的线程
+static LIST_HEAD(block_list);   //全局阻塞列表
 
 list_head_t *init_task = NULL;     //空闲线程,始终在可运行列表
 static list_head_t *cleaner_task = NULL;  //清理线程,用于清理其他线程
@@ -67,12 +68,17 @@ INLINE void set_next_ready();
 
 //初始化内核线程
 void sched_init() {
+#ifdef DEBUG
+    cur_tcb()->magic = THREAD_MAGIC;
+#endif //DEBUG
+
     thread_timer_init();
     init_thread_init();
 
     CUR_TCB->tid = alloc_tid();
     CUR_TCB->state = TASK_RUNNING;
     CUR_TCB->stack = CUR_TCB;
+
     q_memcpy(CUR_TCB->name, "main", sizeof("main"));
     asm volatile("movl %%esp, %0":"=rm"(CUR_TCB->context.esp));
     list_add_prev(&CUR_HEAD, init_task);
@@ -105,6 +111,8 @@ int kthread_create(kthread_t *tid, void *(worker)(void *), void *args) {
 void schedule() {
     ir_lock_t lock;
     ir_lock(&lock);
+//    printfk("cur_tid: %u\n",CUR_TCB->tid);
+
     list_head_t *next = ready_to_run;
     if (&CUR_HEAD == init_task && init_task->next == init_task)
         return;
@@ -129,8 +137,10 @@ static void kt_block(kthread_state_t state) {
 int8_t block_thread(list_head_t *_block_list, spinlock_t *lk) {
     ir_lock_t lock;
     ir_lock(&lock);
+    if (!_block_list)
+        _block_list = &block_list;
     if (lk) {
-        if (lk->flag == 0) {
+        if (lk->flag == SPINLOCK_UNLOCK) {
             ir_unlock(&lock);
             return -1;
         };
@@ -146,17 +156,19 @@ int8_t block_thread(list_head_t *_block_list, spinlock_t *lk) {
     return 0;
 }
 
-INLINE void unblock(list_head_t *head) {
-    tcb_t *thread = tcb_entry(head);
-    thread->state = TASK_RUNNING;
-    list_del(&thread->run_list);
-    list_add_prev(&thread->run_list, init_task);
+INLINE void unblock(list_head_t *_thread) {
+    tcb_t *thread = tcb_entry(_thread);
+    if (thread->state != TASK_RUNNING) {
+        thread->state = TASK_RUNNING;
+        list_del(&thread->run_list);
+        list_add_prev(&thread->run_list, init_task);
+    }
 }
 
-void unblock_thread(list_head_t *head) {
+void unblock_thread(list_head_t *thread) {
     ir_lock_t lock;
     ir_lock(&lock);
-    unblock(head);
+    unblock(thread);
     ir_unlock(&lock);
 }
 
@@ -209,7 +221,7 @@ _Noreturn static void *cleaner_worker() {
             kfree(entry->stack);
         }
         list_header_init(&finish_list);
-        block_thread(&block_list, NULL);
+        block_thread(NULL, NULL);
 
         ir_unlock(&lock);
     }
@@ -245,6 +257,9 @@ int kt_create(list_head_t **_thread, kthread_t *tid, void *(worker)(void *), voi
 
     thread->state = TASK_RUNNING;
     thread->stack = thread;
+#ifdef DEBUG
+    thread->magic = THREAD_MAGIC;
+#endif// DEBUG
 
     thread_btm_t *btm = THREAD_BTM(thread);
     btm->args = args;

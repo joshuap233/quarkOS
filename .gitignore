@@ -7,3 +7,4 @@ note/
 isodir/boot/quarkOS.bin
 disk.img
 test.c
+TODO.md

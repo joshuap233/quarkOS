@@ -83,9 +83,6 @@ void ide_init() {
     // 选择要操作的设备为主盘, LBA 寻址
     outb(IDE_DH, LBA_DRIVE0);
 
-    outb(IDE_COUNT, 8);
-    ide_send_cmd(CMD_MULTIPLE_MODE);
-
     //发送 IDENTIFY 指令
     ide_send_cmd(CMD_IDENTIFY);
 
@@ -100,6 +97,9 @@ void ide_init() {
     // TODO: 88/93  dma 检测
 
     ide_dev.size = buffer[60] | ((uint32_t) buffer[61] << 16);
+
+    outb(IDE_COUNT, 8);
+    ide_send_cmd(CMD_MULTIPLE_MODE);
 
     //开启磁盘中断
     outb(IDE_CTR, 0);
@@ -140,14 +140,14 @@ void ide_driver_init(buf_t *buf, uint32_t secs_cnt) {
     outb(IDE_CYL_H, (no_sec >> 16) & MASK_U8(8));
 }
 
-void ide_start(buf_t *buf,bool write) {
+void ide_start(buf_t *buf, bool write) {
     ide_driver_init(buf, 8);
-    // 触发一次中断
-    outb(IDE_CTR, 0);
     if (write) {
         ide_send_cmd(CMD_WRITE_MULTIPLE);
         write_sector(buf->data, 8);
     } else {
         ide_send_cmd(CMD_READ_MULTIPLE);
     }
+    // 触发一次中断
+    outb(IDE_CTR, 0);
 }

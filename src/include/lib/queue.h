@@ -1,6 +1,7 @@
 //
 // Created by pjs on 2021/5/9.
 //
+// 无锁队列
 
 #ifndef QUARKOS_QUEUE_H
 #define QUARKOS_QUEUE_H
@@ -27,9 +28,5 @@ void lfQueue_init(lf_queue *queue, lfq_node *dummy);
 lfq_node *lfQueue_get(lf_queue *queue);
 
 void lfq_node_init(lfq_node *node);
-
-#define for_each_queue(hdr, queue)    \
-    for ((hdr) = (queue)->head->next; (hdr) != NULL; (hdr) = (hdr)->next)
-
 
 #endif //QUARKOS_QUEUE_H
