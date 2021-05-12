@@ -67,7 +67,8 @@ void kernel_main() {
     ide_init();
 //    dma_init();
 
-    sched_init();
+    scheduler_init();
+    thread_init();
     cmos_init();
 
     page_cache_init();
@@ -78,10 +79,9 @@ void kernel_main() {
 //    ext2_init();
 
 #ifdef TEST
-    test_ide_rw();
+//    test_ide_rw();
 //    test_dma_rw();
     test_thread();
 #endif
-
-    block_thread(NULL, NULL);
+    idle();
 }

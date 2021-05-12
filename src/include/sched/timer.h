@@ -22,7 +22,4 @@ bool ms_sleep_until(uint64_t msc);
 
 void thread_timer_init();
 
-extern volatile uint64_t g_time_slice;
-#define TIME_SLICE_LENGTH 10  // 时间片长度为 100ms
-
 #endif //QUARKOS_SCHED_TIMER_H

@@ -2,7 +2,6 @@
 // Created by pjs on 2021/2/1.
 //
 // TODO: 分配需要分配 3K, 5K, 9K...这种内存依然会造成大量内存碎片
-// TODO: 平衡树,跳表?
 // 可以将多余的内存划分给 slab 分配器?
 // 如果多余的内存没有划分给slab,多余的内存是否需要映射到虚拟地址空间?
 
@@ -108,6 +107,7 @@ ptr_t pm_alloc(u32_t size) {
     for (uint16_t i = size; i <= MAX_ORDER; ++i) {
         root = pmm.root[i];
         if (root) {
+            //TODO: 一直删除最小的元素导致树失衡
             pmm.root[i] = bst_deleteMin(root, &del);
             assertk(del);
 

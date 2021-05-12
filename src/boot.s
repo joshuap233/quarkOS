@@ -53,7 +53,7 @@ magic:
 
 
     .section .bss
-    .align   4096 //主线程栈页对齐
+    .align   4096 //init线程栈页对齐
 stack_top:
     .skip    4096
 stack_bottom:

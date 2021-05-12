@@ -29,34 +29,38 @@ typedef struct context {
 } context_t;
 
 
-typedef uint32_t kthread_state_t;
-#define TASK_RUNNING  0    //线程可运行或正在运行
-#define TASK_SLEEPING 1
-#define TASK_ZOMBIE   2     //线程终止等待回收
-
 typedef uint32_t kthread_t; //线程id
+
+typedef enum kthread_state {
+    TASK_RUNNING = 0,     // 线程可运行(或正在运行)
+    TASK_SLEEPING,        // 线程睡眠
+    TASK_ZOMBIE           // 线程运行完成等待回收
+} kthread_state;
 
 typedef struct tcb {
 #define KTHREAD_NAME_LEN   16
 #define KTHREAD_STACK_SIZE PAGE_SIZE
 #define KTHREAD_NUM        65536
+#define MAX_PRIORITY       3
     list_head_t run_list;    //运行队列
-#ifdef TEST
+#ifdef DEBUG
 #define THREAD_MAGIC       0x18ee7305
     u32_t magic;
-#endif // TEST
+    u32_t spin_cnt;          // 自旋锁自旋次数
+    u64_t last_run_time;     // 上次运行时间
+#endif // DEBUG
     kthread_t tid;
-    kthread_state_t state;
+    kthread_state state;
+    u16_t priority;
+    u16_t timer_slice;        // 时间片
     char name[KTHREAD_NAME_LEN];
-    void *stack;             //指向栈首地址,用于回收
-    context_t context;       //上下文信息
+    void *stack;              // 指向栈首地址,用于回收
+    context_t context;        // 上下文信息
 } tcb_t;
 
 int kthread_create(kthread_t *tid, void *(worker)(void *), void *args);
 
 int kt_create(list_head_t **_thread, kthread_t *tid, void *(worker)(void *), void *args);
-
-void schedule();
 
 void kthread_exit();
 
@@ -64,7 +68,8 @@ int8_t block_thread(list_head_t *_block_list, spinlock_t *lock);
 
 void unblock_thread(list_head_t *thread);
 
-void unblock_threads(list_head_t *head);
+
+extern list_head_t *init_task;
 
 // i r esp / ~(uint32_t)(4096 - 1)
 INLINE tcb_t *cur_tcb() {
@@ -106,5 +111,12 @@ INLINE tcb_t *tcb_entry(list_head_t *ptr) {
 #define tcb_entry(ptr) list_entry(ptr,tcb_t,run_list)
 
 #endif // DEBUG
+
+
+_Noreturn INLINE void idle() {
+    while (1) {
+        halt();
+    }
+}
 
 #endif //QUARKOS_SCHED_KTHREAD_H

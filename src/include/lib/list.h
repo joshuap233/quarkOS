@@ -82,6 +82,10 @@ INLINE list_head_t *list_get_first(list_head_t *header) {
 #define list_for_each_del(hdr, nxt, head) \
         for ((hdr) = (head)->next, (nxt)=(hdr)->next; (hdr) != (head); (hdr) = (nxt),(nxt)=(nxt)->next)
 
+// 逆序遍历
+#define list_for_each_rev(hdr, head) \
+    for ((hdr) = (head)->prev; (hdr) != (head); (hdr) = (hdr)->prev)
+
 
 #define queue_empty list_empty
 #define queue_head  list_first

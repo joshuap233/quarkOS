@@ -8,7 +8,7 @@
 #include "drivers/pit.h"
 #include "isr.h"
 #include "lib/list.h"
-
+#include "sched/schedule.h"
 
 #define timer_entry(ptr) list_entry(ptr, timer_t, head)
 #define HEAD timer_pool.header
@@ -81,9 +81,10 @@ INT clock_isr(UNUSED interrupt_frame_t *frame) {
     }
     pic1_eoi();
 
-    if (g_time_slice == 0) {
+    tcb_t *task = CUR_TCB;
+    if (task->timer_slice == 0) {
         schedule();
     } else {
-        g_time_slice -= 1;
+        task->timer_slice -= 1;
     }
 }

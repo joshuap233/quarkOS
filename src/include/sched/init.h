@@ -7,8 +7,8 @@
 
 #include "types.h"
 
-void sched_init();
-
+void thread_init();
+void scheduler_init();
 
 #ifdef TEST
 void test_thread();
