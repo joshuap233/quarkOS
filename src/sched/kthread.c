@@ -23,21 +23,17 @@ typedef struct thread_btm {
 #define THREAD_BTM(top) ((void*)(top) + KTHREAD_STACK_SIZE-sizeof(thread_btm_t))
 
 //用于管理空闲 tid
-static struct kthread_map {
-    uint8_t map[DIV_CEIL(KTHREAD_NUM, 8)];
-    uint32_t len;
-} tid_map = {
-        .len = DIV_CEIL(KTHREAD_NUM, 8),
-        .map = {0},
-};
+// TODO: 建立 tid 哈希表
+static u32_t kthread_map[KTHREAD_NUM];
 
 static LIST_HEAD(finish_list);  //已执行完成等待销毁的线程
 static LIST_HEAD(block_list);   //全局阻塞列表
 
+
 list_head_t *init_task = NULL;     //空闲线程,始终在可运行列表
 static list_head_t *cleaner_task = NULL;  //清理线程,用于清理其他线程
 
-static kthread_t alloc_tid();
+static kthread_t alloc_tid(tcb_t *tcb);
 
 static void free_tid(kthread_t tid);
 
@@ -58,8 +54,8 @@ void thread_init() {
 
     init_task = &CUR_TCB->run_list;
     CUR_TCB->priority = 0;
-    CUR_TCB->timer_slice = 10;
-    CUR_TCB->tid = alloc_tid();
+    CUR_TCB->timer_slice = 0;
+    CUR_TCB->tid = alloc_tid(CUR_TCB);
     assertk(CUR_TCB->tid == 0);
     CUR_TCB->state = TASK_RUNNING;
     CUR_TCB->stack = CUR_TCB;
@@ -87,20 +83,11 @@ void kthread_exit() {
 }
 
 
-int kthread_create(kthread_t *tid, void *(worker)(void *), void *args) {
-    list_head_t *thread;
-    return kt_create(&thread, tid, worker, args);
-}
-
-
-static kthread_t alloc_tid() {
-    for (uint32_t index = 0; index < tid_map.len; ++index) {
-        uint8_t value = tid_map.map[index];
-        for (int bit = 0; bit < 8; ++bit, value >>= 1) {
-            if (!(value & 0b1)) {
-                set_bit(&tid_map.map[index], bit);
-                return index * 8 + bit;
-            }
+static kthread_t alloc_tid(tcb_t *tcb) {
+    for (int i = 0; i < KTHREAD_NUM; ++i) {
+        if (kthread_map[i] == 0) {
+            kthread_map[i] = (ptr_t) tcb;
+            return i;
         }
     }
     // 0 始终被 init 线程占用
@@ -109,7 +96,7 @@ static kthread_t alloc_tid() {
 
 static void free_tid(kthread_t tid) {
     assertk(tid != 0);
-    clear_bit(&tid_map.map[tid / 8], tid % 8);
+    kthread_map[tid] = 0;
 }
 
 
@@ -135,19 +122,20 @@ _Noreturn static void *cleaner_worker() {
 
 static void cleaner_thread_init() {
     kthread_t tid;
-    kt_create(&cleaner_task, &tid, cleaner_worker, NULL);
-    q_memcpy(tcb_entry(cleaner_task)->name, "cleaner", sizeof("cleaner"));
+    kthread_create(&tid, cleaner_worker, NULL);
+    cleaner_task = kthread_get_run_list(tid);
+    kthread_set_name(tid, "cleaner");
 }
 
+
 // 成功返回 0,否则返回错误码(<0)
-int kt_create(list_head_t **_thread, kthread_t *tid, void *(worker)(void *), void *args) {
+int kthread_create(kthread_t *tid, void *(worker)(void *), void *args) {
     //tcb 结构放到栈顶(低地址)
     ir_lock_t lock;
     ir_lock(&lock);
     tcb_t *thread = kmalloc(PAGE_SIZE);
     ir_unlock(&lock);
 
-    *_thread = &thread->run_list;
     assertk(thread != NULL);
     assertk(((ptr_t) thread & PAGE_MASK) == 0);
 
@@ -172,12 +160,39 @@ int kt_create(list_head_t **_thread, kthread_t *tid, void *(worker)(void *), voi
     thread->timer_slice = TIME_SLICE_LENGTH;
 
     ir_lock(&lock);
-    thread->tid = alloc_tid();
+    thread->tid = alloc_tid(thread);
     *tid = thread->tid;
 
     sched_task_add(&thread->run_list);
     ir_unlock(&lock);
     return 0;
+}
+
+void kthread_set_name(kthread_t tid, const char *name) {
+    tcb_t *tcb;
+    u8_t cnt;
+    assertk(tid < KTHREAD_NUM);
+    tcb = (tcb_t *) kthread_map[tid];
+    assertk(tcb->tid == tid);
+    cnt = q_strlen(name);
+
+    assertk(cnt <= KTHREAD_NAME_LEN);
+#ifdef DEBUG
+    assertk(tcb->magic == THREAD_MAGIC);
+#endif //DEBUG
+    q_memcpy(tcb->name, name, cnt);
+}
+
+list_head_t *kthread_get_run_list(kthread_t tid) {
+    tcb_t *tcb;
+    assertk(tid < KTHREAD_NUM);
+    tcb = (tcb_t *) kthread_map[tid];
+    assertk(tcb->tid == tid);
+
+#ifdef DEBUG
+    assertk(tcb->magic == THREAD_MAGIC);
+#endif //DEBUG
+    return &tcb->run_list;
 }
 
 // 睡眠前释放锁,被唤醒后自动获取锁, 传入的锁没有被获取则不会睡眠
@@ -234,9 +249,11 @@ void *workerA(UNUSED void *args) {
 void test_thread() {
     test_start;
     spinlock_init(&lock);
-    kthread_t a[10];
+    kthread_t tid[10];
+    const char *name[] = {"1", "2", "3", "4", "5", "6", "7", "8", "9"};
     for (int i = 0; i < 10; ++i) {
-        kthread_create(&a[i], workerA, &foo[i]);
+        kthread_create(&tid[i], workerA, &foo[i]);
+        kthread_set_name(tid[i], name[i]);
     }
     test_pass;
 }

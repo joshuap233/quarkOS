@@ -40,7 +40,7 @@ typedef enum kthread_state {
 typedef struct tcb {
 #define KTHREAD_NAME_LEN   16
 #define KTHREAD_STACK_SIZE PAGE_SIZE
-#define KTHREAD_NUM        65536
+#define KTHREAD_NUM        1024
 #define MAX_PRIORITY       3
     list_head_t run_list;    //运行队列
 #ifdef DEBUG
@@ -60,7 +60,6 @@ typedef struct tcb {
 
 int kthread_create(kthread_t *tid, void *(worker)(void *), void *args);
 
-int kt_create(list_head_t **_thread, kthread_t *tid, void *(worker)(void *), void *args);
 
 void kthread_exit();
 
@@ -68,6 +67,9 @@ int8_t block_thread(list_head_t *_block_list, spinlock_t *lock);
 
 void unblock_thread(list_head_t *thread);
 
+void kthread_set_name(kthread_t tid, const char *name);
+
+list_head_t *kthread_get_run_list(kthread_t tid);
 
 extern list_head_t *init_task;
 
@@ -105,6 +107,8 @@ INLINE tcb_t *tcb_entry(list_head_t *ptr) {
     assertk(thread->magic == THREAD_MAGIC);
     return thread;
 }
+
+
 
 #else
 

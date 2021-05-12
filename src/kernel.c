@@ -39,6 +39,13 @@ void hello() {
 extern multiboot_info_t *mba;
 extern uint32_t magic;
 
+#ifdef TEST
+
+void *test_worker();
+
+void create_test_worker();
+
+#endif // TEST
 
 //mba 为 multiboot info struct 首地址
 void kernel_main() {
@@ -73,15 +80,32 @@ void kernel_main() {
 
     page_cache_init();
 
-    enable_interrupt();
-
-    // 需要在多线程初始化之后
-//    ext2_init();
+    //    需要在多线程初始化之后
+    //    ext2_init();
 
 #ifdef TEST
-//    test_ide_rw();
-//    test_dma_rw();
-    test_thread();
-#endif
+    // kernel_main 所在线程成为 init 线程,一旦有其他线程可运行,
+    // init 不会被调用,因此需要创建新的线程用于测试
+    create_test_worker();
+#endif // TEST
+
+    enable_interrupt();
+
     idle();
 }
+
+#ifdef TEST
+
+void *test_worker() {
+    test_ide_rw();
+//    test_dma_rw();
+    test_thread();
+    return NULL;
+}
+
+void create_test_worker() {
+    kthread_t tid;
+    kthread_create(&tid, test_worker, NULL);
+}
+
+#endif

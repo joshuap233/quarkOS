@@ -84,7 +84,7 @@ INT clock_isr(UNUSED interrupt_frame_t *frame) {
     tcb_t *task = CUR_TCB;
     if (task->timer_slice == 0) {
         schedule();
-    } else {
+    } else if (&task->run_list != init_task) {
         task->timer_slice -= 1;
     }
 }

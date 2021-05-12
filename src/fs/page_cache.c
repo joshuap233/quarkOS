@@ -16,10 +16,7 @@
 #include "sched/sleeplock.h"
 
 
-
 static void create_flush_thread();
-
-static list_head_t *flush;
 
 static struct cache {
     struct head {
@@ -128,11 +125,10 @@ buf_t *page_read(buf_t *buf) {
     return buf;
 }
 
-void page_write(buf_t *buf, void *data) {
-    assertk(data && buf);
+void page_write(buf_t *buf) {
+    assertk(buf);
     rwlock_wLock(&buf->rwlock);
 
-    q_memcpy(buf->data, data, BUF_SIZE);
     buf->flag |= BUF_DIRTY | BUF_VALID;
 
     rwlock_wUnlock(&buf->rwlock);
@@ -147,11 +143,10 @@ static void page_rw(buf_t *buf) {
 
 
 // 立即刷新内存
-void page_write_sync(buf_t *buf, void *data) {
-    assertk(buf && data);
+void page_write_sync(buf_t *buf) {
+    assertk(buf);
     _sleeplock_lock(&buf->rwlock);
 
-    q_memcpy(buf->data, data, BUF_SIZE);
     buf->flag |= BUF_DIRTY | BUF_VALID;
     page_rw(buf);
 
@@ -224,8 +219,8 @@ _Noreturn static void *page_flush_worker() {
 
 static void create_flush_thread() {
     kthread_t tid;
-    kt_create(&flush, &tid, page_flush_worker, NULL);
-    q_memcpy(tcb_entry(flush)->name, "page_flash", sizeof("page_flash"));
+    kthread_create(&tid, page_flush_worker, NULL);
+    kthread_set_name(tid,"page_flash");
 }
 
 static void recycle(buf_t *buf) {
@@ -293,7 +288,6 @@ static void wakeup() {
 // ============ test =========
 #ifdef TEST
 // data 放 test_ide_rw 函数里面会导致栈(4096 byte)溢出
-uint8_t data[BUF_SIZE];
 uint8_t tmp[BUF_SIZE];
 
 static u8_t list_cnt() {
@@ -304,13 +298,18 @@ static u8_t list_cnt() {
     return cnt;
 }
 
+#define  assert_cmp(buf, value)  {\
+    for (int i = 0; i < BUF_SIZE; ++i) { \
+        assertk((buf)->data[i] == (value));\
+    }\
+}
+
 void test_ide_rw() {
     test_start
 
     disk.start = ide_start;
     disk.isr = ide_isr;
 
-    q_memset(data, 1, BUF_SIZE);
     buf_t *buf0 = page_get(0);
     buf_t *buf1 = page_get(8);
     buf1->no_secs = 0;
@@ -319,22 +318,23 @@ void test_ide_rw() {
     page_read_sync(buf0);
     q_memcpy(tmp, buf0->data, BUF_SIZE);
 
-    // 测试 page_write, page_flush, page_read_sync
-    page_write(buf0, data);
+    q_memset(buf0->data, 1, BUF_SIZE);
+    page_write(buf0);
     page_flush(buf0);
     page_read_sync(buf1);
-    assertk(q_memcmp(data, buf1->data, BUF_SIZE));
+//    assert_cmp(buf1, 1);
+    for (int i = 0; i < BUF_SIZE; ++i) {
+        assertk(buf0->data[i] == 1);
+    }
 
-    // 测试 page_write_sync,page_read
-    q_memset(data, 2, BUF_SIZE);
-    page_write_sync(buf0, data);
-    page_read(buf0);
-    assertk(!q_memcmp(data, buf1->data, BUF_SIZE));
+    q_memset(buf0->data, 2, BUF_SIZE);
+    page_write_sync(buf0);
     page_read_sync(buf1);
-    assertk(q_memcmp(data, buf1->data, BUF_SIZE));
+    assert_cmp(buf1,2);
 
     //恢复初始值
-    page_write_sync(buf0, tmp);
+    q_memcpy(buf0->data, tmp, BUF_SIZE);
+    page_write_sync(buf0);
     page_read_sync(buf1);
     assertk(q_memcmp(tmp, buf1->data, BUF_SIZE));
 

@@ -38,7 +38,7 @@ static node_t *bst_deleteMin(node_t *root, node_t **del);
 
 static void bst_print(node_t *root);
 
-INLINE uint32_t get_buddy_pn(uint32_t pn, uint8_t sizeLog);
+uint32_t get_buddy_pn(uint32_t pn, uint8_t sizeLog);
 
 INLINE node_t *new_node();
 
@@ -66,6 +66,7 @@ struct allocator {
 
 void pmm_init() {
     // TODO:还有不足 4M 的内存, 且该管理器管理固定大小内存,而不是所有剩余内存
+    // 且 block_alloc 可分配内存块并不连续,但 pmm allocator 只有一个 addr(起始地址)
     pmm.blockSize = PAGE_SIZE;
     u32_t size = block_size() / (4 * K) / 2; //需要分配的节点数
     node_t *list = (node_t *) block_alloc(sizeof(node_t) * size);
@@ -145,12 +146,13 @@ u32_t pm_free(ptr_t addr) {
     for (i = node->sizeLog; i < MAX_ORDER; ++i) {
         buddy_pn = get_buddy_pn(pn, node->sizeLog);
         pmm.root[i] = bst_delete(pmm.root[i], buddy_pn, &buddy);
-        node->sizeLog++;
         if (!buddy) break;
+        node->sizeLog++;
         pn = MIN(buddy_pn, pn);
         node_free(buddy);
     }
     pmm.root[i] = bst_insert(pmm.root[i], node);
+
     return retSize;
 }
 
@@ -158,9 +160,9 @@ ptr_t pm_alloc_page() {
     return pm_alloc(PAGE_SIZE);
 }
 
-INLINE uint32_t get_buddy_pn(uint32_t pn, uint8_t sizeLog) {
+uint32_t get_buddy_pn(uint32_t pn, uint8_t sizeLog) {
     size_t size = SIZE(sizeLog);
-    return ((pn >> sizeLog) & 0x3) ? pn - size : pn + size;
+    return ((pn >> sizeLog) & 1) ? pn - size : pn + size;
 }
 
 static node_t *sortedArrayToBST(u16_t start, u16_t size) {
@@ -285,6 +287,7 @@ static void except_list_cnt(size_t except) {
 }
 
 ptr_t addr[MAX_ORDER + 1] = {[1 ...MAX_ORDER] = 0};
+
 void test_alloc() {
     test_start
     size_t total, alloc = 0, listCnt = pmm.listCnt;

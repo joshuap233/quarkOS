@@ -33,12 +33,13 @@ void schedule() {
     ir_lock_t lock;
     ir_lock(&lock);
     if (G_TIME_SINCE_BOOT >= update_priority_time) {
-        reset_priority_worker();
-        update_priority_time = G_TIME_SINCE_BOOT + RESET_PRIORITY_INTERVAL * 100;
+//        reset_priority_worker();
+//        update_priority_time = G_TIME_SINCE_BOOT + RESET_PRIORITY_INTERVAL * 100;
     }
 
     tcb_t *cur_task = CUR_TCB;
-    list_head_t *next = chose_next_task(), *cur = &cur_task->run_list;
+    list_head_t *next = chose_next_task();
+    list_head_t *cur = &cur_task->run_list;
     if (next == init_task && &CUR_HEAD == init_task) {
         assertk(tcb_entry(init_task)->timer_slice == 0);
         return;
