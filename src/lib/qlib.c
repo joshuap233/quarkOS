@@ -6,31 +6,33 @@
 #include "elf.h"
 #include "multiboot2.h"
 
+#define U64LEN 20  // uint64 十进制数长度
+
 static void print_d(int64_t num) {
     uint8_t i = 0;
-    char str[sizeof(uint64_t) + 1 + 1];//1 位存符号
+    char str[U64LEN + 2]; //1 位存符号,1 位存 '\0'
     if (num < 0) {
         str[i++] = '-';
-        num &= (BIT_MASK(uint64_t, 1) << 63);
+        num = -num;
     }
     q_utoa(num, str + i);
     vga_put_string(str);
 }
 
 static void print_u(uint64_t num) {
-    char str[sizeof(uint64_t) + 1];
+    char str[U64LEN + 1];
     q_utoa(num, str);
     vga_put_string(str);
 }
 
 static void print_pointer(void *p) {
-    char str[sizeof(uint64_t) + 1 + 2] = "0x";
+    char str[U64LEN + 3] = "0x";
     hex((ptr_t) p, str + 2);
     vga_put_string(str);
 }
 
 static void print_hex(uint64_t x) {
-    char str[sizeof(uint64_t) + 1 + 2] = "0x";
+    char str[U64LEN + 3] = "0x";
     hex(x, str + 2);
     vga_put_string(str);
 }
@@ -81,11 +83,13 @@ u8_t log2(uint16_t val) {
     return cnt;
 }
 
-void sort(){
+void sort() {
 
 }
 
-#ifdef __i386__
+void printf_string(char *str, size_t size) {
+    vga_put_string_s(str, size);
+}
 
 __attribute__ ((format (printf, 1, 2))) void printfk(char *__restrict str, ...) {
     size_t str_len = q_strlen(str);
@@ -138,6 +142,4 @@ __attribute__ ((format (printf, 1, 2))) void printfk(char *__restrict str, ...) 
     va_end(ap);
 }
 
-
-#endif
 
