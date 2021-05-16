@@ -209,3 +209,9 @@ void vga_put_string(const char *data) {
         put_char(data[i]);
     vga_sync_cursor(cursor);
 }
+
+void vga_put_string_s(const char *data, size_t size) {
+    for (size_t i = 0; i < size; i++)
+        put_char(data[i]);
+    vga_sync_cursor(cursor);
+}

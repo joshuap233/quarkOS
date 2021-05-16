@@ -14,13 +14,18 @@
 u8_t log2(uint16_t val);
 
 #ifdef __i386__
-
+#ifdef DEBUG
 #define assertk(condition) {\
     if (!(condition)) {     \
         printfk("\nassert error: %s: %s: %u\n",__FILE__,__FUNCTION__,__LINE__); \
         panic();                        \
     }\
 }
+#else
+
+#define assertk(condition) {}
+
+#endif // DEBUG
 
 void printfk(char *__restrict str, ...);
 
@@ -61,14 +66,18 @@ INLINE void clear_bit(uint8_t *value, uint8_t bit) {
 }
 
 // bit 从 0 开始
-#define CLEAR_BIT(value, bit) ((value) & (~((typeof(value))0b1 << (bit))))
-#define SET_BIT(value, bit)   ((value) | ((typeof(value))0b1 << (bit)))
+#define CLEAR_BIT(value, bit) ((value) = (value) & (~((typeof(value))0b1 << (bit))))
+#define SET_BIT(value, bit)   ((value) = (value) | ((typeof(value))0b1 << (bit)))
+
+#define OR(a, b)  ((a)?(a):(b))
 
 char *cur_func_name(ptr_t addr);
 
 void stack_trace();
 
 void panic();
+
+void prints(char *str, size_t size);
 
 #define container_of(ptr, type, member) \
     ((type *)((void *)(ptr) - offsetof(type,member)))

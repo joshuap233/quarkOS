@@ -1,7 +1,7 @@
 //
 // Created by pjs on 2021/4/7.
 //
-// TODO: 页缓存分块读写而不是以页为单位读写
+// TODO: 页缓存分块读写(仅写入脏块)
 #include "fs/page_cache.h"
 #include "drivers/ide.h"
 #include "lib/qstring.h"
@@ -108,13 +108,24 @@ buf_t *page_get(uint32_t no_secs) {
     return buf;
 }
 
+buf_t *page_read_no(uint32_t no_secs) {
+    buf_t *buf = page_get(no_secs);
+    page_read(buf);
+    return buf;
+}
 
-buf_t *page_read(buf_t *buf) {
+buf_t *page_read_no_sync(uint32_t no_secs) {
+    buf_t *buf = page_get(no_secs);
+    page_read_sync(buf);
+    return buf;
+}
+
+void page_read(buf_t *buf) {
     assertk(buf);
     rwlock_rLock(&buf->rwlock);
     if (buf->flag & BUF_VALID) {
         rwlock_rUnlock(&buf->rwlock);
-        return buf;
+        return;
     }
     rwlock_rUnlock(&buf->rwlock);
 
@@ -122,8 +133,8 @@ buf_t *page_read(buf_t *buf) {
     _sleeplock_lock(&buf->rwlock);
     page_rw(buf);
     _sleeplock_unlock(&buf->rwlock);
-    return buf;
 }
+
 
 void page_write(buf_t *buf) {
     assertk(buf);
@@ -154,14 +165,13 @@ void page_write_sync(buf_t *buf) {
 }
 
 // 不使用缓冲区数据,强制重新读取磁盘
-buf_t *page_read_sync(buf_t *buf) {
+void page_read_sync(buf_t *buf) {
     assertk(buf);
     _sleeplock_lock(&buf->rwlock);
 
     page_rw(buf);
 
     _sleeplock_unlock(&buf->rwlock);
-    return buf;
 }
 
 
@@ -202,6 +212,7 @@ _Noreturn static void *page_flush_worker() {
     buf_t *buf;
     list_head_t *head;
     while (1) {
+        // TODO: 脏页排序再写入
         rwlock_rLock(&cache.list.rwlock);
         list_for_each(head, &cache.list.head) {
             buf = buf_entry(head);
@@ -220,7 +231,7 @@ _Noreturn static void *page_flush_worker() {
 static void create_flush_thread() {
     kthread_t tid;
     kthread_create(&tid, page_flush_worker, NULL);
-    kthread_set_name(tid,"page_flash");
+    kthread_set_name(tid, "page_flash");
 }
 
 static void recycle(buf_t *buf) {
@@ -300,7 +311,7 @@ static u8_t list_cnt() {
 
 #define  assert_cmp(buf, value)  {\
     for (int i = 0; i < BUF_SIZE; ++i) { \
-        assertk((buf)->data[i] == (value));\
+        assertk(((char*)(buf)->data)[i] == (value));\
     }\
 }
 
@@ -324,13 +335,13 @@ void test_ide_rw() {
     page_read_sync(buf1);
 //    assert_cmp(buf1, 1);
     for (int i = 0; i < BUF_SIZE; ++i) {
-        assertk(buf0->data[i] == 1);
+        assertk(((char *) buf0->data)[i] == 1);
     }
 
     q_memset(buf0->data, 2, BUF_SIZE);
     page_write_sync(buf0);
     page_read_sync(buf1);
-    assert_cmp(buf1,2);
+    assert_cmp(buf1, 2);
 
     //恢复初始值
     q_memcpy(buf0->data, tmp, BUF_SIZE);

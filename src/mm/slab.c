@@ -97,6 +97,11 @@ void slab_free(void *addr) {
 }
 
 
+u16_t slab_chunk_size(void *addr) {
+    slabInfo_t *info = (void *) PAGE_ADDR((ptr_t) addr);
+    return info->size;
+}
+
 u32_t fixSize(u32_t size) {
     size |= size >> 1;
     size |= size >> 2;

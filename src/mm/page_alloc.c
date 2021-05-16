@@ -131,6 +131,14 @@ ptr_t pm_alloc(u32_t size) {
     return PMM_NULL;
 }
 
+u32_t pm_chunk_size(ptr_t addr) {
+    assertk(addr >= pmm.addr && (addr & PAGE_MASK) == 0)
+    u32_t pn = (addr - pmm.addr) >> 12;
+    node_t *node = bst_search(node, pn);
+    assertk(node);
+    return PAGE_SIZE * SIZE(node->sizeLog);
+}
+
 u32_t pm_free(ptr_t addr) {
     assertk(addr >= pmm.addr && (addr & PAGE_MASK) == 0)
     uint16_t i;

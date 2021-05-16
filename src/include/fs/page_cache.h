@@ -15,14 +15,18 @@
 
 void page_write(buf_t *buf);
 
-buf_t *page_read_sync(buf_t *buf);
+void page_read_sync(buf_t *buf);
 
-buf_t *page_read(buf_t *buf);
-
-buf_t *page_get(uint32_t no_secs);
+void page_read(buf_t *buf);
 
 void page_write_sync(buf_t *buf);
 
+buf_t *page_get(uint32_t no_secs);
+
 void page_recycle();
+
+
+buf_t *page_read_no(uint32_t no_secs);
+buf_t *page_read_no_sync(uint32_t no_secs);
 
 #endif //QUARKOS_FS_PAGE_CACHE_H

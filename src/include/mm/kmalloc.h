@@ -11,4 +11,7 @@ void *kmalloc(u32_t size);
 
 void kfree(void *addr);
 
+void *krealloc(void *_addr, size_t _size);
+
+
 #endif //QUARKOS_KMALLOC_H

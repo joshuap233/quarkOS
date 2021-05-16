@@ -60,6 +60,7 @@ typedef struct tcb {
 
 int kthread_create(kthread_t *tid, void *(worker)(void *), void *args);
 
+void kthread_set_time_slice(kthread_t tid, u16_t time_slice);
 
 void kthread_exit();
 

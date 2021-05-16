@@ -28,6 +28,8 @@ u32_t fixSize(u32_t size);
 
 void slab_free(void *addr);
 
+u16_t slab_chunk_size(void *addr);
+
 void slab_recycle();
 
 #define IS_POWER_OF_2(x) (!((x)&((x)-1)))
@@ -41,6 +43,7 @@ void slab_recycle();
 #ifdef TEST
 
 void test_slab_alloc();
+
 void test_slab_recycle();
 
 #endif //TEST

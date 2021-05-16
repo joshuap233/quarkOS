@@ -13,6 +13,7 @@ ptr_t pm_alloc(u32_t size);
 ptr_t pm_alloc_page();
 
 u32_t pm_free(ptr_t addr);
+u32_t pm_chunk_size(ptr_t addr);
 
 #ifdef TEST
 void test_alloc();

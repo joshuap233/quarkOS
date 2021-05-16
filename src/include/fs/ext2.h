@@ -7,8 +7,20 @@
 
 #include "types.h"
 #include "fs/page_cache.h"
+#include "fs/vfs.h"
 
 #define ROOT_INUM    2 // 根目录的 inode 索引, inode 索引从 1 开始
+
+#define BLOCK_SIZE 4096
+#define INODE_SIZE 256
+#define INODE_PER_BLOCK (BLOCK_SIZE/INODE_SIZE)
+#define SUPER_BLOCK_NO 2
+#define BLOCK_PER_GROUP (BLOCK_SIZE*8)
+#define DESCRIPTOR_PER_BLOCK (BLOCK_SIZE/sizeof(groupDesc_t))
+#define N_DIRECT_BLOCK 12                         // 直接指针数量
+#define N_PTR          (BLOCK_SIZE/sizeof(u32_t)) // 块内指针数量
+#define N_BLOCKS       1074791436                 // 直接遍历大的离谱, 不过一般目录用不到间接指针
+
 
 typedef struct superBlock {
 #define EXT2_SIGNATURE 0xef53
@@ -118,7 +130,7 @@ typedef struct blockGroupDescriptor {
     u16_t freeBlockCnt;     // 组中没有分配的块数
     u16_t freeInodesCnt;
     u16_t dirNum;           // 组中目录数
-    u8_t  unused[14];
+    u8_t unused[14];
 } groupDesc_t;
 
 typedef struct inode {
@@ -140,6 +152,8 @@ typedef struct inode {
 #define MOD_GROUP           3
 #define MOD_USER            6
 #define GET_MODE(who, permit)  ((permit) << (who))
+
+#define USER_MODE           GET_MODE(MOD_USER,MOD_X|MOD_W|MOD_R)
 
     u16_t uid;
 /*
@@ -169,23 +183,23 @@ typedef struct inode {
 #define JOURNAL_FILE_DATA   0x40000
     u32_t osSpec;
 
-    u32_t directPtr[12]; // 直接指针
-    u32_t siPtr;         // 间接指针
-    u32_t diPtr;         // 双重间接指针
-    u32_t tiPtr;         // 三重间接指针
+    u32_t blocks[N_DIRECT_BLOCK + 3]; // 0-12 为直接指针
 
     u32_t generationNum;
-    u32_t acl;          // 版本>=1 有效
-    u32_t dirAcl;       // 版本>=1 有效
+    u32_t filAcl;         // 版本>=1 有效
+    u32_t dirAcl;         // 版本>=1 有效
     u32_t fragmentAddr;
     u32_t osSpec2[3];
+
+    u8_t padding[INODE_SIZE - 128];
 } inode_t;
+
 
 typedef struct directory_entry {
     u32_t inode;
     u16_t entrySize; // 目录项总大小
-    u8_t nameLengthLow;
-    u8_t typeIndicator;
+    u8_t nameLen;
+    u8_t type;
     //目录项指向的文件类型
 #define DIR_UNKNOWN            0
 #define DIR_REGULAR_FILE       1
@@ -196,8 +210,26 @@ typedef struct directory_entry {
 #define DIR_SOCKET             6
 #define DIR_SOFT_LINK          7
     u8_t name[0];
-}directory_t;
+} PACKED dir_t;
 
+void ext2_close();
 
+void ext2_mount();
+
+void ext2_write(fd_t *file, uint32_t _offset, uint32_t size, char *_buf);
+
+void ext2_read(fd_t *file, uint32_t _offset, uint32_t size, char *_buf);
+
+void ext2_open(fd_t *file);
+
+void ext2_ls(fd_t *parent);
+
+void ext2_link(fd_t *parent);
+
+void ext2_rmDir(fd_t *parent, char *name);
+
+fd_t *ext2_findDir(fd_t *parent, char *name);
+
+void ext2_unlink(fd_t *parent, char *name);
 
 #endif //QUARKOS_FS_FAT_H

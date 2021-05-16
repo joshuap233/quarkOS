@@ -87,7 +87,7 @@ void sort() {
 
 }
 
-void printf_string(char *str, size_t size) {
+void prints(char *str, size_t size) {
     vga_put_string_s(str, size);
 }
 

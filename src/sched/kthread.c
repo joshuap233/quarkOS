@@ -41,6 +41,8 @@ _Noreturn static void *cleaner_worker();
 
 static void cleaner_thread_init();
 
+static void init_thread_init();
+
 extern void kthread_worker(void *(worker)(void *), void *args, tcb_t *tcb);
 
 
@@ -49,17 +51,16 @@ void thread_init() {
 #ifdef DEBUG
     cur_tcb()->magic = THREAD_MAGIC;
 #endif //DEBUG
-
     thread_timer_init();
+    init_thread_init();
 
-    init_task = &CUR_TCB->run_list;
-    CUR_TCB->priority = 0;
-    CUR_TCB->timer_slice = 0;
+    CUR_TCB->priority = MAX_PRIORITY;
+    CUR_TCB->timer_slice = 100;
     CUR_TCB->tid = alloc_tid(CUR_TCB);
-    assertk(CUR_TCB->tid == 0);
+    assertk(CUR_TCB->tid != 0);
     CUR_TCB->state = TASK_RUNNING;
     CUR_TCB->stack = CUR_TCB;
-    q_memcpy(CUR_TCB->name, "init", sizeof("init"));
+    kthread_set_name(CUR_TCB->tid, "main");
 
     asm volatile("movl %%esp, %0":"=rm"(CUR_TCB->context.esp));
     cleaner_thread_init();
@@ -127,6 +128,19 @@ static void cleaner_thread_init() {
     kthread_set_name(tid, "cleaner");
 }
 
+static void *init_worker() {
+    idle();
+}
+
+
+static void init_thread_init() {
+    kthread_t tid;
+    kthread_create(&tid, init_worker, NULL);
+    assertk(tid == 0);
+    init_task = kthread_get_run_list(tid);
+    kthread_set_name(tid, "init");
+    kthread_set_time_slice(tid, 0);
+}
 
 // 成功返回 0,否则返回错误码(<0)
 int kthread_create(kthread_t *tid, void *(worker)(void *), void *args) {
@@ -166,6 +180,18 @@ int kthread_create(kthread_t *tid, void *(worker)(void *), void *args) {
     sched_task_add(&thread->run_list);
     ir_unlock(&lock);
     return 0;
+}
+
+void kthread_set_time_slice(kthread_t tid, u16_t time_slice) {
+    tcb_t *tcb;
+    assertk(tid < KTHREAD_NUM);
+    tcb = (tcb_t *) kthread_map[tid];
+    assertk(tcb->tid == tid);
+
+#ifdef DEBUG
+    assertk(tcb->magic == THREAD_MAGIC);
+#endif //DEBUG
+    tcb->timer_slice = time_slice;
 }
 
 void kthread_set_name(kthread_t tid, const char *name) {

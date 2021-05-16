@@ -14,9 +14,9 @@ static uint64_t update_priority_time; // 单位为 10 毫秒
 
 static list_head_t *chose_next_task();
 
-static void reset_priority_worker();
+static void reset_priority();
 
-#define RESET_PRIORITY_INTERVAL 2  // 1 秒重置一次线程优先级
+#define RESET_PRIORITY_INTERVAL 2  // 2 秒重置一次线程优先级
 
 static struct scheduler {
     queue_t queue[MAX_PRIORITY + 1];
@@ -33,8 +33,8 @@ void schedule() {
     ir_lock_t lock;
     ir_lock(&lock);
     if (G_TIME_SINCE_BOOT >= update_priority_time) {
-//        reset_priority_worker();
-//        update_priority_time = G_TIME_SINCE_BOOT + RESET_PRIORITY_INTERVAL * 100;
+        reset_priority();
+        update_priority_time = G_TIME_SINCE_BOOT + RESET_PRIORITY_INTERVAL * 100;
     }
 
     tcb_t *cur_task = CUR_TCB;
@@ -75,7 +75,7 @@ static list_head_t *chose_next_task() {
 }
 
 // 将所有任务优先级提升到最高优先级
-static void reset_priority_worker() {
+static void reset_priority() {
     list_head_t *hdr1 = NULL, *tail1 = NULL;
     list_head_t *hdr = &scheduler.queue[MAX_PRIORITY];
     list_head_t *tail = hdr->prev;
