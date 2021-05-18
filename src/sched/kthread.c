@@ -249,6 +249,7 @@ void unblock_thread(list_head_t *_thread) {
     ir_lock_t lock;
     ir_lock(&lock);
 
+    //TODO:如果线程在计时器睡眠队列,将该计时器删除
     tcb_t *thread = tcb_entry(_thread);
     if (thread->state != TASK_RUNNING) {
         thread->state = TASK_RUNNING;

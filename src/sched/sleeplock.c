@@ -13,11 +13,10 @@ void sleeplock_init(sleeplock_t *lock) {
 
 void sleeplock_lock(sleeplock_t *lock) {
     spinlock_lock(&lock->lock);
-    if (!lock->locked) {
-        lock->locked = true;
-    } else {
-        block_thread(&lock->sleep, NULL);
+    while (lock->locked) {
+        block_thread(&lock->sleep, &lock->lock);
     }
+    lock->locked = true;
     spinlock_unlock(&lock->lock);
 };
 

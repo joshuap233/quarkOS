@@ -12,9 +12,6 @@
 
 #define timer_entry(ptr) list_entry(ptr, timer_t, head)
 #define HEAD timer_pool.header
-// 当前线程剩余时间片
-volatile uint64_t g_time_slice = 0;
-
 
 static timer_t _timer[TIMER_COUNT];
 
@@ -68,7 +65,7 @@ bool ms_sleep(mseconds_t msc) {
 
 // PIC 0 号中断,PIT 时钟中断
 INT clock_isr(UNUSED interrupt_frame_t *frame) {
-    G_TIME_SINCE_BOOT++;
+    G_TIME_SINCE_BOOT += 10;
 
     list_head_t *hdr = (&HEAD)->next;
     while (hdr != &HEAD) {
@@ -86,6 +83,6 @@ INT clock_isr(UNUSED interrupt_frame_t *frame) {
         schedule();
     } else {
         assertk(&task->run_list != init_task);
-        task->timer_slice -= 1;
+        task->timer_slice -= 10;
     }
 }

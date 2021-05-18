@@ -26,7 +26,7 @@ void scheduler_init() {
     for (int i = 0; i <= MAX_PRIORITY; ++i) {
         queue_init(&scheduler.queue[i]);
     }
-    update_priority_time = G_TIME_SINCE_BOOT + RESET_PRIORITY_INTERVAL * 100;
+    update_priority_time = G_TIME_SINCE_BOOT + RESET_PRIORITY_INTERVAL * 1000;
 }
 
 void schedule() {
@@ -34,7 +34,7 @@ void schedule() {
     ir_lock(&lock);
     if (G_TIME_SINCE_BOOT >= update_priority_time) {
         reset_priority();
-        update_priority_time = G_TIME_SINCE_BOOT + RESET_PRIORITY_INTERVAL * 100;
+        update_priority_time = G_TIME_SINCE_BOOT + RESET_PRIORITY_INTERVAL * 1000;
     }
 
     tcb_t *cur_task = CUR_TCB;
