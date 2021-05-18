@@ -9,7 +9,7 @@
 #include "lib/list.h"
 #include "lib/spinlock.h"
 
-#define TIME_SLICE_LENGTH 10  // 时间片长度为 100ms
+#define TIME_SLICE_LENGTH 100  // 时间片长度为 100ms
 
 void scheduler_init();
 

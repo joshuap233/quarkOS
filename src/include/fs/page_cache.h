@@ -25,8 +25,10 @@ buf_t *page_get(uint32_t no_secs);
 
 void page_recycle();
 
+extern list_head_t *flush_worker;
 
 buf_t *page_read_no(uint32_t no_secs);
+
 buf_t *page_read_no_sync(uint32_t no_secs);
 
 #endif //QUARKOS_FS_PAGE_CACHE_H

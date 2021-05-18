@@ -18,6 +18,13 @@ void *kmalloc(u32_t size) {
     return (void *) addr;
 }
 
+void *kcalloc(u32_t size) {
+    void *addr = kmalloc(size);
+    q_memset(addr, 0, size);
+    return addr;
+}
+
+
 void *krealloc(void *_addr, size_t _size) {
     void *addr = kmalloc(_size);
     assertk(addr);

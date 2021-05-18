@@ -24,6 +24,7 @@ typedef struct page_cache {
 #define BUF_VALID   (1<<1)
 #define SECTOR_SIZE 512
 #define BUF_SIZE    PAGE_SIZE
+    list_head_t list;
     u32_t timestamp;
 
     void *data;
@@ -32,7 +33,6 @@ typedef struct page_cache {
 //    uint16_t ref_cnt;
     uint32_t no_secs;
 
-    list_head_t list;
     rwlock_t rwlock;
 } buf_t;
 

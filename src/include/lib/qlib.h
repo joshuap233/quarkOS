@@ -14,18 +14,13 @@
 u8_t log2(uint16_t val);
 
 #ifdef __i386__
-#ifdef DEBUG
+
 #define assertk(condition) {\
     if (!(condition)) {     \
         printfk("\nassert error: %s: %s: %u\n",__FILE__,__FUNCTION__,__LINE__); \
         panic();                        \
     }\
 }
-#else
-
-#define assertk(condition) {}
-
-#endif // DEBUG
 
 void printfk(char *__restrict str, ...);
 
@@ -45,6 +40,7 @@ void printfk(char *__restrict str, ...);
         ((__type__)-1):\
         (((__type__)1<<(n))-1))
 
+#define MASK_U64(n) BIT_MASK(uint64_t, n)
 #define MASK_U32(n) BIT_MASK(uint32_t, n)
 #define MASK_U16(n) BIT_MASK(uint16_t, n)
 #define MASK_U8(n)  BIT_MASK(uint8_t, n)

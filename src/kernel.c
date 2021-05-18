@@ -78,8 +78,10 @@ void kernel_main() {
     ext2_init();
 
 #ifdef TEST
-    test_ide_rw();
+//    test_ide_rw();
 //    test_dma_rw();
+    test_ext2_fs();
+
     test_thread();
 #endif // TEST
 

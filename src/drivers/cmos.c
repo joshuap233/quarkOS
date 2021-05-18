@@ -113,5 +113,5 @@ void cmos_init() {
 }
 
 u64_t cur_timestamp() {
-    return startup_timestamp + G_TIME_SINCE_BOOT * 100;
+    return startup_timestamp + G_TIME_SINCE_BOOT / 1000;
 }

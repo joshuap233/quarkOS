@@ -6,12 +6,15 @@
 #define QUARKOS_INIT_H
 
 void ext2_init();
+
 void page_cache_init();
 
 
 #ifdef TEST
 
 void test_ide_rw();
+
+void test_ext2_fs();
 
 void test_dma_rw();
 
