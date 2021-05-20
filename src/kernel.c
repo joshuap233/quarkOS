@@ -80,7 +80,7 @@ void kernel_main() {
 #ifdef TEST
 //    test_ide_rw();
 //    test_dma_rw();
-    test_ext2_fs();
+    test_ext2();
 
     test_thread();
 #endif // TEST

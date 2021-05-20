@@ -264,7 +264,7 @@ void unblock_thread(list_head_t *_thread) {
 #ifdef TEST
 
 spinlock_t lock;
-int32_t foo[10] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
+static int32_t foo[10] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
 
 void *workerA(UNUSED void *args) {
     spinlock_lock(&lock);

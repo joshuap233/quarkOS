@@ -14,7 +14,7 @@ void page_cache_init();
 
 void test_ide_rw();
 
-void test_ext2_fs();
+void test_ext2();
 
 void test_dma_rw();
 

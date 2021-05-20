@@ -165,10 +165,11 @@ typedef struct inode {
 #define EXT2_ALL_RWX  (EXT2_IRUSR|EXT2_IWUSR|EXT2_IXUSR|EXT2_IRGRP|EXT2_IWGRP|EXT2_IXGRP|EXT2_IROTH|EXT2_IXOTH)
 
     u16_t uid;
+
 /*
- * In revision 1 and later revisions, and only for regular files,
- * this represents the lower 32-bit of the file size;
- * the upper 32-bit is located in the dirAcl.
+ * 如果目录,则 size 为分配的块大小,
+ * 如果是文件,则 size 为实际存储的数据大小,比如存储 'aa'(ascii),则文件大小为 3,
+ * 如果版本大于 1 ,且为常规文件, size 为 文件大小低 32 位, 高 32 位在 dirAcl 字段
  */
     u32_t size;
 
@@ -179,9 +180,9 @@ typedef struct inode {
 
     u16_t groupId;
 
-    u16_t linkCnt;                // 链接数量
+    u16_t linkCnt;                // 链接数量(目录链接数量为 dir entry 数, . 与 .. 也算)
 
-    u32_t cntSectors;             // 磁盘扇区数(不包括inode与链接)
+    u32_t cntSectors;             // 磁盘扇区数(不包括inode与链接),间接指针块本身也算一块(分配间接块 cntSectors + 8)
 
     u32_t flags;
 #define SYNC_UPDATE         0x8   //新数据立即写入磁盘
@@ -221,9 +222,9 @@ typedef struct directory_entry {
 
 void ext2_close();
 
-void ext2_write(fd_t *file, uint32_t _offset, uint32_t size, char *_buf);
+u32_t ext2_write(fd_t *file, uint32_t _offset, uint32_t size, char *_buf);
 
-void ext2_read(fd_t *file, uint32_t _offset, uint32_t size, char *_buf);
+u32_t ext2_read(fd_t *file, uint32_t _offset, uint32_t size, char *_buf);
 
 void ext2_open(fd_t *file);
 
