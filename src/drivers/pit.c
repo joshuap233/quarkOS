@@ -5,7 +5,6 @@
 #include "x86.h"
 #include "drivers/pit.h"
 #include "lib/qlib.h"
-#include "drivers/init.h"
 
 // 8 bit 端口,分别为 c0 c2 数据端口以及命令端口
 #define PIT_C0_DAT 0x40
@@ -23,7 +22,8 @@ volatile uint64_t g_tick;
 //开机到当前时间的毫秒*10
 
 // 时钟中断
-void pit_init(uint32_t frequency) {
+void pit_init() {
+    u32_t frequency = PIT_TIMER_FREQUENCY;
     // frequency 为输出频率(HZ)
     // divisor 为计数器初始值
     g_tick = 0;

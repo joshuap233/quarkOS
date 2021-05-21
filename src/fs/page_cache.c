@@ -2,7 +2,6 @@
 // Created by pjs on 2021/4/7.
 //
 // TODO: 页缓存分块读写(仅写入脏块)
-// 有个死锁 BUG 没找到
 #include "fs/page_cache.h"
 #include "drivers/ide.h"
 #include "lib/qstring.h"

@@ -173,6 +173,10 @@ int kthread_create(kthread_t *tid, void *(worker)(void *), void *args) {
     thread->priority = MAX_PRIORITY;
     thread->timer_slice = TIME_SLICE_LENGTH;
 
+    //TODO:
+    thread->cwd = NULL;
+
+
     ir_lock(&lock);
     thread->tid = alloc_tid(thread);
     *tid = thread->tid;

@@ -8,7 +8,7 @@
 void ext2_init();
 
 void page_cache_init();
-
+void vfs_init();
 
 #ifdef TEST
 

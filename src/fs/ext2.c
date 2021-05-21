@@ -2,13 +2,18 @@
 // Created by pjs on 2021/4/20.
 //
 // ext2 文件系统
-// inode 号从 1 开始,块号从 0 开始
-// 超级块与描述符表备份存储在块 BLOCK_PER_GROUP * i, i=1,3,5...
-// DEBUG:  e2fsck -f disk.img
-// TODO 将超级块与块描述符表同步到备份
-// TODO: 权限管理,建立目录索引
-// TODO: 使用 inode,desc ... 查找 buf(写个类似 buf_entry 的就行,毕竟页缓存页对齐)
-// 稀疏块: 不分配 inode->block 但设置 inode->size
+//
+
+/*
+ * 备忘:
+ * inode 号从 1 开始,块号从 0 开始
+ * 超级块与描述符表备份存储在块 BLOCK_PER_GROUP * i, i=1,3,5...
+ * DEBUG:  e2fsck -f disk.img
+ * TODO: 实现 ext2 的时候将数据块全分在一组,用完再分配下一组,事实上这么实现并不对
+ * TODO: 将超级块与块描述符表同步到备份
+ * TODO: 权限管理,建立目录索引
+ * TODO: 用块缓存元信息,用页缓存文件内容
+ */
 #include "fs/ext2.h"
 #include "fs/page_cache.h"
 #include "types.h"
@@ -21,31 +26,35 @@
 #include "sched/kthread.h"
 
 /*---  目录项操作 ---*/
-dir_t *next_entry(dir_t *dir);
+ext2_dir_t *next_entry(ext2_dir_t *dir);
 
-INLINE bool dir_empty(inode_t *inode);
+INLINE bool dir_empty(ext2_inode_t *inode);
 
-static dir_t *new_dir_entry(dir_t *dir, u32_t ino, char *name, u8_t type);
+static ext2_dir_t *new_dir_entry(ext2_dir_t *dir, u32_t ino, char *name, u8_t type);
 
-static dir_t *find_dir_entry(buf_t **buf, inode_t *parent, char *name);
+static ext2_dir_t *find_dir_entry(buf_t **buf, ext2_inode_t *parent, char *name);
 
-static void create_dir_entry(inode_t *inode, char *name, u32_t ino, u8_t type);
+static void create_dir_entry(ext2_inode_t *inode, char *name, u32_t ino, u8_t type);
 
-static void del_dir_entry(dir_t *dir);
+static void del_dir_entry(ext2_dir_t *dir);
 
-static void merge_dir_entry(dir_t *dir);
+static void merge_dir_entry(ext2_dir_t *dir);
 
 /*--- 数据块操作 ---*/
 
-static u32_t find_blk_id(inode_t *inode, u32_t offset);
+static u32_t find_blk_id(ext2_inode_t *inode, u32_t offset);
 
-static u32_t next_block(inode_t *inode, u32_t bno);
+static u32_t next_block(ext2_inode_t *inode, u32_t bno);
 
 static void free_block(u32_t ino, u32_t bno);
 
 static u32_t new_block(u32_t ino);
 
-static u32_t alloc_block(inode_t *inode, u32_t ino);
+static u32_t new_empty_block(u32_t ino);
+
+static u32_t alloc_block(ext2_inode_t *inode, u32_t ino);
+
+static u32_t nextFreeBlk(ext2_inode_t *inode);
 
 /*--- inode 操作 ---*/
 static u32_t new_inode(u32_t ino);
@@ -54,30 +63,32 @@ static void *get_inode(buf_t **buf, u32_t ino);
 
 static void free_inode(u32_t ino);
 
-static void del_inode(inode_t *inode, u32_t ino);
+static void del_inode(ext2_inode_t *inode, u32_t ino);
 
-static void update_inode_size(inode_t *inode, int32_t change);
+static void update_inode_size(ext2_inode_t *inode, int32_t change);
 
 /*--- 组与超级块数据操作  ---*/
 
-static void sb_backup();
+//static void sb_backup();
 
 static void write_superBlock();
 
-static superBlock_t *get_superBlock();
+static ext2_sb_t *get_superBlock();
 
 static void *get_descriptor(u32_t ino);
 
-static void descriptor_backup(u32_t ino);
+//static void descriptor_backup(u32_t ino);
 
 static void write_descriptor(u32_t ino);
 
 /*--- 其他  ---*/
-static u64_t file_size(inode_t *inode);
+static u64_t file_size(ext2_inode_t *inode);
 
 static u8_t get_clear_bit(u8_t ch);
 
 static int32_t map_set_bit(u8_t *map, u32_t max);
+
+static inode_t *inode2vnode(ext2_inode_t *inode, ext2_dir_t *dir);
 
 // inode 的块号
 #define INODE_BID(base, ino)    ((base)+((ino)-1)%inodePerGroup / INODE_PER_BLOCK)
@@ -94,7 +105,7 @@ static int32_t map_set_bit(u8_t *map, u32_t max);
 // 目录项四字节对齐
 #define ALIGN4(size)            MEM_ALIGN(size, 4)
 
-#define dir_len(dir)            (ALIGN4(sizeof(dir_t) + (dir)->nameLen))
+#define dir_len(dir)            (ALIGN4(sizeof(ext2_dir_t) + (dir)->nameLen))
 
 #define block_read(blk_no)      page_read_no(BLOCK2LBA(blk_no))
 
@@ -104,7 +115,7 @@ static int32_t map_set_bit(u8_t *map, u32_t max);
 
 #define for_each_block(bid, inode)        for(u32_t bno=0;((bid) = next_block(inode, bno++));)
 
-#define for_each_dir(dir)                 for (dir_t* end = (void *) DIR_END((ptr_t)(dir)); (dir) < end; (dir) = next_entry(dir))
+#define for_each_dir(dir)                 for (ext2_dir_t* end = (void *) DIR_END((ptr_t)(dir)); (dir) < end; (dir) = next_entry(dir))
 
 #define for_each_group(ino)               for (; (ino) <= groupCnt * inodePerGroup; (ino) += inodePerGroup)
 
@@ -114,7 +125,7 @@ static u32_t inodePerGroup;
 static u32_t version;
 
 void ext2_init() {
-    superBlock_t *blk;
+    ext2_sb_t *blk;
     blk = block_read(0)->data + SECTOR_SIZE * SUPER_BLOCK_NO;
     assertk(blk->magic == EXT2_SIGNATURE);
     assertk((2 << (blk->logBlockSize + 9)) == BLOCK_SIZE);
@@ -125,24 +136,24 @@ void ext2_init() {
     assertk(inodePerGroup <= BLOCK_SIZE * 8);
     version = blk->fsVersionMajor;
     if (blk->fsVersionMajor >= 1) {
+        // TODO: 检测一些必须的功能
         // required, optional feature
         // preallocate
     }
 
     buf_t *buf, *buf2;
-    groupDesc_t *descriptor = get_descriptor(ROOT_INUM);
-    inode_t *inode = get_inode(&buf, ROOT_INUM);
+    ext2_inode_t *inode = get_inode(&buf, ROOT_INUM);
     assertk(inode->mode & EXT2_IFDIR);
 
     buf2 = block_read(inode->blocks[0]);
-    dir_t *dir = buf2->data;
-    dir_t *end = (void *) dir + BLOCK_SIZE;
+    ext2_dir_t *dir = buf2->data;
+    ext2_dir_t *end = (void *) dir + BLOCK_SIZE;
 
     for (; next_entry(dir) < end; dir = next_entry(dir));
     if (dir->inode == 0)return;
     u32_t len = dir_len(dir);
     u32_t remain = dir->entrySize - len;
-    if (remain > ALIGN4(sizeof(dir_t) + len)) {
+    if (remain > ALIGN4(sizeof(ext2_dir_t) + len)) {
         dir->entrySize = len;
         dir = next_entry(dir);
         dir->inode = 0;
@@ -152,19 +163,19 @@ void ext2_init() {
 }
 
 
-void ext2_mkdir(fd_t *parent, char *name) {
+void ext2_mkdir(inode_t *parent, char *name) {
     buf_t *pBuf;
-    inode_t *pInode = get_inode(&pBuf, parent->inode_num);
-    dir_t *target = find_dir_entry(NULL, pInode, name);
+    ext2_inode_t *pInode = get_inode(&pBuf, parent->inode);
+    ext2_dir_t *target = find_dir_entry(NULL, pInode, name);
     if (target)return;
 
     // 设置新 inode 与目录项
     buf_t *buf;
     u32_t cur_time = cur_timestamp();
-    u32_t ino = new_inode(parent->inode_num);
-    u32_t blk_no = new_block(parent->inode_num);
-    inode_t *inode = get_inode(&buf, ino);
-    q_memset(inode, 0, sizeof(inode_t));
+    u32_t ino = new_inode(parent->inode);
+    u32_t blk_no = new_block(parent->inode);
+    ext2_inode_t *inode = get_inode(&buf, ino);
+    q_memset(inode, 0, sizeof(ext2_inode_t));
     inode->blocks[0] = blk_no;
     inode->createTime = cur_time;
     inode->accessTime = cur_time;
@@ -180,11 +191,11 @@ void ext2_mkdir(fd_t *parent, char *name) {
     write_descriptor(ino);
 
     buf_t *buf1 = block_read(blk_no);
-    dir_t *dir = buf1->data;
+    ext2_dir_t *dir = buf1->data;
     dir->inode = 0;
     dir->entrySize = BLOCK_SIZE;
     dir = new_dir_entry(dir, ino, ".", EXT2_FT_DIR);
-    new_dir_entry(dir, parent->inode_num, "..", EXT2_FT_DIR);
+    new_dir_entry(dir, parent->inode, "..", EXT2_FT_DIR);
     block_write(buf1);
 
 
@@ -197,18 +208,18 @@ void ext2_mkdir(fd_t *parent, char *name) {
 }
 
 
-void ext2_mkfile(fd_t *parent, char *name) {
+void ext2_mkfile(inode_t *parent, char *name) {
     buf_t *pBuf;
-    inode_t *pInode = get_inode(&pBuf, parent->inode_num);
-    dir_t *target = find_dir_entry(NULL, pInode, name);
+    ext2_inode_t *pInode = get_inode(&pBuf, parent->inode);
+    ext2_dir_t *target = find_dir_entry(NULL, pInode, name);
     if (target)return;
 
     // 设置新 inode 与目录项
     buf_t *buf;
     u32_t cur_time = cur_timestamp();
-    u32_t ino = new_inode(parent->inode_num);
-    inode_t *inode = get_inode(&buf, ino);
-    q_memset(inode, 0, sizeof(inode_t));
+    u32_t ino = new_inode(parent->inode);
+    ext2_inode_t *inode = get_inode(&buf, ino);
+    q_memset(inode, 0, sizeof(ext2_inode_t));
     inode->createTime = cur_time;
     inode->accessTime = cur_time;
     inode->modTime = cur_time;
@@ -224,21 +235,21 @@ void ext2_mkfile(fd_t *parent, char *name) {
 
 
 // 文件操作,文件硬链接数为 1, 删除文件
-void ext2_unlink(fd_t *parent, char *name) {
+void ext2_unlink(inode_t *parent, char *name) {
     assertk(parent && name);
     u32_t cur_time;
     buf_t *pBuf, *buf, *tBuf;
 
     // 查找
-    inode_t *pInode = get_inode(&pBuf, parent->inode_num);
-    dir_t *target = find_dir_entry(&tBuf, pInode, name);
+    ext2_inode_t *pInode = get_inode(&pBuf, parent->inode);
+    ext2_dir_t *target = find_dir_entry(&tBuf, pInode, name);
     if (target == NULL) assertk(0);
     u32_t ino = target->inode;
 
     assertk(target->type = EXT2_FT_REG_FILE);
 
     // 找到对应的 inode
-    inode_t *inode = get_inode(&buf, ino);
+    ext2_inode_t *inode = get_inode(&buf, ino);
     inode->linkCnt--;
     assertk(inode->linkCnt >= 0);
 
@@ -254,49 +265,60 @@ void ext2_unlink(fd_t *parent, char *name) {
     block_write(buf);
 
     // 同步元数据
-    superBlock_t *blk = get_superBlock();
+    ext2_sb_t *blk = get_superBlock();
     blk->writtenTime = cur_time;
     write_superBlock();
 }
 
 
-fd_t *ext2_find(fd_t *parent, char *name, u16_t type) {
-    buf_t *buf, *tBuf;
-    size_t name_len = q_strlen(name);
-    assertk(name_len + 1 < FILE_NAME_LEN);
+inode_t *ext2_find(inode_t *cwd, char *_path) {
+    char *path = q_strdup(_path);
+    buf_t *buf1, *buf2, *buf3;
+    ext2_inode_t *inode = get_inode(&buf1, cwd->inode);
+    ext2_dir_t *dir;
+    for (int i = 0; path[i]; ++i) {
+        if (path[i] == SEPARATOR) {
+            path[i] = SEPARATOR;
+            dir = find_dir_entry(&buf2, inode, path);
+            assertk(dir);
+            inode = get_inode(&buf3, dir->inode);
+            path = &path[i] + 1;
+            i = 0;
+        }
+    }
+    assertk(dir);
+    kfree(path);
+    return inode2vnode(inode, dir);
+}
 
-    inode_t *inode = get_inode(&buf, parent->inode_num);
-    dir_t *dir = find_dir_entry(&tBuf, inode, name);
-    if (!dir) return NULL;
-
-    fd_t *target = kcalloc(sizeof(fd_t));
-    target->inode_num = dir->inode;
-    q_memcpy(target->name, name, name_len);
-    target->name[name_len + 1] = '\0';
-    target->type = type;
-    return target;
+inode_t *get_root() {
+    buf_t *buf, *buf1;
+    ext2_inode_t *inode = get_inode(&buf, ROOT_INUM);
+    ext2_dir_t *dir = find_dir_entry(&buf1, inode, ".");
+    assertk(dir);
+    return inode2vnode(inode, dir);
 }
 
 
-INLINE bool dir_empty(inode_t *inode) {
+INLINE bool dir_empty(ext2_inode_t *inode) {
     assertk(inode->mode & EXT2_IFDIR);
     return inode->linkCnt == 2;
 }
 
-void ext2_rmDir(fd_t *parent, char *name) {
+void ext2_rmdir(inode_t *parent, char *name) {
     assertk(parent && name);
     u32_t cur_time;
     buf_t *pBuf, *iBuf, *tBuf;
 
     // 查找
-    inode_t *pInode = get_inode(&pBuf, parent->inode_num);
-    dir_t *target = find_dir_entry(&tBuf, pInode, name);
+    ext2_inode_t *pInode = get_inode(&pBuf, parent->inode);
+    ext2_dir_t *target = find_dir_entry(&tBuf, pInode, name);
     if (target == NULL) assertk(0);
     assertk(target->type == EXT2_FT_DIR);
     u32_t ino = target->inode;
 
     // 找到对应的 inode ,并判断目录是否为空
-    inode_t *inode = get_inode(&iBuf, ino);
+    ext2_inode_t *inode = get_inode(&iBuf, ino);
     assertk(dir_empty(inode));
 
     del_inode(inode, ino);
@@ -317,25 +339,25 @@ void ext2_rmDir(fd_t *parent, char *name) {
     desc->dirNum--;
     write_descriptor(ino);
 
-    superBlock_t *blk = get_superBlock();
+    ext2_sb_t *blk = get_superBlock();
     blk->writtenTime = cur_time;
     write_superBlock();
 }
 
 // 硬链接不能指向目录
-void ext2_link(fd_t *parent, char *target_name, fd_t *parent2, char *new_name) {
+void ext2_link(inode_t *parent, char *target_name, inode_t *parent2, char *new_name) {
     buf_t *pBuf1, *pBuf2, *tBuf1, *tBuf2, *tgBuf;
-    inode_t *p1Inode = get_inode(&pBuf1, parent->inode_num);
-    dir_t *target = find_dir_entry(&tBuf1, p1Inode, target_name);
+    ext2_inode_t *p1Inode = get_inode(&pBuf1, parent->inode);
+    ext2_dir_t *target = find_dir_entry(&tBuf1, p1Inode, target_name);
     if (!target || (target->type & EXT2_FT_DIR)) return;
 
-    inode_t *p2Inode = get_inode(&pBuf2, parent2->inode_num);
-    dir_t *foo = find_dir_entry(&tBuf2, p2Inode, new_name);
+    ext2_inode_t *p2Inode = get_inode(&pBuf2, parent2->inode);
+    ext2_dir_t *foo = find_dir_entry(&tBuf2, p2Inode, new_name);
     if (foo) return;
 
     u32_t cur_time = cur_timestamp();
 
-    inode_t *tin = get_inode(&tgBuf, target->inode);
+    ext2_inode_t *tin = get_inode(&tgBuf, target->inode);
     tin->linkCnt++;
     tin->modTime = cur_time;
 
@@ -353,17 +375,17 @@ void ext2_chmod() {
 
 }
 
-// 打印 parent 目录内容
-void ext2_ls(fd_t *parent) {
+// 打印 parent 目录内容, debug 用
+void ext2_ls(inode_t *parent) {
     buf_t *buf, *buf1;
-    dir_t *dir;
-    inode_t *inode = get_inode(&buf, parent->inode_num);
+    ext2_dir_t *dir;
+    ext2_inode_t *inode = get_inode(&buf, parent->inode);
 
     u32_t bid;
 
     for_each_block(bid, inode) {
         buf1 = block_read(bid);
-        dir = (dir_t *) buf1->data;
+        dir = (ext2_dir_t *) buf1->data;
         for_each_dir(dir) {
             if (dir->inode != 0) {
                 prints((void *) dir->name, dir->nameLen);
@@ -373,21 +395,22 @@ void ext2_ls(fd_t *parent) {
     }
 }
 
-void ext2_open(fd_t *file) {
+void ext2_open(inode_t *file) {
     buf_t *buf;
-    inode_t *inode = get_inode(&buf, file->inode_num);
+    ext2_inode_t *inode = get_inode(&buf, file->inode);
     inode->accessTime = cur_timestamp();
     block_write(buf);
 }
 
 
-u32_t ext2_read(fd_t *file, uint32_t offset, uint32_t size, char *buf) {
+u32_t ext2_read(inode_t *file, uint32_t offset, uint32_t size, char *buf) {
     buf_t *iBuf, *dBuf;
-    inode_t *inode;
+    ext2_inode_t *inode;
     u32_t rdSize, blkOffset, bid;
     u64_t end;
 
-    inode = get_inode(&iBuf, file->inode_num);
+    inode = get_inode(&iBuf, file->inode);
+    assertk(inode->mode & EXT2_IFREG);
     end = file_size(inode);
     if (offset > end) return 0;
 
@@ -395,8 +418,8 @@ u32_t ext2_read(fd_t *file, uint32_t offset, uint32_t size, char *buf) {
         size = end - offset;
 
     while (size > 0) {
-        rdSize = size > BLOCK_SIZE ? BLOCK_SIZE : size;
-        blkOffset = offset % PAGE_SIZE;      // 块内偏移
+        blkOffset = offset % BLOCK_SIZE;      // 块内偏移
+        rdSize = (size < BLOCK_SIZE ? size : BLOCK_SIZE) - blkOffset;
         bid = find_blk_id(inode, offset);
         assertk(bid);
 
@@ -404,7 +427,7 @@ u32_t ext2_read(fd_t *file, uint32_t offset, uint32_t size, char *buf) {
         q_memcpy(buf, dBuf->data + blkOffset, rdSize);
 
         size -= rdSize;
-        buf += BLOCK_SIZE;
+        buf += rdSize;
         offset += rdSize;
     }
 
@@ -414,56 +437,67 @@ u32_t ext2_read(fd_t *file, uint32_t offset, uint32_t size, char *buf) {
     return size;
 }
 
-u32_t ext2_write(fd_t *file, uint32_t offset, uint32_t size, char *buf) {
-    //TODO:
+u32_t ext2_write(inode_t *file, uint32_t offset, uint32_t size, char *buf) {
     buf_t *iBuf, *dBuf;
-    inode_t *inode;
-    u32_t rdSize, blkOffset, bid;
-    u64_t end;
+    ext2_inode_t *inode;
+    u32_t wtSize, blkOffset, bid;
+    u32_t end, fileSize;
+    int64_t overflow;
+    u32_t cur_time;
+    u32_t ret = size;
 
-    inode = get_inode(&iBuf, file->inode_num);
-    end = file_size(inode);
-    if (offset > end) return 0;
+    inode = get_inode(&iBuf, file->inode);
+    assertk(inode->mode & EXT2_IFREG);
+    fileSize = file_size(inode);
+    end = offset + size;
 
-    if (offset + size > end)
-        size = end - offset;
+    overflow = end - nextFreeBlk(inode) * BLOCK_SIZE;
+
+    if (end > file_size(inode))
+        update_inode_size(inode, end - fileSize);
+
+    for (; overflow >= 0; overflow -= BLOCK_SIZE) {
+        alloc_block(inode, file->inode);
+    }
 
     while (size > 0) {
-        rdSize = size > BLOCK_SIZE ? BLOCK_SIZE : size;
-        blkOffset = offset % PAGE_SIZE;      // 块内偏移
+        blkOffset = offset % BLOCK_SIZE;      // 块内偏移
+        wtSize = size < BLOCK_SIZE ? size : BLOCK_SIZE - blkOffset;
         bid = find_blk_id(inode, offset);
         assertk(bid);
 
         dBuf = block_read(bid);
-        q_memcpy(dBuf->data + blkOffset, buf, rdSize);
+        q_memcpy(dBuf->data + blkOffset, buf, wtSize);
+        block_write(dBuf);
 
-        size -= rdSize;
-        buf += BLOCK_SIZE;
-        offset += rdSize;
+        size -= wtSize;
+        buf += wtSize;
+        offset += wtSize;
     }
 
-    u32_t cur_time = cur_timestamp();
+    cur_time = cur_timestamp();
     inode->accessTime = cur_time;
     inode->modTime = cur_time;
     block_write(iBuf);
+    return ret;
 }
 
 void ext2_umount() {
     buf_t *rBuf, *tBuf;
-    inode_t *root = get_inode(&rBuf, ROOT_INUM);
-    dir_t *target = find_dir_entry(&tBuf, root, "..");
+    ext2_inode_t *root = get_inode(&rBuf, ROOT_INUM);
+    ext2_dir_t *target = find_dir_entry(&tBuf, root, "..");
     target->inode = ROOT_INUM;
     block_write(tBuf);
 }
 
-void ext2_mount(fd_t *parent) {
+void ext2_mount(inode_t *parent) {
     buf_t *rBuf, *tBuf;
-    inode_t *root = get_inode(&rBuf, ROOT_INUM);
-    dir_t *target = find_dir_entry(&tBuf, root, "..");
-    target->inode = parent->inode_num;
+    ext2_inode_t *root = get_inode(&rBuf, ROOT_INUM);
+    ext2_dir_t *target = find_dir_entry(&tBuf, root, "..");
+    target->inode = parent->inode;
     block_write(tBuf);
 
-    superBlock_t *blk = get_superBlock();
+    ext2_sb_t *blk = get_superBlock();
     blk->mountTime = cur_timestamp();
     blk->mountCnt++;
     write_superBlock();
@@ -473,12 +507,12 @@ void ext2_close() {}
 
 
 // 使用文件偏移找到直接指针
-static u32_t find_blk_id(inode_t *inode, u32_t offset) {
+static u32_t find_blk_id(ext2_inode_t *inode, u32_t offset) {
     u32_t bid = next_block(inode, offset / BLOCK_SIZE);
     return bid;
 }
 
-static void update_inode_size(inode_t *inode, int32_t change) {
+static void update_inode_size(ext2_inode_t *inode, int32_t change) {
     u64_t size = file_size(inode);
     if (change < 0) assertk(size >= BLOCK_SIZE);
     size += change;
@@ -488,7 +522,7 @@ static void update_inode_size(inode_t *inode, int32_t change) {
     inode->size = size & MASK_U64(32);
 }
 
-static u64_t file_size(inode_t *inode) {
+static u64_t file_size(ext2_inode_t *inode) {
     if (version >= 1 && (inode->mode & EXT2_IFREG)) {
         return ((u64_t) inode->dirAcl << 32) + inode->size;
     }
@@ -514,18 +548,12 @@ static int32_t find_block_layer(u32_t bno, u32_t id[3]) {
     return layer;
 }
 
-// 遍历直接指针与间接指针
-static u32_t next_block(inode_t *inode, u32_t bno) {
+static u32_t next_iBlock(ext2_inode_t *inode, u32_t bno) {
+    // 遍历间接块
     u32_t *ptr;
     u32_t bid;
     int32_t layer;
     u32_t id[3];
-    if (file_size(inode) < (u64_t) bno * BLOCK_SIZE) {
-        return 0;
-    }
-    if (bno < N_DIRECT_BLOCK)
-        return inode->blocks[bno];
-
     layer = find_block_layer(bno, id);
 
     bid = inode->blocks[N_DIRECT_BLOCK + layer];
@@ -536,18 +564,25 @@ static u32_t next_block(inode_t *inode, u32_t bno) {
     return bid;
 }
 
+// 遍历直接指针与间接指针
+static u32_t next_block(ext2_inode_t *inode, u32_t bno) {
+    if (file_size(inode) < (u64_t) bno * BLOCK_SIZE) {
+        return 0;
+    }
+    if (bno < N_DIRECT_BLOCK)
+        return inode->blocks[bno];
 
-static u32_t alloc_block(inode_t *inode, u32_t ino) {
-    u32_t id[3],bno;
-    int32_t layer;
+    return next_iBlock(inode, bno);
+}
 
+static u32_t nextFreeBlk(ext2_inode_t *inode) {
+    u32_t bno;
+    // bno 为需要分配的下一块的编号
     bno = inode->cntSectors / SECTOR_PER_BLOCK;
     if (bno < N_DIRECT_BLOCK) {
-        assertk(inode->blocks[bno] == 0);
-        u32_t bid = new_block(ino);
-        inode->blocks[bno] = bid;
-        return bid;
+        return bno;
     }
+
     // 删除间接块指针本身占用的块
     bno -= 1;
     if (bno >= 12 + N_PTR) {
@@ -557,30 +592,38 @@ static u32_t alloc_block(inode_t *inode, u32_t ino) {
         bno -= 1 + N_PTR + N_PTR * N_PTR;
     }
 
-    layer = find_block_layer(bno, id);
+    return bno;
+}
 
-    u32_t *ptr,*bid;
+static u32_t alloc_block(ext2_inode_t *inode, u32_t ino) {
+    u32_t id[3], bno;
+    int32_t layer;
+    u32_t *ptr, *bid;
     buf_t *buf = NULL;
-    bid = &inode->blocks[N_DIRECT_BLOCK + layer];
-    for (int32_t i = layer; i >= 0; --i) {
-        if (!(*bid)) {
-            *bid = new_block(ino);
-            inode->cntSectors++;
-            if (buf) block_write(buf);
 
-            buf = block_read(*bid);
-            ptr = buf->data;
-            ptr[id[i]] = 0;
-        } else {
-            buf = block_read(*bid);
-            ptr = buf->data;
-        }
-        bid = &ptr[id[i]];
+    bno = nextFreeBlk(inode);
+    if (bno < N_DIRECT_BLOCK) {
+        assertk(inode->blocks[bno] == 0);
+        u32_t _bid = new_block(ino);
+        inode->cntSectors += SECTOR_PER_BLOCK;
+        inode->blocks[bno] = _bid;
+        return _bid;
     }
 
-    inode->cntSectors++;
-    *bid = new_block(ino);
-    block_write(buf);
+    layer = find_block_layer(bno, id);
+
+    bid = &inode->blocks[N_DIRECT_BLOCK + layer];
+    for (int32_t i = layer; i >= -1; --i) {
+        if (!(*bid)) {
+            *bid = new_empty_block(ino);
+            inode->cntSectors += SECTOR_PER_BLOCK;
+            if (buf) block_write(buf);
+            if (i == -1) break;
+        }
+        buf = block_read(*bid);
+        ptr = buf->data;
+        bid = &ptr[id[i]];
+    }
     return *bid;
 }
 
@@ -591,14 +634,14 @@ static void free_ptr(u32_t bid, u32_t ino, u32_t layer) {
     };
 
     u32_t *ptr = block_read(bid)->data;
-    for (u32_t i = 0; i < N_PTR; ++i) {
-        if (ptr[i]) free_ptr(ptr[i], ino, layer - 1);
+    for (u32_t i = 0; i < N_PTR && ptr[i]; ++i) {
+        free_ptr(ptr[i], ino, layer - 1);
     }
     free_block(ino, bid);
 }
 
 // 删除 inode,释放数据块,不会修改 inode 所在目录内容
-static void del_inode(inode_t *inode, u32_t ino) {
+static void del_inode(ext2_inode_t *inode, u32_t ino) {
     assertk(ino > 0);
     u32_t bid;
 
@@ -638,7 +681,7 @@ static void free_block(u32_t ino, u32_t bno) {
     clear_bit(&map[bno / 8], bno % 8);
     block_write(buf);
 
-    superBlock_t *blk = get_superBlock();
+    ext2_sb_t *blk = get_superBlock();
     blk->freeBlockCnt++;
 
     desc->freeBlockCnt++;
@@ -654,7 +697,7 @@ static void free_inode(u32_t ino) {
     clear_bit(&map[ino / 8], ino % 8);
     block_write(buf);
 
-    superBlock_t *blk = get_superBlock();
+    ext2_sb_t *blk = get_superBlock();
     blk->freeInodeCnt++;
 
     desc->freeInodesCnt++;
@@ -676,8 +719,8 @@ static int32_t map_set_bit(u8_t *map, u32_t max) {
 }
 
 
-static void create_dir_entry(inode_t *inode, char *name, u32_t ino, u8_t type) {
-    dir_t *dir, *new;
+static void create_dir_entry(ext2_inode_t *inode, char *name, u32_t ino, u8_t type) {
+    ext2_dir_t *dir, *new;
     u32_t bid;
     buf_t *buf;
 
@@ -693,8 +736,7 @@ static void create_dir_entry(inode_t *inode, char *name, u32_t ino, u8_t type) {
         }
     }
 
-    // TODO:bid 添加到 inode->block
-    bid = new_block(ino);
+    bid = alloc_block(inode, ino);
     update_inode_size(inode, BLOCK_SIZE);
     buf = block_read(bid);
     dir = buf->data;
@@ -704,9 +746,9 @@ static void create_dir_entry(inode_t *inode, char *name, u32_t ino, u8_t type) {
     block_write(buf);
 }
 
-static dir_t *find_dir_entry(buf_t **buf, inode_t *parent, char *name) {
+static ext2_dir_t *find_dir_entry(buf_t **buf, ext2_inode_t *parent, char *name) {
     size_t name_len = q_strlen(name);
-    dir_t *dir;
+    ext2_dir_t *dir;
     u32_t bid;
     buf_t *dBuf;
 
@@ -724,14 +766,14 @@ static dir_t *find_dir_entry(buf_t **buf, inode_t *parent, char *name) {
     return NULL;
 }
 
-static void del_dir_entry(dir_t *dir) {
+static void del_dir_entry(ext2_dir_t *dir) {
     dir->inode = 0;
     merge_dir_entry(dir);
 }
 
 
-static superBlock_t *get_superBlock() {
-    superBlock_t *blk;
+static ext2_sb_t *get_superBlock() {
+    ext2_sb_t *blk;
     blk = block_read(0)->data + SECTOR_SIZE * SUPER_BLOCK_NO;
     assertk(blk->magic == EXT2_SIGNATURE);
     return blk;
@@ -739,7 +781,7 @@ static superBlock_t *get_superBlock() {
 
 static u32_t new_inode(u32_t ino) {
     assertk(ino > 0);
-    superBlock_t *blk = get_superBlock();
+    ext2_sb_t *blk = get_superBlock();
     assertk(blk->freeInodeCnt > 0);
     for_each_group(ino) {
         groupDesc_t *desc = get_descriptor(ino);
@@ -764,7 +806,7 @@ static u32_t new_inode(u32_t ino) {
 
 static u32_t new_block(u32_t ino) {
     assertk(ino > 0);
-    superBlock_t *blk = get_superBlock();
+    ext2_sb_t *blk = get_superBlock();
     assertk(blk->freeBlockCnt > 0);
     for_each_group(ino) {
         groupDesc_t *desc = get_descriptor(ino);
@@ -777,11 +819,21 @@ static u32_t new_block(u32_t ino) {
             desc->freeBlockCnt--;
             write_descriptor(ino);
             write_superBlock();
+
             return bit;
         }
     }
     assertk(0);
     return 0;
+}
+
+static u32_t new_empty_block(u32_t ino) {
+    // 分配新块,并将数据置 0
+    u32_t bid = new_block(ino);
+    buf_t *foo = block_read(bid);
+    q_memset(foo->data, 0, BLOCK_SIZE);
+    block_write(foo);
+    return bid;
 }
 
 
@@ -801,15 +853,15 @@ static void *get_inode(buf_t **buf, u32_t ino) {
     return (void *) (*buf)->data + INODE_OFFSET(ino);
 }
 
-dir_t *next_entry(dir_t *dir) {
+ext2_dir_t *next_entry(ext2_dir_t *dir) {
     return (void *) dir + dir->entrySize;
 }
 
 // 向后合并多个 inode 为 0 的目录项
-static void merge_dir_entry(dir_t *dir) {
+static void merge_dir_entry(ext2_dir_t *dir) {
     assertk(dir);
     size_t size = 0;
-    dir_t *hdr = dir;
+    ext2_dir_t *hdr = dir;
     for_each_dir(hdr) {
         if (hdr->inode != 0)break;
         size += hdr->entrySize;
@@ -817,10 +869,26 @@ static void merge_dir_entry(dir_t *dir) {
     dir->entrySize = size;
 }
 
-static dir_t *new_dir_entry(dir_t *dir, u32_t ino, char *name, u8_t type) {
+
+static inode_t *inode2vnode(ext2_inode_t *inode, ext2_dir_t *dir) {
+    inode_t *target = kmalloc(sizeof(inode_t));
+    assertk(target);
+    target->inode = dir->inode;
+    target->access_time = inode->accessTime;
+    target->modified_time = inode->modTime;
+    target->create_time = inode->createTime;
+    target->size = inode->size;
+    target->offset = 0;
+    target->mode = inode->mode;
+    target->ref_cnt = 1;
+//    q_memcpy(target->name, dir->name, dir->nameLen);
+    return target;
+}
+
+static ext2_dir_t *new_dir_entry(ext2_dir_t *dir, u32_t ino, char *name, u8_t type) {
     assertk(dir->inode == 0);
     size_t name_len = q_strlen(name);
-    u32_t size = ALIGN4(sizeof(dir_t) + name_len);
+    u32_t size = ALIGN4(sizeof(ext2_dir_t) + name_len);
 
     if (size > dir->entrySize) return NULL;
 
@@ -829,7 +897,7 @@ static dir_t *new_dir_entry(dir_t *dir, u32_t ino, char *name, u8_t type) {
     dir->type = type;
     q_memcpy(dir->name, name, name_len);
     u32_t remain = dir->entrySize - size;
-    if (remain > ALIGN4(sizeof(dir_t) + 1)) {
+    if (remain > ALIGN4(sizeof(ext2_dir_t) + 1)) {
         dir->entrySize = size;
         dir = (void *) dir + size;
         dir->inode = 0;
@@ -849,49 +917,59 @@ static void write_descriptor(u32_t ino) {
 }
 
 
-static void sb_backup() {
-    // 超级块备份同步
-
-}
-
-static void descriptor_backup(u32_t ino) {
-    // 块描述符同步
-}
+//static void sb_backup() {
+//    // 超级块备份同步
+//
+//}
+//
+//static void descriptor_backup(u32_t ino) {
+//    // 块描述符同步
+//}
 
 #ifdef TEST
-static fd_t root, foo, foo2, foo3;
+static inode_t root, foo, foo2, txt;
+static char charBuf[4097] = "";
 
-static void test_ext2_fs();
-
-void test_ext2() {
-    root.inode_num = ROOT_INUM;
-    buf_t *buf, *buf1;
-    inode_t *inode = get_inode(&buf, ROOT_INUM);
-    dir_t *dir = block_read(inode->blocks[0])->data;
-    dir = next_entry(dir);
-    dir = next_entry(dir);
-    dir = next_entry(dir);
-
-    inode_t *inode1 = get_inode(&buf1, dir->inode);
-    alloc_block(inode1, dir->inode);
-}
-
-void test_ext2_fs() {
-    root.inode_num = ROOT_INUM;
+static void test() {
+    buf_t *buf;
+    ext2_dir_t *dir;
+    root.inode = ROOT_INUM;
+    ext2_inode_t *iRoot = get_inode(&buf, ROOT_INUM);
+    //测试读
+//    dir = find_dir_entry(&buf, iRoot, "txt");
+//    txt.inode = dir->inode;
+//    ext2_read(&txt, 0, 4097, charBuf);
 
     ext2_mkdir(&root, "foo");
     ext2_mkdir(&root, "foo2");
     ext2_mkdir(&root, "foo3");
-    ext2_rmDir(&root, "foo3");
+    ext2_rmdir(&root, "foo3");
 
-    foo.inode_num = 12;
-    foo2.inode_num = 13;
+    dir = find_dir_entry(&buf, iRoot, "foo");
+    foo.inode = dir->inode;
+
+    dir = find_dir_entry(&buf, iRoot, "foo2");
+    foo2.inode = dir->inode;
+
     ext2_mkfile(&foo, "txt");
+
+    //测试写
+//    buf_t *fooBuf, *fooBuf2;
+//    ext2_inode_t *inode = get_inode(&fooBuf, foo.inode);
+//    dir = find_dir_entry(&fooBuf2, inode, "txt");
+//    assertk(dir);
+//    txt.inode = dir->inode;
+//    ext2_write(&txt, 0, 4097, charBuf);
+
     ext2_link(&foo, "txt", &foo2, "foo2");
     ext2_link(&foo, "txt", &foo2, "foo3");
     ext2_unlink(&foo2, "foo3");
     unblock_thread(flush_worker);
     ext2_ls(&root);
+}
+
+void test_ext2() {
+
 }
 
 #endif //TEST

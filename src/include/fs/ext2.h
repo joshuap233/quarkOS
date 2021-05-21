@@ -21,8 +21,9 @@
 #define N_PTR                (BLOCK_SIZE/sizeof(u32_t)) // 块内指针数量
 #define SECTOR_PER_BLOCK     (BLOCK_SIZE/SECTOR_SIZE)
 
+#define SEPARATOR            '/'
 
-typedef struct superBlock {
+typedef struct ext2_superBlock {
 #define EXT2_SIGNATURE 0xef53
     u32_t inodeCnt;        // inode 数
     u32_t blockCnt;
@@ -47,13 +48,8 @@ typedef struct superBlock {
     u16_t magic;
 
     u16_t state;                  // 文件系统状态
-#define EXT2_VALID_FS          2
-#define EXT2_ERROR_FS          1
 
     u16_t error;                  // 处理错误的方法
-#define EXT2_ERRORS_CONTINUE   1
-#define EXT2_ERRORS_RO         2
-#define EXT2_ERRORS_PANIC      3
 
     u16_t fsVersionMinor;
 
@@ -61,11 +57,6 @@ typedef struct superBlock {
     u32_t fsckInterval;           // 强制 fsck 检查时间间隔
 
     u32_t creatorOS;
-#define OS_LINUX    0
-#define OS_GUN_HURD 1
-#define OS_MASIX    2
-#define OS_FREE_BSD 3
-#define OS_OTHER    4
 
     u32_t fsVersionMajor;
 
@@ -79,21 +70,8 @@ typedef struct superBlock {
     u16_t blockGroup;            // 当前超级块所属的块组
 
     u32_t optionalFeature;       // 可选功能
-#define PREALLOCATE_FOR_DIR 1    // 创建目录时预分配一些数据块
-#define AFS_SERVER_INODES   2
-#define JOURNAL             4    // 支持日志(ext3)
-#define INODE_EXT           8    // inode 可以有扩展属性
-#define FS_RESIZE           0x10 // fs 可以调整大小
-#define DIR_HASH_INDEX      0x20 // 目录使用哈希索引
     u32_t requiredFeature;
-#define COMPRESS            1    // 压缩
-#define DIR_TYPE_FIELD      2    // 目录有类型字段
-#define REPLAY_JOURNAL      4
-#define JOURNAL_DEV         8
     u32_t optionalFeatureRo;     // 如果不支持这些功能则只读挂载
-#define SS_GROUP_DESC       1    // Sparse superblocks and group descriptor tables
-#define FS_64BIT_SIZE       2
-#define DIR_ARE_BIN_TREE    4    // 目录以二叉树的形式存储
 
     u8_t uuid[16];
     u8_t volumeName[16];         // 以 0 结束的字符串
@@ -122,10 +100,46 @@ typedef struct superBlock {
     u32_t firstMetaBg;            // First metablock block group
 
     u8_t unused2[760];
-} superBlock_t;
+} ext2_sb_t;
+
+/* ----- stat ----- */
+#define EXT2_VALID_FS          2
+#define EXT2_ERROR_FS          1
+
+/* ----- stat ----- */
+#define EXT2_ERRORS_CONTINUE   1
+#define EXT2_ERRORS_RO         2
+#define EXT2_ERRORS_PANIC      3
+
+
+/* ----- creatorOS ----- */
+#define OS_LINUX    0
+#define OS_GUN_HURD 1
+#define OS_MASIX    2
+#define OS_FREE_BSD 3
+#define OS_OTHER    4
+
+/* ----- optionalFeature ----- */
+#define PREALLOCATE_FOR_DIR 1    // 创建目录时预分配一些数据块
+#define AFS_SERVER_INODES   2
+#define JOURNAL             4    // 支持日志(ext3)
+#define INODE_EXT           8    // inode 可以有扩展属性
+#define FS_RESIZE           0x10 // fs 可以调整大小
+#define DIR_HASH_INDEX      0x20 // 目录使用哈希索引
+
+/* ----- requiredFeature ----- */
+#define COMPRESS            1    // 压缩
+#define DIR_TYPE_FIELD      2    // 目录有类型字段
+#define REPLAY_JOURNAL      4
+#define JOURNAL_DEV         8
+
+/* ----- optionalFeatureRo ----- */
+#define SS_GROUP_DESC       1    // Sparse superblocks and group descriptor tables
+#define FS_64BIT_SIZE       2
+#define DIR_ARE_BIN_TREE    4    // 目录以二叉树的形式存储
 
 //Block Group Descriptor Table, 紧接超级块后
-typedef struct blockGroupDescriptor {
+typedef struct ext2_group_desc {
     u32_t blockBitmapAddr;
     u32_t inodeBitmapAddr;
     u32_t inodeTableAddr;
@@ -135,8 +149,42 @@ typedef struct blockGroupDescriptor {
     u8_t unused[14];
 } groupDesc_t;
 
-typedef struct inode {
+typedef struct ext2_inode {
     u16_t mode;                 // 权限与类型
+    u16_t uid;
+
+/*
+ * 如果目录,则 size 为分配的块大小,
+ * 如果是文件,则 size 为实际存储的数据大小,比如存储 'aa'(ascii),则文件大小为 3,
+ * 如果版本大于 1 ,且为常规文件, size 为 文件大小低 32 位, 高 32 位在 dirAcl 字段
+ */
+    u32_t size;
+
+    u32_t accessTime;
+    u32_t createTime;
+    u32_t modTime;                 // 修改时间
+    u32_t delTime;
+
+    u16_t groupId;
+
+    u16_t linkCnt;                // 链接数量(目录链接数量为 dir entry 数, . 与 .. 也算)
+
+    u32_t cntSectors;             // 磁盘扇区数(不包括inode与链接),间接指针块本身也算一块(分配间接块 cntSectors + 8)
+
+    u32_t flags;
+    u32_t osSpec;
+
+    u32_t blocks[N_DIRECT_BLOCK + 3]; // 0-12 为直接指针
+
+    u32_t generationNum;
+    u32_t filAcl;                     // 版本>=1 有效
+    u32_t dirAcl;                     // 版本>=1 有效
+    u32_t fragmentAddr;
+    u32_t osSpec2[3];
+} ext2_inode_t;
+
+
+/* ---------- mode ----------- */
 /*    -- 文件类型  -- */
 #define EXT2_IFSOCK   0xC000    //socket
 #define EXT2_IFLNK    0xA000    //symbolic link
@@ -163,52 +211,27 @@ typedef struct inode {
 #define EXT2_IXOTH    0x0001    //others execute
 
 #define EXT2_ALL_RWX  (EXT2_IRUSR|EXT2_IWUSR|EXT2_IXUSR|EXT2_IRGRP|EXT2_IWGRP|EXT2_IXGRP|EXT2_IROTH|EXT2_IXOTH)
+/* ------------- end mode --------- */
 
-    u16_t uid;
 
-/*
- * 如果目录,则 size 为分配的块大小,
- * 如果是文件,则 size 为实际存储的数据大小,比如存储 'aa'(ascii),则文件大小为 3,
- * 如果版本大于 1 ,且为常规文件, size 为 文件大小低 32 位, 高 32 位在 dirAcl 字段
- */
-    u32_t size;
-
-    u32_t accessTime;
-    u32_t createTime;
-    u32_t modTime;                 // 修改时间
-    u32_t delTime;
-
-    u16_t groupId;
-
-    u16_t linkCnt;                // 链接数量(目录链接数量为 dir entry 数, . 与 .. 也算)
-
-    u32_t cntSectors;             // 磁盘扇区数(不包括inode与链接),间接指针块本身也算一块(分配间接块 cntSectors + 8)
-
-    u32_t flags;
+/* ---------- flags ----------- */
 #define SYNC_UPDATE         0x8   //新数据立即写入磁盘
 #define IMM_FILE            0x10  // 文件内容不可变
 #define APPEND_ONLY         0x20
 #define HASH_INDEX_DIR      0x10000
 #define AFS_DIR             0x20000
 #define JOURNAL_FILE_DATA   0x40000
-    u32_t osSpec;
 
-    u32_t blocks[N_DIRECT_BLOCK + 3]; // 0-12 为直接指针
-
-    u32_t generationNum;
-    u32_t filAcl;                     // 版本>=1 有效
-    u32_t dirAcl;                     // 版本>=1 有效
-    u32_t fragmentAddr;
-    u32_t osSpec2[3];
-} inode_t;
-
-
-typedef struct directory_entry {
+typedef struct ext2_directory_entry {
     u32_t inode;
     u16_t entrySize; // 目录项总大小
     u8_t nameLen;
     u8_t type;
-    //目录项指向的文件类型
+    u8_t name[0];
+} PACKED ext2_dir_t;
+
+/* ---------- type ----------- */
+//目录项指向的文件类型
 #define EXT2_FT_UNKNOWN            0
 #define EXT2_FT_REG_FILE           1
 #define EXT2_FT_DIR                2
@@ -217,29 +240,56 @@ typedef struct directory_entry {
 #define EXT2_FT_FIFO               5
 #define EXT2_FT_SOCK               6
 #define EXT2_FT_SYMLINK            7
-    u8_t name[0];
-} PACKED dir_t;
+
+
+typedef struct ext2_sb_info {
+    super_block_t sb;
+    struct {
+        buf_t *blockBitmap;
+        buf_t *inodeBitmap;
+        u16_t freeBlockCnt;
+        u16_t freeInodesCnt;
+        u16_t dirNum;               // 组中目录数
+    } *descriptor;
+} ext2_sb_info_t;
+
+
+typedef struct ext2_inode_info {
+    inode_t *inode;
+    buf_t *blocks[N_DIRECT_BLOCK + 3]; // 0-12 为直接指针
+} ext2_inode_info_t;
+
+#define ext2_i(ptr) container_of(ptr, ext2_inode_info_t, inode)
+#define ext2_s(ptr) container_of(ptr, ext2_sb_info_t, sb)
+
+
+void ext2_mkdir(inode_t *parent, char *name);
+
+void ext2_mkfile(inode_t *parent, char *name);
 
 void ext2_close();
 
-u32_t ext2_write(fd_t *file, uint32_t _offset, uint32_t size, char *_buf);
+u32_t ext2_write(inode_t *file, uint32_t _offset, uint32_t size, char *_buf);
 
-u32_t ext2_read(fd_t *file, uint32_t _offset, uint32_t size, char *_buf);
+u32_t ext2_read(inode_t *file, uint32_t _offset, uint32_t size, char *_buf);
 
-void ext2_open(fd_t *file);
+void ext2_open(inode_t *file);
 
-void ext2_ls(fd_t *parent);
+void ext2_ls(inode_t *parent);
 
-void ext2_link(fd_t *parent, char *target_name, fd_t *parent2, char *new_name);
 
-void ext2_rmDir(fd_t *parent, char *name);
+void ext2_rmdir(inode_t *parent, char *name);
 
-fd_t *ext2_find(fd_t *parent, char *name, u16_t type);
+inode_t *ext2_find(inode_t *cwd, char *path);
 
-void ext2_unlink(fd_t *parent, char *name);
+void ext2_link(inode_t *parent, char *target_name, inode_t *parent2, char *new_name);
+
+void ext2_unlink(inode_t *parent, char *name);
 
 void ext2_umount();
 
-void ext2_mount(fd_t *parent);
+void ext2_mount(inode_t *parent);
+
+inode_t *get_root();
 
 #endif //QUARKOS_FS_FAT_H

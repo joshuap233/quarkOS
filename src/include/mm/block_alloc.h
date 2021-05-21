@@ -8,8 +8,6 @@
 #include "types.h"
 #include "lib/list.h"
 
-
-
 ptr_t block_alloc(u32_t size);
 
 ptr_t block_alloc_align(u32_t size, u32_t align);

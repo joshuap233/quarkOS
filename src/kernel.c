@@ -52,7 +52,7 @@ void kernel_main() {
     // 中断初始化
     idt_init();
     pic_init(32, 40);
-    pit_init(PIT_TIMER_FREQUENCY);
+    pit_init();
     // ps2 设备初始化
     ps2_init();
     kb_init();
@@ -76,6 +76,7 @@ void kernel_main() {
 
     // 需要在中断开启之后
     ext2_init();
+    vfs_init();
 
 #ifdef TEST
 //    test_ide_rw();

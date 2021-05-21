@@ -36,5 +36,6 @@ void q_utoa(uint64_t value, char *str);
 // 字符串反转
 void reverse(char *s, uint32_t li);
 
+char *q_strdup(const char *string);
 
 #endif //QUARKOS_LIB_QSTRING_H

@@ -22,6 +22,13 @@ typedef struct slabInfo {
     uint32_t magic;
 } slabInfo_t;
 
+struct slabCache {
+    list_head_t head;
+    list_head_t cache_list;
+    list_head_t full_list;
+    size_t size;
+};
+
 void *slab_alloc(uint16_t size);
 
 u32_t fixSize(u32_t size);
@@ -31,6 +38,12 @@ void slab_free(void *addr);
 u16_t slab_chunk_size(void *addr);
 
 void slab_recycle();
+
+void cache_alloc_create(struct slabCache *cache, size_t size);
+
+void *cache_alloc(struct slabCache *cache);
+
+void cache_free(struct slabCache *cache, void *addr);
 
 #define IS_POWER_OF_2(x) (!((x)&((x)-1)))
 #define LIST_SIZE 8

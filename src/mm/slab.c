@@ -13,12 +13,21 @@
 
 #define chunk_foreach(chunk) for ((chunk) = info->chunk; chunk; (chunk) = (chunk)->next)
 
-static void add_slab(uint16_t idx, uint16_t chunkSize);
+static void *alloc(list_head_t *head, list_head_t *full, uint16_t size);
 
+static void add(list_head_t *slab, uint16_t chunkSize);
+
+static void free(void *addr, list_head_t *head);
+
+static void slab_cache_init(struct slabCache *cache);
+
+static void recycle(list_head_t *head);
 
 struct allocator {
     list_head_t slab[LIST_SIZE]; // 部分分配的 slab
     list_head_t full_slab;       // 已经完全分配的 slab 列表
+
+    list_head_t cache;
 } allocator;
 
 
@@ -26,12 +35,38 @@ void slab_init() {
     for (uint32_t i = 0; i < LIST_SIZE; ++i) {
         list_header_init(&allocator.slab[i]);
     }
+    list_header_init(&allocator.cache);
     list_header_init(&allocator.full_slab);
 #ifdef TEST
     test_slab_alloc();
 #endif //TEST
 }
 
+static void slab_cache_init(struct slabCache *cache) {
+    list_header_init(&cache->head);
+    list_header_init(&cache->cache_list);
+    list_header_init(&cache->full_list);
+    cache->size = 0;
+}
+
+// 可以指定固定大小的 slab 分配器
+
+void cache_alloc_create(struct slabCache *cache, size_t size) {
+    slab_cache_init(cache);
+    cache->size = size;
+    list_add_next(&cache->head, &allocator.cache);
+}
+
+void *cache_alloc(struct slabCache *cache) {
+    return alloc(&cache->cache_list, &cache->full_list, cache->size);
+}
+
+
+void cache_free(struct slabCache *cache, void *addr) {
+    free(addr, &cache->cache_list);
+}
+
+// 内置的 slab 分配器(kmalloc)
 
 void *slab_alloc(uint16_t size) {
     if (size < SLAB_MIN) size = SLAB_MIN;
@@ -39,24 +74,54 @@ void *slab_alloc(uint16_t size) {
         size = fixSize(size);
 
     uint16_t idx = SLAB_INDEX(size);
-    if (list_empty(&allocator.slab[idx])) {
-        add_slab(idx, size);
+    return alloc(&allocator.slab[idx], &allocator.full_slab, size);
+}
+
+
+void slab_free(void *addr) {
+    slabInfo_t *info = (void *) PAGE_ADDR((ptr_t) addr);
+    uint16_t idx = SLAB_INDEX(info->size);
+
+    free(addr, &allocator.slab[idx]);
+}
+
+// slab 操作
+static void free(void *addr, list_head_t *head) {
+    slabInfo_t *info = (void *) PAGE_ADDR((ptr_t) addr);
+    assertk(info->magic == SLAB_INFO_MAGIC && info->n_allocated > 0);
+
+    if (info->chunk == NULL) {
+        list_del(&info->head);
+        list_add_next(&info->head, head);
     }
 
-    slabInfo_t *slabInfo = entry(allocator.slab[idx].next);
-    assertk(!list_empty(&allocator.slab[idx]) && slabInfo->chunk);
+    info->n_allocated--;
+    chunkLink_t *ckHead = (chunkLink_t *) addr;
+    ckHead->next = info->chunk;
+    info->chunk = ckHead;
+}
+
+
+static void *alloc(list_head_t *head, list_head_t *full, uint16_t size) {
+    if (list_empty(head)) {
+        add(head, size);
+    }
+
+    slabInfo_t *slabInfo = entry(head->next);
+    assertk(!list_empty(head) && slabInfo->chunk);
 
     slabInfo->n_allocated++;
     chunkLink_t *chunk = slabInfo->chunk;
     slabInfo->chunk = slabInfo->chunk->next;
     if (!slabInfo->chunk) {
         list_del(&slabInfo->head);
-        list_add_next(&slabInfo->head, &allocator.full_slab);
+        list_add_next(&slabInfo->head, full);
     }
     return chunk;
 }
 
-static void add_slab(uint16_t idx, uint16_t chunkSize) {
+
+static void add(list_head_t *slab, uint16_t chunkSize) {
     ptr_t addr = pm_alloc_page();
     assertk((addr & PAGE_MASK) == 0);
     vmm_mapPage(addr, addr, VM_PRES | VM_KW);
@@ -77,23 +142,7 @@ static void add_slab(uint16_t idx, uint16_t chunkSize) {
         chunk = chunk->next;
     }
     chunk->next = NULL;
-    list_add_next(&info->head, &allocator.slab[idx]);
-}
-
-void slab_free(void *addr) {
-    slabInfo_t *info = (void *) PAGE_ADDR((ptr_t) addr);
-    assertk(info->magic == SLAB_INFO_MAGIC && info->n_allocated > 0);
-    uint16_t idx = SLAB_INDEX(info->size);
-
-    if (info->chunk == NULL) {
-        list_del(&info->head);
-        list_add_next(&info->head, &allocator.slab[idx]);
-    }
-
-    info->n_allocated--;
-    chunkLink_t *head = (chunkLink_t *) addr;
-    head->next = info->chunk;
-    info->chunk = head;
+    list_add_next(&info->head, slab);
 }
 
 
@@ -111,20 +160,30 @@ u32_t fixSize(u32_t size) {
     return size + 1;
 }
 
+
+static void recycle(list_head_t *head) {
+    slabInfo_t *info;
+    list_head_t *hdr;
+    list_for_each(hdr, head) {
+        info = entry(hdr);
+        if (info->n_allocated == 0) {
+            list_del(&info->head);
+            pm_free((ptr_t) info);
+            vmm_unmapPage((ptr_t) info);
+        }
+    };
+}
+
 // vmm_unmapPage 开启分页后才能使用,
 // 因此 slab_recycle 需要在分页开启后测试
 void slab_recycle() {
     for (int i = 0; i < LIST_SIZE; ++i) {
-        slabInfo_t *info;
-        list_head_t *hdr;
-        list_for_each(hdr, &allocator.slab[i]) {
-            info = entry(hdr);
-            if (info->n_allocated == 0) {
-                list_del(&info->head);
-                pm_free((ptr_t) info);
-                vmm_unmapPage((ptr_t) info);
-            }
-        };
+        recycle(&allocator.slab[i]);
+    }
+
+    list_head_t *hdr;
+    list_for_each(hdr, &allocator.cache) {
+        recycle(hdr);
     }
 }
 

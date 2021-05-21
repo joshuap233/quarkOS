@@ -7,6 +7,7 @@
 #include "types.h"
 #include "mm/vmm.h"
 #include "lib/qstring.h"
+#include "lib/qlib.h"
 
 void *kmalloc(u32_t size) {
     if (size < SLAB_MAX)

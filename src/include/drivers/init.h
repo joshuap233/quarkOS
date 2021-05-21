@@ -15,7 +15,7 @@ void vga_init();
 
 void ps2_init();
 
-void pit_init(uint32_t frequency);
+void pit_init();
 
 void gdt_init();
 

@@ -7,6 +7,8 @@
 
 #include "types.h"
 #include "mm/mm.h"
+#include "fs/vfs.h"
+#include "lib/qlib.h"
 
 /*
  * 线程切换时需要保存的上下文
@@ -40,7 +42,7 @@ typedef struct tcb {
 #define MAX_PRIORITY       3
     list_head_t run_list;    //运行队列
 #ifdef DEBUG
-    #define THREAD_MAGIC       0x18ee7305
+#define THREAD_MAGIC       0x18ee7305
     u32_t magic;
     u32_t spin_cnt;          // 自旋锁自旋次数
     u64_t last_run_time;     // 上次运行时间
@@ -51,6 +53,7 @@ typedef struct tcb {
     u16_t timer_slice;        // 时间片
     char name[KTHREAD_NAME_LEN];
     void *stack;              // 指向栈首地址,用于回收
+    inode_t *cwd;
     context_t context;        // 上下文信息
 } tcb_t;
 

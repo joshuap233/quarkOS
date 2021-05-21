@@ -7,6 +7,7 @@
 #include "lib/irlock.h"
 #include "sched/kthread.h"
 #include "sched/timer.h"
+#include "drivers/pit.h"
 
 extern void switch_to(context_t *cur_context, context_t *next_context);
 

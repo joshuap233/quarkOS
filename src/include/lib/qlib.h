@@ -5,11 +5,10 @@
 #ifndef QUARKOS_LIB_QLIB_H
 #define QUARKOS_LIB_QLIB_H
 
-#include "types.h"
 #include <stdarg.h>
+#include "types.h"
 #include "drivers/vga.h"
 #include "x86.h"
-#include "drivers/pit.h"
 
 u8_t log2(uint16_t val);
 

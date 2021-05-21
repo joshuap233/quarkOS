@@ -19,7 +19,7 @@
  * list:      等待读写队列
  * ref_cnt:   引用次数
  */
-typedef struct page_cache {
+typedef struct page {
 #define BUF_DIRTY   1
 #define BUF_VALID   (1<<1)
 #define SECTOR_SIZE 512

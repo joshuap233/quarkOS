@@ -6,7 +6,6 @@
 #define QUARKOS_LIB_LIST_H
 
 #include "types.h"
-#include "lib/qlib.h"
 
 #define LIST_HEAD(name) \
     list_head_t name = { &(name), &(name) }

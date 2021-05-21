@@ -2,6 +2,7 @@
 // Created by pjs on 2021/1/5.
 //
 #include "lib/qstring.h"
+#include "mm/kmalloc.h"
 #include "types.h"
 
 size_t q_strlen(const char *str) {
@@ -109,3 +110,11 @@ void hex(uint64_t n, char *str) {
     str[i] = '\0';
     reverse(str, i - 1);
 }
+
+char *q_strdup(const char *string) {
+    u32_t len = q_strlen(string) + 1;
+    char *new = kmalloc(len);
+    q_memcpy(new, string, len + 1);
+    return new;
+}
+
