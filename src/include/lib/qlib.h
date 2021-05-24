@@ -74,6 +74,12 @@ void panic();
 
 void prints(char *str, size_t size);
 
+#define error(string) {\
+    printfk("\n%s: %s: %s: %u\n",string,__FILE__,__FUNCTION__,__LINE__); \
+    panic();                        \
+}
+
+
 #define container_of(ptr, type, member) \
     ((type *)((void *)(ptr) - offsetof(type,member)))
 

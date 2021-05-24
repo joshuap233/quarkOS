@@ -2,8 +2,8 @@
 // Created by pjs on 2021/4/8.
 //
 
-#ifndef QUARKOS_BUF_H
-#define QUARKOS_BUF_H
+#ifndef QUARKOS_FS_BUF_H
+#define QUARKOS_FS_BUF_H
 
 #include "types.h"
 #include "sched/sleeplock.h"
@@ -19,7 +19,7 @@
  * list:      等待读写队列
  * ref_cnt:   引用次数
  */
-typedef struct page {
+typedef struct buf {
 #define BUF_DIRTY   1
 #define BUF_VALID   (1<<1)
 #define SECTOR_SIZE 512
@@ -30,12 +30,15 @@ typedef struct page {
     void *data;
 
     uint16_t flag;
-//    uint16_t ref_cnt;
+    uint16_t ref_cnt;
     uint32_t no_secs;
 
+    u32_t index;      // inode 连续块编号
+    list_head_t page; // 用于 vfs inode
     rwlock_t rwlock;
 } buf_t;
 
 #define buf_entry(ptr) list_entry(ptr,buf_t,list)
+#define page_entry(ptr) list_entry(ptr,buf_t,page)
 
-#endif //QUARKOS_BUF_H
+#endif //QUARKOS_FS_BUF_H

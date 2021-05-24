@@ -5,7 +5,8 @@
 #ifndef QUARKOS_LIB_SPINLOCK_H
 #define QUARKOS_LIB_SPINLOCK_H
 
-#include "types.h"
+#include <types.h>
+#include <x86.h>
 
 extern uint32_t test_and_set(uint32_t *flag);
 

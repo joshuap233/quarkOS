@@ -13,11 +13,11 @@
 
 #define chunk_foreach(chunk) for ((chunk) = info->chunk; chunk; (chunk) = (chunk)->next)
 
-static void *alloc(list_head_t *head, list_head_t *full, uint16_t size);
+static void *_slab_alloc(list_head_t *head, list_head_t *full, uint16_t size);
 
-static void add(list_head_t *slab, uint16_t chunkSize);
+static void add_slab(list_head_t *slab, uint16_t chunkSize);
 
-static void free(void *addr, list_head_t *head);
+static void _slab_free(void *addr, list_head_t *head);
 
 static void slab_cache_init(struct slabCache *cache);
 
@@ -58,12 +58,12 @@ void cache_alloc_create(struct slabCache *cache, size_t size) {
 }
 
 void *cache_alloc(struct slabCache *cache) {
-    return alloc(&cache->cache_list, &cache->full_list, cache->size);
+    return _slab_alloc(&cache->cache_list, &cache->full_list, cache->size);
 }
 
 
 void cache_free(struct slabCache *cache, void *addr) {
-    free(addr, &cache->cache_list);
+    _slab_free(addr, &cache->cache_list);
 }
 
 // 内置的 slab 分配器(kmalloc)
@@ -74,7 +74,7 @@ void *slab_alloc(uint16_t size) {
         size = fixSize(size);
 
     uint16_t idx = SLAB_INDEX(size);
-    return alloc(&allocator.slab[idx], &allocator.full_slab, size);
+    return _slab_alloc(&allocator.slab[idx], &allocator.full_slab, size);
 }
 
 
@@ -82,11 +82,11 @@ void slab_free(void *addr) {
     slabInfo_t *info = (void *) PAGE_ADDR((ptr_t) addr);
     uint16_t idx = SLAB_INDEX(info->size);
 
-    free(addr, &allocator.slab[idx]);
+    _slab_free(addr, &allocator.slab[idx]);
 }
 
 // slab 操作
-static void free(void *addr, list_head_t *head) {
+static void _slab_free(void *addr, list_head_t *head) {
     slabInfo_t *info = (void *) PAGE_ADDR((ptr_t) addr);
     assertk(info->magic == SLAB_INFO_MAGIC && info->n_allocated > 0);
 
@@ -102,9 +102,9 @@ static void free(void *addr, list_head_t *head) {
 }
 
 
-static void *alloc(list_head_t *head, list_head_t *full, uint16_t size) {
+static void *_slab_alloc(list_head_t *head, list_head_t *full, uint16_t size) {
     if (list_empty(head)) {
-        add(head, size);
+        add_slab(head, size);
     }
 
     slabInfo_t *slabInfo = entry(head->next);
@@ -121,7 +121,7 @@ static void *alloc(list_head_t *head, list_head_t *full, uint16_t size) {
 }
 
 
-static void add(list_head_t *slab, uint16_t chunkSize) {
+static void add_slab(list_head_t *slab, uint16_t chunkSize) {
     ptr_t addr = pm_alloc_page();
     assertk((addr & PAGE_MASK) == 0);
     vmm_mapPage(addr, addr, VM_PRES | VM_KW);

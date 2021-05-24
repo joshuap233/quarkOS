@@ -6,7 +6,7 @@
 #ifndef QUARKOS_DRIVERS_IDE_H
 #define QUARKOS_DRIVERS_IDE_H
 
-#include "buf.h"
+#include "fs/buf.h"
 #include "x86.h"
 #include "isr.h"
 #include "lib/qlib.h"

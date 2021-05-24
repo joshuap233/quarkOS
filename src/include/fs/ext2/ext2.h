@@ -2,11 +2,10 @@
 // Created by pjs on 2021/4/20.
 //
 
-#ifndef QUARKOS_FS_FAT_H
-#define QUARKOS_FS_FAT_H
+#ifndef QUARKOS_FS_EXT2_H
+#define QUARKOS_FS_EXT2_H
 
 #include "types.h"
-#include "fs/page_cache.h"
 #include "fs/vfs.h"
 
 #define ROOT_INUM            2 // 根目录的 inode 索引, inode 索引从 1 开始
@@ -20,6 +19,8 @@
 #define N_DIRECT_BLOCK       12                         // 直接指针数量
 #define N_PTR                (BLOCK_SIZE/sizeof(u32_t)) // 块内指针数量
 #define SECTOR_PER_BLOCK     (BLOCK_SIZE/SECTOR_SIZE)
+#define N_BLOCKS             (N_DIRECT_BLOCK+3)
+
 
 #define SEPARATOR            '/'
 
@@ -174,7 +175,7 @@ typedef struct ext2_inode {
     u32_t flags;
     u32_t osSpec;
 
-    u32_t blocks[N_DIRECT_BLOCK + 3]; // 0-12 为直接指针
+    u32_t blocks[N_BLOCKS]; // 0-12 为直接指针
 
     u32_t generationNum;
     u32_t filAcl;                     // 版本>=1 有效
@@ -227,7 +228,7 @@ typedef struct ext2_directory_entry {
     u16_t entrySize; // 目录项总大小
     u8_t nameLen;
     u8_t type;
-    u8_t name[0];
+    char name[0];
 } PACKED ext2_dir_t;
 
 /* ---------- type ----------- */
@@ -244,52 +245,39 @@ typedef struct ext2_directory_entry {
 
 typedef struct ext2_sb_info {
     super_block_t sb;
-    struct {
+    u32_t inodePerGroup;
+    u32_t blockPerGroup;
+    u32_t version;
+    u32_t groupCnt;
+    struct info_descriptor {
         buf_t *blockBitmap;
         buf_t *inodeBitmap;
+        u32_t inodeTableAddr;
         u16_t freeBlockCnt;
         u16_t freeInodesCnt;
         u16_t dirNum;               // 组中目录数
-    } *descriptor;
+    } *desc;
 } ext2_sb_info_t;
 
 
 typedef struct ext2_inode_info {
-    inode_t *inode;
-    buf_t *blocks[N_DIRECT_BLOCK + 3]; // 0-12 为直接指针
+    inode_t inode;
+
+    u32_t blockCnt;                 // 实际分配的磁盘块数
+    u32_t blocks[N_BLOCKS];
 } ext2_inode_info_t;
+
+typedef directory_t ext2_dir_info_t;
 
 #define ext2_i(ptr) container_of(ptr, ext2_inode_info_t, inode)
 #define ext2_s(ptr) container_of(ptr, ext2_sb_info_t, sb)
 
+#define EXT2_BLOCK2LBA(block_no)     (BLOCK_SIZE / SECTOR_SIZE * (block_no))
 
-void ext2_mkdir(inode_t *parent, char *name);
+#define EXT2_INODE2GROUP(ino, sb)    (((ino)-1) / (sb)->inodePerGroup)
 
-void ext2_mkfile(inode_t *parent, char *name);
+#define ext2_block_read(blk_no)      page_read_no(EXT2_BLOCK2LBA(blk_no))
 
-void ext2_close();
+#define ext2_block_write(buf)        page_write(buf)
 
-u32_t ext2_write(inode_t *file, uint32_t _offset, uint32_t size, char *_buf);
-
-u32_t ext2_read(inode_t *file, uint32_t _offset, uint32_t size, char *_buf);
-
-void ext2_open(inode_t *file);
-
-void ext2_ls(inode_t *parent);
-
-
-void ext2_rmdir(inode_t *parent, char *name);
-
-inode_t *ext2_find(inode_t *cwd, char *path);
-
-void ext2_link(inode_t *parent, char *target_name, inode_t *parent2, char *new_name);
-
-void ext2_unlink(inode_t *parent, char *name);
-
-void ext2_umount();
-
-void ext2_mount(inode_t *parent);
-
-inode_t *get_root();
-
-#endif //QUARKOS_FS_FAT_H
+#endif //QUARKOS_FS_EXT2_H

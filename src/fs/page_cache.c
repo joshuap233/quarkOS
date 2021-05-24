@@ -10,7 +10,7 @@
 #include "lib/qlib.h"
 #include "mm/kmalloc.h"
 #include "drivers/cmos.h"
-#include "buf.h"
+#include "fs/buf.h"
 #include "sched/timer.h"
 #include "lib/rwlock.h"
 #include "sched/sleeplock.h"
@@ -80,8 +80,11 @@ static buf_t *new_buf(uint32_t no_secs) {
     buf->flag = 0;
     buf->no_secs = no_secs;
     buf->timestamp = 0;
+    buf->index = 0;
+    buf->ref_cnt = 0;
     rwlock_init(&buf->rwlock);
     list_header_init(&buf->list);
+    list_header_init(&buf->page);
     return buf;
 }
 
