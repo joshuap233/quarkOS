@@ -1,8 +1,0 @@
-//
-// Created by pjs on 2021/5/23.
-//
-
-#ifndef QUARKOS_FS_EXT2_WRITE_BACK_H
-#define QUARKOS_FS_EXT2_WRITE_BACK_H
-
-#endif //QUARKOS_FS_EXT2_WRITE_BACK_H

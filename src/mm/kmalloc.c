@@ -36,6 +36,7 @@ void *krealloc(void *_addr, size_t _size) {
         size = pm_chunk_size((ptr_t) addr);
     q_memcpy(addr, _addr, size);
     kfree(_addr);
+    return addr;
 }
 
 void kfree(void *addr) {

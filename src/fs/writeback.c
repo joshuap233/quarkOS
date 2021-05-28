@@ -2,23 +2,23 @@
 // Created by pjs on 2021/4/7.
 //
 // TODO: 页缓存分块读写(仅写入脏块)
-#include "fs/page_cache.h"
-#include "drivers/ide.h"
-#include "lib/qstring.h"
-#include "lib/list.h"
-#include "sched/kthread.h"
-#include "lib/qlib.h"
-#include "mm/kmalloc.h"
-#include "drivers/cmos.h"
-#include "fs/buf.h"
-#include "sched/timer.h"
-#include "lib/rwlock.h"
-#include "sched/sleeplock.h"
-
+#include <fs/writeback.h>
+#include <drivers/ide.h>
+#include <lib/qstring.h>
+#include <lib/list.h>
+#include <sched/kthread.h>
+#include <lib/qlib.h>
+#include <mm/kmalloc.h>
+#include <drivers/cmos.h>
+#include <fs/buf.h>
+#include <sched/timer.h>
+#include <lib/rwlock.h>
+#include <sched/thread_mutex.h>
+#include <lib/irlock.h>
 
 static void create_flush_thread();
 
-list_head_t *flush_worker;
+static list_head_t *flush_worker;
 
 static struct cache {
     struct head {
@@ -26,13 +26,13 @@ static struct cache {
         rwlock_t rwlock;    // head 链表操作需要加锁(链表增删改查)
     } list;                 // 有效缓存页列表
 
-    struct sleep {          //正在读写的线程
-        list_head_t *thread;
-        spinlock_t signal;
-    } sleep;
+    list_head_t *thread;
 
     buf_t *page_writing;     // 正在被磁盘读写的页
-    sleeplock_t wait_rw;     // 缓冲区读写磁盘时加锁
+    thread_mutex_t wait_rw;     // 缓冲区读写磁盘时加锁
+
+    lf_queue dirty;         // 脏页
+    lf_queue inode_dirty;   // 脏 inode
 } cache;
 
 static struct disk {
@@ -51,18 +51,15 @@ INLINE void _sleeplock_lock(rwlock_t *lk);
 
 INLINE void _sleeplock_unlock(rwlock_t *lk);
 
-static void sleep();
-
-static void wakeup();
-
 void page_cache_init() {
-    sleeplock_init(&cache.wait_rw);
+
+    thread_mutex_init(&cache.wait_rw);
     list_header_init(&cache.list.head);
     rwlock_init(&cache.list.rwlock);
 
-    spinlock_init(&cache.sleep.signal);
-    cache.sleep.thread = NULL;
-
+    lfQueue_init(&cache.dirty);
+    lfQueue_init(&cache.inode_dirty);
+    cache.thread = NULL;
     cache.page_writing = NULL;
     disk.start = ide_start;
     disk.isr = ide_isr;
@@ -80,11 +77,10 @@ static buf_t *new_buf(uint32_t no_secs) {
     buf->flag = 0;
     buf->no_secs = no_secs;
     buf->timestamp = 0;
-    buf->index = 0;
     buf->ref_cnt = 0;
     rwlock_init(&buf->rwlock);
     list_header_init(&buf->list);
-    list_header_init(&buf->page);
+    lfQueue_node_init(&buf->dirty);
     return buf;
 }
 
@@ -141,25 +137,20 @@ void page_read(buf_t *buf) {
 }
 
 
-void page_write(buf_t *buf) {
+void mark_page_dirty(buf_t *buf) {
     assertk(buf);
     rwlock_wLock(&buf->rwlock);
 
-    buf->flag |= BUF_DIRTY | BUF_VALID;
-
+    if (!(buf->flag & BUF_DIRTY)){
+        buf->flag |= BUF_DIRTY | BUF_VALID;
+        lfQueue_put(&cache.dirty, &buf->dirty);
+    }
     rwlock_wUnlock(&buf->rwlock);
-}
-
-static void page_rw(buf_t *buf) {
-    cache.page_writing = buf;
-    cache.sleep.thread = &CUR_HEAD;
-    disk.start(buf, buf->flag & BUF_DIRTY);
-    sleep();
 }
 
 
 // 立即刷新内存
-void page_write_sync(buf_t *buf) {
+void page_sync(buf_t *buf) {
     assertk(buf);
     _sleeplock_lock(&buf->rwlock);
 
@@ -179,6 +170,24 @@ void page_read_sync(buf_t *buf) {
     _sleeplock_unlock(&buf->rwlock);
 }
 
+static void page_rw(buf_t *buf) {
+    cache.page_writing = buf;
+    cache.thread = &CUR_HEAD;
+    disk.start(buf, buf->flag & BUF_DIRTY);
+
+    ir_lock_t irLock;
+    ir_lock(&irLock);
+    // 如果 thread 为 NULL 则 isr 在 ir_lock 前已经执行完成
+    if (cache.thread)
+        block_thread(NULL, NULL);
+    ir_unlock(&irLock);
+
+    rwlock_wLock(&cache.list.rwlock);
+    list_del(&buf->list);
+    list_add_next(&buf->list, &cache.list.head);
+    rwlock_wUnlock(&cache.list.rwlock);
+}
+
 
 INT disk_isr(UNUSED interrupt_frame_t *frame) {
     buf_t *buf = cache.page_writing;
@@ -188,15 +197,12 @@ INT disk_isr(UNUSED interrupt_frame_t *frame) {
         buf->flag &= ~BUF_DIRTY;
         buf->flag |= BUF_VALID;
 
-        cache.page_writing = NULL;
         buf->timestamp = cur_timestamp();
+        cache.page_writing = NULL;
 
-        rwlock_wLock(&cache.list.rwlock);
-        list_del(&buf->list);
-        list_add_next(&buf->list, &cache.list.head);
-        rwlock_wUnlock(&cache.list.rwlock);
-
-        wakeup();
+        assertk(cache.thread);
+        unblock_thread(cache.thread);
+        cache.thread = NULL;
     }
     pic2_eoi(32 + 14);
 }
@@ -213,22 +219,41 @@ static void page_flush(buf_t *buf) {
     _sleeplock_unlock(&buf->rwlock);
 }
 
-_Noreturn static void *page_flush_worker() {
+static void flush_pages() {
+    // TODO: 脏页排序再写入
     buf_t *buf;
-    list_head_t *head;
+    lfq_node *node;
+
+    while ((node = lfQueue_get(&cache.dirty))) {
+        buf = buf_dirty_entry(node);
+        page_flush(buf);
+    }
+}
+
+static void flush_inode() {
+    lfq_node *node;
+    inode_t *inode;
+    node = lfQueue_get(&cache.inode_dirty);
+    if (node) {
+        inode = inode_dirty_entry(node);
+        inode->ops->write_super_block(inode->sb);
+        inode->ops->write_back(inode);
+    }
+    while ((node = lfQueue_get(&cache.inode_dirty))) {
+        inode = inode_dirty_entry(node);
+        inode->ops->write_back(inode);
+    }
+}
+
+void page_fsync() {
+    flush_inode();
+    flush_pages();
+}
+
+_Noreturn static void *page_flush_worker() {
+
     while (1) {
-        // TODO: 脏页排序再写入
-        rwlock_rLock(&cache.list.rwlock);
-        list_for_each(head, &cache.list.head) {
-            buf = buf_entry(head);
-            if (buf->flag & BUF_DIRTY) {
-                // 必须先释放读锁,否则 irs 中的写锁死锁
-                rwlock_rUnlock(&cache.list.rwlock);
-                page_flush(buf);
-                rwlock_rLock(&cache.list.rwlock);
-            }
-        }
-        rwlock_rUnlock(&cache.list.rwlock);
+        page_fsync();
         assertk(ms_sleep(WRITE_BACK_INTERVAL * 1000));
     }
 }
@@ -269,37 +294,44 @@ void page_recycle(u32_t size) {
 
 // 使用下面的函数对 sleeplock 进行加锁,防止加速顺序不同导致死锁
 INLINE void _sleeplock_lock(rwlock_t *lk) {
-    sleeplock_lock(&cache.wait_rw);
+    thread_mutex_lock(&cache.wait_rw);
     rwlock_wLock(lk);
 }
 
 INLINE void _sleeplock_unlock(rwlock_t *lk) {
     rwlock_wUnlock(lk);
-    sleeplock_unlock(&cache.wait_rw);
+    thread_mutex_unlock(&cache.wait_rw);
 }
 
-static void sleep() {
-    spinlock_lock(&cache.sleep.signal);
-    // cache.sleep.thread == NULL,则 wakeup 已经运行
-    if (cache.sleep.thread) {
-        block_thread(NULL, &cache.sleep.signal);
+void mark_inode_dirty(inode_t *inode, enum inode_state state) {
+    switch (inode->state) {
+        case I_OLD:
+            inode->state = state;
+            lfQueue_put(&cache.inode_dirty, &inode->dirty);
+            break;
+        case I_NEW:
+            if (state == I_DEL)
+                inode->state = I_DEL;
+            break;
+        case I_DATA:
+            if (state == I_TIME)
+                inode->state = I_NEW;
+            else if (state == I_DEL)
+                inode->state = I_DEL;
+            break;
+        case I_TIME:
+            if (state == I_DATA)
+                inode->state = I_NEW;
+            else if (state == I_DEL)
+                inode->state = I_DEL;
+            break;
+        case I_DEL:
+            break;
+        default:
+            // 刚创建的新 inode
+            inode->state = state;
+            lfQueue_put(&cache.inode_dirty, &inode->dirty);
     }
-    spinlock_unlock(&cache.sleep.signal);
-}
-
-// wakeup 在中断处理程序中调用,在中断程序中使用自旋锁可能会造成死锁
-// wakeup 使用 trylock 而不是 spinlock_lock,
-// 如果过获取到锁,则 sleep 调用线程运行到 spinlock_lock 前,
-// 或者线程已经睡眠,因此尝试唤醒线程
-// 如果没有获取到锁那么 sleep 调用线程运行到 lock 与 block_thread 之间,
-// 如果 block_thread 检测到传入的锁没有被上锁,则不会睡眠
-static void wakeup() {
-    assertk(cache.sleep.thread);
-    if (spinlock_trylock(&cache.sleep.signal)) {
-        unblock_thread(cache.sleep.thread);
-        cache.sleep.thread = NULL;
-    }
-    spinlock_unlock(&cache.sleep.signal);
 }
 
 // ============ test =========
@@ -307,7 +339,7 @@ static void wakeup() {
 // data 放 test_ide_rw 函数里面会导致栈(4096 byte)溢出
 uint8_t tmp[BUF_SIZE];
 
-static u8_t list_cnt() {
+UNUSED static u8_t list_cnt() {
     u8_t cnt = 0;
     for (list_head_t *hdr = cache.list.head.next; hdr != &cache.list.head; hdr = hdr->next) {
         cnt++;
@@ -321,7 +353,7 @@ static u8_t list_cnt() {
     }\
 }
 
-void test_ide_rw() {
+UNUSED void test_ide_rw() {
     test_start
     disk.start = ide_start;
     disk.isr = ide_isr;
@@ -335,7 +367,7 @@ void test_ide_rw() {
     q_memcpy(tmp, buf0->data, BUF_SIZE);
 
     q_memset(buf0->data, 1, BUF_SIZE);
-    page_write(buf0);
+    mark_page_dirty(buf0);
     page_flush(buf0);
     page_read_sync(buf1);
 //    assert_cmp(buf1, 1);
@@ -344,13 +376,13 @@ void test_ide_rw() {
     }
 
     q_memset(buf0->data, 2, BUF_SIZE);
-    page_write_sync(buf0);
+    page_sync(buf0);
     page_read_sync(buf1);
     assert_cmp(buf1, 2);
 
     //恢复初始值
     q_memcpy(buf0->data, tmp, BUF_SIZE);
-    page_write_sync(buf0);
+    page_sync(buf0);
     page_read_sync(buf1);
     assertk(q_memcmp(tmp, buf1->data, BUF_SIZE));
 
@@ -359,27 +391,6 @@ void test_ide_rw() {
     recycle(buf1);
     test_pass
 }
-
-//void test_dma_rw() {
-//    test_start
-////    assertk(dma_dev.dma);
-////    disk.rw = dma_rw;
-////    disk.isr = dma_isr_handler;
-//
-//    uint8_t data[SECTOR_SIZE];
-//    q_memset(data, 2, SECTOR_SIZE);
-//    buf_t *buf = bio_get(1);
-//    buf_t *buf2 = bio_get(2);
-//    buf2->no_secs = 1;
-//
-//    bio_write(buf, data);
-//    bio_read_sync(buf2);
-//    assertk(q_memcmp(data, buf2->data, SECTOR_SIZE));
-//
-//    bio_free(buf);
-//    bio_free(buf2);
-//    test_pass
-//}
 
 
 #endif // TEST

@@ -2,16 +2,16 @@
 // Created by pjs on 2021/4/8.
 //
 
-#include "sched/sleeplock.h"
+#include "sched/thread_mutex.h"
 #include "sched/kthread.h"
 
 
-void sleeplock_init(sleeplock_t *lock) {
+void thread_mutex_init(thread_mutex_t *lock) {
     spinlock_init(&lock->lock);
     list_header_init(&lock->sleep);
 }
 
-void sleeplock_lock(sleeplock_t *lock) {
+void thread_mutex_lock(thread_mutex_t *lock) {
     spinlock_lock(&lock->lock);
     while (lock->locked) {
         block_thread(&lock->sleep, &lock->lock);
@@ -20,7 +20,7 @@ void sleeplock_lock(sleeplock_t *lock) {
     spinlock_unlock(&lock->lock);
 };
 
-void sleeplock_unlock(sleeplock_t *lock) {
+void thread_mutex_unlock(thread_mutex_t *lock) {
     spinlock_lock(&lock->lock);
     assertk(lock->locked);
     lock->locked = false;

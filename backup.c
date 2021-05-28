@@ -2,8 +2,8 @@
 // Created by pjs on 2021/5/23.
 //
 #include "fs/ext2/write_back.h"
-#include "fs/ext2/ext2.h"
-#include "fs/page_cache.h"
+#include "fs/ext2.h"
+#include "fs/writeback.h"
 #include "types.h"
 #include "lib/qlib.h"
 #include "fs/buf.h"
@@ -99,7 +99,7 @@ static inode_t *inode2vnode(ext2_inode_t *inode, ext2_dir_t *dir);
 
 #define block_read(blk_no)      page_read_no(BLOCK2LBA(blk_no))
 
-#define block_write(buf)        page_write(buf)
+#define block_write(buf)        mark_page_dirty(buf)
 
 #define DIR_END(dir)            (((dir) & (~(BLOCK_SIZE-1))) + BLOCK_SIZE)
 
@@ -253,69 +253,69 @@ INLINE bool dir_empty(ext2_inode_t *inode) {
 }
 
 void ext2_rmdir(inode_t *dir) {
-//    assertk(parent && name);
-//    u32_t cur_time;
-//    buf_t *pBuf, *iBuf, *tBuf;
-//
-//    // 查找
-//    ext2_inode_t *pInode = get_inode(&pBuf, parent->ino);
-//    ext2_dir_t *target = find_dir_entry(&tBuf, pInode, name);
-//    if (target == NULL) assertk(0);
-//    assertk(target->type == EXT2_FT_DIR);
-//    u32_t ino = target->inode;
-//
-//    // 找到对应的 inode ,并判断目录是否为空
-//    ext2_inode_t *inode = get_inode(&iBuf, ino);
-//    assertk(dir_empty(inode));
-//
-//    del_inode(inode, ino);
-//
-//    // 删除目录项
-//    del_dir_entry(target);
-//    block_write(tBuf);
-//    block_write(iBuf);
-//
-//    cur_time = cur_timestamp();
-//    pInode->accessTime = cur_time;
-//    pInode->modTime = cur_time;
-//    pInode->linkCnt--;
-//    block_write(pBuf);
-//
-//    // 同步元数据
-//    groupDesc_t *desc = get_descriptor(ino);
-//    desc->dirNum--;
-//    write_descriptor(ino);
-//
-//    ext2_sb_t *blk = get_superBlock();
-//    blk->writtenTime = cur_time;
-//    write_superBlock();
+    assertk(parent && name);
+    u32_t cur_time;
+    buf_t *pBuf, *iBuf, *tBuf;
+
+    // 查找
+    ext2_inode_t *pInode = get_inode(&pBuf, parent->ino);
+    ext2_dir_t *target = find_dir_entry(&tBuf, pInode, name);
+    if (target == NULL) assertk(0);
+    assertk(target->type == EXT2_FT_DIR);
+    u32_t ino = target->inode;
+
+    // 找到对应的 inode ,并判断目录是否为空
+    ext2_inode_t *inode = get_inode(&iBuf, ino);
+    assertk(dir_empty(inode));
+
+    del_inode(inode, ino);
+
+    // 删除目录项
+    del_dir_entry(target);
+    block_write(tBuf);
+    block_write(iBuf);
+
+    cur_time = cur_timestamp();
+    pInode->accessTime = cur_time;
+    pInode->modTime = cur_time;
+    pInode->linkCnt--;
+    block_write(pBuf);
+
+    // 同步元数据
+    groupDesc_t *desc = get_descriptor(ino);
+    desc->dirNum--;
+    write_descriptor(ino);
+
+    ext2_sb_t *blk = get_superBlock();
+    blk->writtenTime = cur_time;
+    write_superBlock();
 }
 
 // 硬链接不能指向目录
 void ext2_link(inode_t *src, inode_t *parent, const char *name) {
-//    buf_t *pBuf1, *pBuf2, *tBuf1, *tBuf2, *tgBuf;
-//    ext2_inode_t *p1Inode = get_inode(&pBuf1, parent->ino);
-//    ext2_dir_t *target = find_dir_entry(&tBuf1, p1Inode, target_name);
-//    if (!target || (target->type & EXT2_FT_DIR)) return;
-//
-//    ext2_inode_t *p2Inode = get_inode(&pBuf2, parent2->ino);
-//    ext2_dir_t *foo = find_dir_entry(&tBuf2, p2Inode, new_name);
-//    if (foo) return;
-//
-//    u32_t cur_time = cur_timestamp();
-//
-//    ext2_inode_t *tin = get_inode(&tgBuf, target->inode);
-//    tin->linkCnt++;
-//    tin->modTime = cur_time;
-//
-//    p1Inode->accessTime = cur_time;
-//    p2Inode->accessTime = cur_time;
-//    p2Inode->modTime = cur_time;
-//
-//    create_dir_entry(p2Inode, new_name, target->inode, target->type);
-//    block_write(pBuf1);
-//    block_write(pBuf2);
-//    block_write(tgBuf);
+    buf_t *pBuf1, *pBuf2, *tBuf1, *tBuf2, *tgBuf;
+    ext2_inode_t *p1Inode = get_inode(&pBuf1, parent->ino);
+    ext2_dir_t *target = find_dir_entry(&tBuf1, p1Inode, target_name);
+    if (!target || (target->type & EXT2_FT_DIR)) return;
+
+    ext2_inode_t *p2Inode = get_inode(&pBuf2, parent2->ino);
+    ext2_dir_t *foo = find_dir_entry(&tBuf2, p2Inode, new_name);
+    if (foo) return;
+
+    u32_t cur_time = cur_timestamp();
+
+    ext2_inode_t *tin = get_inode(&tgBuf, target->inode);
+    tin->linkCnt++;
+    tin->modTime = cur_time;
+
+    p1Inode->accessTime = cur_time;
+    p2Inode->accessTime = cur_time;
+    p2Inode->modTime = cur_time;
+
+    create_dir_entry(p2Inode, new_name, target->inode, target->type);
+    block_write(pBuf1);
+    block_write(pBuf2);
+    block_write(tgBuf);
 }
 
 void ext2_chmod() {

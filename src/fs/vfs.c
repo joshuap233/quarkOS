@@ -1,60 +1,50 @@
 //
 // Created by pjs on 2021/5/13.
 //
+// TODO: 所有需要操作的父目录与文件添加引用计数,防止被回收
+#include <fs/vfs.h>
+#include <sched/tcb.h>
+#include <lib/qstring.h>
+#include <mm/kmalloc.h>
+#include <fs/writeback.h>
 
-#include "fs/vfs.h"
-#include "fs/ext2/ext2.h"
-#include "sched/tcb.h"
-#include "lib/qstring.h"
-#include "mm/kmalloc.h"
+inode_t *vfs_find(char *path);
 
+static char *split_path(char *path, inode_t **parent);
+
+static char *parse_path(const char *path);
+
+static directory_t *find_dir(char *path);
+
+//记录挂载点
 struct vfs_tree {
     struct vfs_tree *child, *next;
 
-    inode_t *inode;
-    char *path;
+    directory_t *dir;
 };
 
-
 struct vfs_tree *vfs_tree;
-struct vfs_ops fs_ops;
+struct vfs_ops vfs_ops;
 
 static inode_t *cwd(const char *path) {
     if (path[0] == SEPARATOR) {
-        assertk(vfs_tree);
-        return vfs_tree->inode;
+        assertk(vfs_tree && vfs_tree->dir && vfs_tree->dir->inode);
+        return vfs_tree->dir->inode;
     } else {
         return CUR_TCB->cwd;
     }
 }
 
-inode_t *vfs_find(const char *_path) {
-    char *path = q_strdup(_path);
-    char *cpy = path;
+inode_t *vfs_open(const char *_path) {
+    char *path = parse_path(_path);
 
-    inode_t *parent = cwd(path), *inode;
+    inode_t *inode = vfs_find(path);
+    assertk(inode);
+    inode->ops->open(inode);
+    inode->refCnt++;
 
-    while (path[0]) {
-        int i = 0;
-        for (; path[i] && path[i] != SEPARATOR; ++i);
-        path[i] = '\0';
-        inode = parent->ops->find(parent, path);
-        if (!inode) {
-            kfree(cpy);
-            return NULL;
-        };
-        path = path + i + 1;
-    }
-
-    kfree(cpy);
+    kfree(path);
     return inode;
-}
-
-
-void vfs_open(const char *path) {
-    inode_t *node = vfs_find(path);
-    node->ops->open(node);
-    node->refCnt++;
 }
 
 void vfs_close(inode_t *node) {
@@ -64,6 +54,7 @@ void vfs_close(inode_t *node) {
         node->ops->close(node);
     }
 }
+
 
 u32_t vfs_read(inode_t *node, uint32_t size, char *buf) {
     u32_t rdSize;
@@ -102,139 +93,243 @@ void vfs_lseek(inode_t *node, u32_t offset, enum SEEK_WHENCE whence) {
         case SEEK_CUR:
             node->offset += offset;
             break;
-        default: assertk("seek error");
+        default: error("seek error");
     }
 }
 
+void vfs_mkdir(const char *_path) {
+    inode_t *parent;
+    char *path = parse_path(_path);
+
+    char *name = split_path(path, &parent);
+    parent->ops->mkdir(parent, name);
+
+    kfree(path);
+}
+
+
+void vfs_rmdir(const char *_path) {
+    char *path = parse_path(_path);
+
+    inode_t *node = vfs_find(path);
+    assertk(node);
+    node->ops->rmdir(node);
+
+    kfree(path);
+}
+
+void vfs_mkfile(const char *_path) {
+    inode_t *parent;
+    char *path = parse_path(_path);
+
+    char *name = split_path(path, &parent);
+    parent->ops->mkfile(parent, name);
+
+    kfree(path);
+}
+
+
+void vfs_unlink(const char *_path) {
+    inode_t *parent;
+    char *path = parse_path(_path);
+
+    char *name = split_path(path, &parent);
+    directory_t *dir = find_dir(name);
+    assertk(dir);
+    parent->ops->unlink(parent, dir);
+
+    kfree(path);
+}
+
+void vfs_link(const char *src, const char *desc) {
+    char *n_src = parse_path(src);
+    char *n_desc = parse_path(desc);
+
+    inode_t *sInode = vfs_find(n_src);
+    assertk(sInode);
+    inode_t *inode;
+    char *name = split_path(n_desc, &inode);
+    inode->ops->link(sInode, inode, name);
+
+    kfree(n_desc);
+    kfree(n_src);
+}
+
+void vfs_ls(const char *_path) {
+    char *path = parse_path(_path);
+
+    inode_t *inode = vfs_find(path);
+    assertk(inode);
+    inode->ops->ls(inode);
+
+    kfree(path);
+}
+
+static directory_t *find_dir(char *path) {
+    int i = 0;
+
+    inode_t *parent = cwd(path);
+    directory_t *dir;
+
+    while (path[0]) {
+        if (path[0] == SEPARATOR)
+            path++;
+        for (; path[i] && path[i] != SEPARATOR; ++i);
+        path[i] = '\0';
+        dir = parent->ops->find(parent, path);
+        if (!dir) return NULL;
+        path = path + i;
+    }
+
+    return dir;
+}
+
+inode_t *vfs_find(char *path) {
+    directory_t *dir = find_dir(path);
+    assertk(dir && dir->ops);
+    dir->ops->inode_mount(dir);
+    return dir->inode;
+}
+
+static char *parse_path(const char *path) {
+    u32_t len = q_strlen(path) + 1;
+    char *new = kmalloc(len);
+    q_memcpy(new, path, len + 1);
+    if (new[len - 1] == SEPARATOR) {
+        new[len - 1] = '\0';
+    }
+    return new;
+}
 
 // 返回需要操作的 文件/目录名, parent 为父目录
-const char *path_parse(const char *_path, inode_t **parent) {
-    char *path = q_strdup(_path);
+static char *split_path(char *path, inode_t **parent) {
     u32_t len = q_strlen(path);
-    assertk(path[len] != SEPARATOR);
     int64_t i = len;
-    for (; i >= 0 && path[len] != SEPARATOR; --i);
+
+    for (; i >= 0 && path[i] != SEPARATOR; --i);
 
     if (i <= 0) {
         *parent = cwd(path);
     } else {
-        path[len] = '\0';
+        path[i] = '\0';
         *parent = vfs_find(path);
         assertk(*parent);
     }
-
-    return _path + len + 1;
-}
-
-void vfs_mkdir(const char *path) {
-    inode_t *parent;
-    const char *name = path_parse(path, &parent);
-    parent->ops->mkdir(parent, name);
-}
-
-void vfs_rmdir(const char *path) {
-    inode_t *node = vfs_find(path);
-    node->ops->rmdir(node);
-}
-
-void vfs_mkfile(const char *path) {
-    inode_t *parent;
-    const char *name = path_parse(path, &parent);
-    parent->ops->mkfile(parent, name);
+    return path + i + 1;
 }
 
 
-void vfs_unlink(const char *path) {
-    inode_t *node = vfs_find(path);
-    node->ops->unlink(node);
+char *dir_name_dump(directory_t *dir) {
+    char *name = kmalloc(dir->nameLen + 1);
+    u32_t cpy = MIN(dir->nameLen, FILE_DNAME_LEN);
+    q_memcpy(name, dir->l_name, cpy);
+    if (cpy > FILE_DNAME_LEN) {
+        q_memcpy(name + dir->nameLen - cpy, dir->h_name, dir->nameLen - cpy);
+    }
+    name[dir->nameLen] = '\0';
+    return name;
 }
 
+void dir_name_set(directory_t *dir, const char *name) {
+    u32_t len = q_strlen(name);
+    u32_t cpy = MIN(len, FILE_DNAME_LEN);
+    assertk(len <= FILE_NAME_LEN);
 
-void vfs_link(const char *src, const char *desc) {
-    inode_t *sInode = vfs_find(src);
-    inode_t *inode;
-    const char *name = path_parse(desc, &inode);
-    inode->ops->link(sInode, inode, name);
+    q_memcpy(dir->l_name, name, cpy);
+    dir->h_name = NULL;
+    dir->nameLen = len;
+    if (len > FILE_DNAME_LEN) {
+        dir->h_name = kmalloc(len - cpy);
+        q_memcpy(dir->h_name, name + cpy, len - cpy);
+    }
 }
 
-void vfs_ls(const char *path) {
-    inode_t *inode = vfs_find(path);
-    inode->ops->ls(inode);
+bool dir_name_cmp(directory_t *dir, const char *name) {
+    u32_t len = MIN(FILE_DNAME_LEN, dir->nameLen);
+    if (!q_memcmp(dir->l_name, name, len)) {
+        return false;
+    }
+
+    if (len > FILE_DNAME_LEN) {
+        assertk(dir->h_name);
+        if (!q_memcmp(dir->h_name, name + len, dir->nameLen - len))
+            return false;
+    }
+    return true;
 }
 
-void vfs_umount() {
-
+/*----  挂载 ----*/
+directory_t *get_mount_point(UNUSED char *path) {
+    //TODO
+    return vfs_tree->dir;
 }
 
-struct vfs_tree *vfs_new_node(inode_t *node, char *path) {
+struct vfs_tree *vfs_new_node(directory_t *dir) {
     struct vfs_tree *new = kmalloc(sizeof(struct vfs_tree));
     new->child = NULL;
-    new->next = new;
-    new->inode = node;
-    new->path = path;
+    new->next = NULL;
+    new->dir = dir;
     return new;
 }
 
 void vfs_mount(char *_path, inode_t *inode) {
     assertk(inode);
-    char *path = q_strdup(_path);
     size_t len = q_strlen(_path);
-    struct vfs_tree *node = vfs_tree;
 
     if (vfs_tree == NULL) {
         if (len == 1 && _path[0] == '/') {
-            vfs_tree = vfs_new_node(inode, path);
+            vfs_tree = vfs_new_node(inode->dir);
             return;
         }
-        assertk("error param");
+        error("error param");
     }
-
-    if (path[len] == '/') path[len] = '\0';
-
-
-    int i = 0;
-    while (true) {
-        for (; node->path[i] && path[i] && node->path[i] == path[i]; ++i);
-        if (!node->path[i]) {
-            assertk(path[i]);
-            if (node->child) {
-                node = node->child;
-            } else {
-                struct vfs_tree *new = vfs_new_node(inode, path);
-                node->child = new;
-            }
-        } else {
-            struct vfs_tree *new = vfs_new_node(inode, path);
-            new->next = node->next;
-            node->next = new;
-            return;
-        }
-    }
+    //TODO:挂载
 }
 
+void vfs_umount() {
+    //TODO:
+}
 
 void vfs_init() {
     vfs_tree = NULL;
-    fs_ops.find = vfs_find;
-    fs_ops.open = vfs_open;
-    fs_ops.close = vfs_close;
-    fs_ops.read = vfs_read;
-    fs_ops.write = vfs_write;
-    fs_ops.lseek = vfs_lseek;
-    fs_ops.mkdir = vfs_mkdir;
-    fs_ops.rmdir = vfs_rmdir;
-    fs_ops.mkfile = vfs_mkfile;
-    fs_ops.unlink = vfs_unlink;
-    fs_ops.link = vfs_link;
-    fs_ops.ls = vfs_ls;
-    fs_ops.umount = vfs_umount;
-    fs_ops.mount = vfs_mount;
+    vfs_ops.open = vfs_open;
+    vfs_ops.close = vfs_close;
+    vfs_ops.read = vfs_read;
+    vfs_ops.write = vfs_write;
+    vfs_ops.lseek = vfs_lseek;
+    vfs_ops.mkdir = vfs_mkdir;
+    vfs_ops.rmdir = vfs_rmdir;
+    vfs_ops.mkfile = vfs_mkfile;
+    vfs_ops.unlink = vfs_unlink;
+    vfs_ops.link = vfs_link;
+    vfs_ops.ls = vfs_ls;
+    vfs_ops.umount = vfs_umount;
+    vfs_ops.mount = vfs_mount;
 }
 
 
 #ifdef TEST
+static char charBuf[4097] = "";
 
 void test_vfs() {
+    vfs_ops.mkdir("/foo");
+    vfs_ops.mkdir("/foo2");
+    vfs_ops.mkdir("/foo3");
+
+    vfs_ops.rmdir("/foo3");
+    page_fsync();
+
+    // 测试读,需要预先创建文件
+    inode_t *read = vfs_ops.open("/txt");
+    vfs_ops.read(read, 4097, charBuf);
+
+    // 测试写
+    vfs_ops.mkfile("/foo/txt");
+    inode_t *txt = vfs_ops.open("/foo/txt");
+    vfs_ops.write(txt, 4097, charBuf);
+
+    vfs_ops.link("/foo/txt", "/foo2/hh");
+    vfs_ops.unlink("/foo/txt");
 
 }
 

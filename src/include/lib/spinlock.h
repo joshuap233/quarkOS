@@ -8,20 +8,41 @@
 #include <types.h>
 #include <x86.h>
 
+#ifndef SMP
+
+#include <lib/irlock.h>
+
+#endif //SMP
+
 extern uint32_t test_and_set(uint32_t *flag);
 
 
-// 自旋锁不能保证公平性,即每个线程都能进入临界区
-// 可用于临界区较短的代码
+#ifdef SMP
+
 typedef struct spinlock {
 #define SPINLOCK_LOCKED 1
 #define SPINLOCK_UNLOCK 0
     uint32_t flag;
 } spinlock_t;
 
+INLINE bool spinlock_locked(spinlock_t *lock) {
+    return lock->flag  == SPINLOCK_LOCKED;
+}
+
+
 INLINE void spinlock_init(spinlock_t *lock) {
     lock->flag = SPINLOCK_UNLOCK;
 }
+
+
+INLINE void spinlock_unlock(spinlock_t *lock) {
+    lock->flag = 0;
+}
+
+INLINE bool spinlock_trylock(spinlock_t *lock) {
+    return test_and_set(&lock->flag) != SPINLOCK_LOCKED;
+}
+
 
 INLINE void spinlock_lock(spinlock_t *lock) {
     while (test_and_set(&lock->flag) == SPINLOCK_LOCKED) {
@@ -30,12 +51,38 @@ INLINE void spinlock_lock(spinlock_t *lock) {
     opt_barrier();
 }
 
-INLINE bool spinlock_trylock(spinlock_t *lock) {
-    return test_and_set(&lock->flag) != SPINLOCK_LOCKED;
+
+#else
+
+typedef ir_lock_t spinlock_t;
+
+INLINE bool spinlock_locked(spinlock_t *lock) {
+    return lock->ir_enable & INTERRUPT_MASK;
 }
 
-INLINE void spinlock_unlock(spinlock_t *lock) {
-    lock->flag = 0;
+
+INLINE void spinlock_init(UNUSED spinlock_t *lock) {
 }
+
+
+INLINE void spinlock_unlock(spinlock_t *lock) {
+    ir_unlock(lock);
+}
+
+INLINE bool spinlock_trylock(spinlock_t *lock) {
+    if (lock->ir_enable & INTERRUPT_MASK) {
+        ir_lock(lock);
+        return true;
+    }
+    return false;
+}
+
+
+INLINE void spinlock_lock(spinlock_t *lock) {
+    ir_lock(lock);
+}
+
+#endif //SMP
+
 
 #endif //QUARKOS_LIB_SPINLOCK_H

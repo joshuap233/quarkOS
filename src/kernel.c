@@ -75,14 +75,13 @@ void kernel_main() {
     enable_interrupt();
 
     // 需要在中断开启之后
-    ext2_init();
     vfs_init();
+    ext2_init();
 
 #ifdef TEST
 //    test_ide_rw();
 //    test_dma_rw();
     test_vfs();
-//    test_ext2();
 
     test_thread();
 #endif // TEST

@@ -5,11 +5,11 @@
 #ifndef QUARKOS_FS_BUF_H
 #define QUARKOS_FS_BUF_H
 
-#include "types.h"
-#include "sched/sleeplock.h"
-#include "lib/list.h"
-#include "mm/mm.h"
-#include "lib/rwlock.h"
+#include <types.h>
+#include <lib/list.h>
+#include <mm/mm.h>
+#include <lib/rwlock.h>
+#include <lib/queue.h>
 
 /*
  * BUF_DIRTY: 数据需要更新
@@ -25,6 +25,8 @@ typedef struct buf {
 #define SECTOR_SIZE 512
 #define BUF_SIZE    PAGE_SIZE
     list_head_t list;
+    lfq_node dirty;
+
     u32_t timestamp;
 
     void *data;
@@ -33,12 +35,10 @@ typedef struct buf {
     uint16_t ref_cnt;
     uint32_t no_secs;
 
-    u32_t index;      // inode 连续块编号
-    list_head_t page; // 用于 vfs inode
     rwlock_t rwlock;
 } buf_t;
 
-#define buf_entry(ptr) list_entry(ptr,buf_t,list)
-#define page_entry(ptr) list_entry(ptr,buf_t,page)
+#define buf_entry(ptr)   list_entry(ptr,buf_t,list)
+#define buf_dirty_entry(ptr) list_entry(ptr,buf_t,dirty)
 
 #endif //QUARKOS_FS_BUF_H

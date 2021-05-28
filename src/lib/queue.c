@@ -1,44 +1,48 @@
 //
 // Created by pjs on 2021/5/9.
 //
-// https://coolshell.cn/articles/8239.html
-// lock-free queue
 #include "lib/queue.h"
+#include <lib/spinlock.h>
 
+void lfQueue_node_init(lfq_node *node) {
+    node->next = NULL;
+}
 
-#define compare_and_swap __sync_bool_compare_and_swap
 
 // dummy 为空节点,不包含数据
-void lfQueue_init(lf_queue *queue, lfq_node *dummy) {
+void lfQueue_init(lf_queue *queue) {
+    lfq_node *dummy = &queue->dummy;
     dummy->next = NULL;
     queue->head = dummy;
     queue->tail = dummy;
+    spinlock_init(&queue->lock);
 }
 
-void lfq_node_init(lfq_node *node) {
-    node->next = NULL;
-}
-
-// 入队
 void lfQueue_put(lf_queue *queue, lfq_node *node) {
+    spinlock_lock(&queue->lock);
+
+    if (queue->head->next == NULL) {
+        queue->head->next = node;
+    } else {
+        queue->tail->next = node;
+    }
     node->next = NULL;
-    lfq_node *tail;
-    do {
-        tail = queue->tail;
-    } while (!compare_and_swap(&tail->next, NULL, node));
+    queue->tail = node;
 
-    compare_and_swap(&queue->tail, tail, node);
+    spinlock_unlock(&queue->lock);
 }
-
 
 // 出队
 lfq_node *lfQueue_get(lf_queue *queue) {
-    lfq_node *head;
-    do {
-        head = queue->head;
-        if (head->next == NULL)
-            return NULL;
-    } while (!compare_and_swap(&queue->head, head, head->next));
-    return head->next;
+    spinlock_lock(&queue->lock);
+
+    lfq_node *next;
+    next = queue->head->next;
+    if (next == NULL)
+        return NULL;
+    queue->head->next = next->next;
+
+    spinlock_unlock(&queue->lock);
+    return next;
 }
 

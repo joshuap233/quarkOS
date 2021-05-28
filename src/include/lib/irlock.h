@@ -17,10 +17,12 @@ INLINE void ir_lock(ir_lock_t *lock) {
     // 只会禁用当前线程中断
     if (lock->ir_enable)
         disable_interrupt();
+    opt_barrier();
 }
 
 INLINE void ir_unlock(ir_lock_t *lock) {
     if (lock->ir_enable)
         enable_interrupt();
 }
+
 #endif //QUARKOS_LIB_IRLOCK_H

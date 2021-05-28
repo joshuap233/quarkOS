@@ -29,7 +29,7 @@ typedef struct treeNode {
 
 static node_t *sortedArrayToBST(u16_t start, u16_t size);
 
-static node_t *bst_search(node_t *node, u32_t pn);
+static node_t *bst_search(node_t *root, u32_t pn);
 
 static node_t *bst_delete(node_t *root, u32_t pn, node_t **del);
 
@@ -135,7 +135,7 @@ ptr_t pm_alloc(u32_t size) {
 u32_t pm_chunk_size(ptr_t addr) {
     assertk(addr >= pmm.addr && (addr & PAGE_MASK) == 0)
     u32_t pn = (addr - pmm.addr) >> 12;
-    node_t *node = bst_search(node, pn);
+    node_t *node = bst_search(pmm.allocated, pn);
     assertk(node);
     return PAGE_SIZE * SIZE(node->sizeLog);
 }
@@ -187,11 +187,11 @@ static node_t *sortedArrayToBST(u16_t start, u16_t size) {
     return root;
 }
 
-static node_t *bst_search(node_t *node, u32_t pn) {
-    assertk(node);
-    while (node != NULL) {
-        if (node->pn == pn) return node;
-        node = NEXT_NODE(node, pn);
+static node_t *bst_search(node_t *root, u32_t pn) {
+    assertk(root);
+    while (root != NULL) {
+        if (root->pn == pn) return root;
+        root = NEXT_NODE(root, pn);
     }
     return NULL;
 }
@@ -245,7 +245,7 @@ static node_t *bst_insert(node_t *root, node_t *target) {
     return root;
 }
 
-static void bst_print(node_t *root) {
+UNUSED static void bst_print(node_t *root) {
     if (!root) return;
     bst_print(root->left);
     printfk("%u,", ((uint32_t *) root)[0] >> 8);

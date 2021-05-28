@@ -10,3 +10,4 @@ test.c
 disk/
 TODO.md
 image/
+backup.c

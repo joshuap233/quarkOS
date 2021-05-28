@@ -5,24 +5,16 @@
 #ifndef QUARKOS_FS_EXT2_H
 #define QUARKOS_FS_EXT2_H
 
-#include "types.h"
-#include "fs/vfs.h"
+#include <lib/qlib.h>
+#include <types.h>
+#include <fs/vfs.h>
 
 #define ROOT_INUM            2 // 根目录的 inode 索引, inode 索引从 1 开始
 
-#define BLOCK_SIZE           4096
-#define INODE_SIZE           256
-#define INODE_PER_BLOCK      (BLOCK_SIZE/INODE_SIZE)
 #define SUPER_BLOCK_NO       2
-#define BLOCK_PER_GROUP      (BLOCK_SIZE*8)
-#define DESCRIPTOR_PER_BLOCK (BLOCK_SIZE/sizeof(groupDesc_t))
 #define N_DIRECT_BLOCK       12                         // 直接指针数量
-#define N_PTR                (BLOCK_SIZE/sizeof(u32_t)) // 块内指针数量
-#define SECTOR_PER_BLOCK     (BLOCK_SIZE/SECTOR_SIZE)
 #define N_BLOCKS             (N_DIRECT_BLOCK+3)
 
-
-#define SEPARATOR            '/'
 
 typedef struct ext2_superBlock {
 #define EXT2_SIGNATURE 0xef53
@@ -148,7 +140,7 @@ typedef struct ext2_group_desc {
     u16_t freeInodesCnt;
     u16_t dirNum;               // 组中目录数
     u8_t unused[14];
-} groupDesc_t;
+} ext2_gd_t;
 
 typedef struct ext2_inode {
     u16_t mode;                 // 权限与类型
@@ -212,6 +204,7 @@ typedef struct ext2_inode {
 #define EXT2_IXOTH    0x0001    //others execute
 
 #define EXT2_ALL_RWX  (EXT2_IRUSR|EXT2_IWUSR|EXT2_IXUSR|EXT2_IRGRP|EXT2_IWGRP|EXT2_IXGRP|EXT2_IROTH|EXT2_IXOTH)
+
 /* ------------- end mode --------- */
 
 
@@ -232,7 +225,7 @@ typedef struct ext2_directory_entry {
 } PACKED ext2_dir_t;
 
 /* ---------- type ----------- */
-//目录项指向的文件类型
+//目录项指向的文件的类型
 #define EXT2_FT_UNKNOWN            0
 #define EXT2_FT_REG_FILE           1
 #define EXT2_FT_DIR                2
@@ -250,13 +243,10 @@ typedef struct ext2_sb_info {
     u32_t version;
     u32_t groupCnt;
     struct info_descriptor {
-        buf_t *blockBitmap;
-        buf_t *inodeBitmap;
+        u32_t inodeBitmapAddr;
+        u32_t blockBitmapAddr;
         u32_t inodeTableAddr;
-        u16_t freeBlockCnt;
-        u16_t freeInodesCnt;
-        u16_t dirNum;               // 组中目录数
-    } *desc;
+    } desc[0];
 } ext2_sb_info_t;
 
 
@@ -267,17 +257,84 @@ typedef struct ext2_inode_info {
     u32_t blocks[N_BLOCKS];
 } ext2_inode_info_t;
 
-typedef directory_t ext2_dir_info_t;
+INLINE ext2_inode_info_t *ext2_i(inode_t *inode) {
+    return container_of(inode, ext2_inode_info_t, inode);
+}
 
-#define ext2_i(ptr) container_of(ptr, ext2_inode_info_t, inode)
-#define ext2_s(ptr) container_of(ptr, ext2_sb_info_t, sb)
+INLINE ext2_sb_info_t *ext2_s(super_block_t *sb) {
+    return container_of(sb, ext2_sb_info_t, sb);
+}
 
-#define EXT2_BLOCK2LBA(block_no)     (BLOCK_SIZE / SECTOR_SIZE * (block_no))
+#define EXT2_BLOCK2LBA(block_no, sb)     ((sb)->blockSize / SECTOR_SIZE * (block_no))
 
 #define EXT2_INODE2GROUP(ino, sb)    (((ino)-1) / (sb)->inodePerGroup)
 
-#define ext2_block_read(blk_no)      page_read_no(EXT2_BLOCK2LBA(blk_no))
+#define ext2_block_read(blk_no, sb)      page_read_no(EXT2_BLOCK2LBA(blk_no,sb))
 
-#define ext2_block_write(buf)        page_write(buf)
+extern struct fs_ops ext2_ops;
+extern struct directory_ops ext2_dir_ops;
+
+// super.c
+extern ext2_sb_info_t *superBlock_init();
+
+extern ext2_gd_t *get_raw_gd(buf_t **buf, u32_t gno, super_block_t *sb);
+
+// inode.c
+extern void ext2_inode_init();
+
+extern inode_t *inode_cpy(u32_t ino, super_block_t *sb);
+
+extern inode_t *inode_alloc(inode_t *parent, u16_t mode, const char *name);
+
+extern void inode_delete(inode_t *inode);
+
+// dir.c
+extern directory_t *directory_cpy(ext2_dir_t *src, directory_t *parent);
+
+extern directory_t *directory_alloc(const char *name, u32_t ino, directory_t *parent, inode_t *inode);
+
+extern directory_t *find_entry_disk(inode_t *parent, const char *name);
+
+extern directory_t *find_entry_cache(inode_t *parent, const char *name);
+
+extern void ext2_dir_init();
+
+extern void append_to_parent(inode_t *parent, inode_t *target);
+
+extern void append_link_to_parent(inode_t *parent, directory_t *dir, u16_t type);
+
+extern void make_empty_dir(inode_t *inode);
+
+extern bool dir_empty(inode_t *inode);
+
+void remove_from_parent(inode_t *parent, directory_t *dir);
+
+extern void directory_destroy(directory_t *dir);
+
+// block.c
+extern u32_t set_block_bitmap(inode_t *inode);
+
+extern void clear_block_bitmap(inode_t *inode, u32_t bno);
+
+extern u32_t alloc_block(inode_t *inode, u32_t bno);
+
+extern void free_blocks(inode_t *inode);
+
+extern u32_t get_bid(inode_t *inode, u32_t bno);
+
+#define for_each_block(bid, inode)        for(u32_t bno=0;((bid) = next_block(inode, bno++));)
+
+extern u32_t next_block(ext2_inode_info_t *inode, u32_t bno);
+
+extern int32_t set_next_zero_bit(u8_t *map, u32_t max);
+
+extern u32_t get_data_block_cnt(inode_t *inode);
+
+// ext2
+void ext2_inode_mount(directory_t *dir);
+
+INLINE bool ext2_is_dir(inode_t *inode) {
+    return inode->type & EXT2_IFDIR;
+}
 
 #endif //QUARKOS_FS_EXT2_H

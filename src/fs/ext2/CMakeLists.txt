@@ -1,1 +1,1 @@
-add_library(ext2 OBJECT write_back.c ext2.c block.c)
+add_library(ext2 OBJECT ext2.c block.c dir.c inode.c super.c)

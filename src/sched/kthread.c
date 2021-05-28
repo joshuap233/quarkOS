@@ -232,7 +232,7 @@ int8_t block_thread(list_head_t *_block_list, spinlock_t *lk) {
     if (!_block_list)
         _block_list = &block_list;
     if (lk) {
-        if (lk->flag == SPINLOCK_UNLOCK) {
+        if (!spinlock_locked(&lock)) {
             ir_unlock(&lock);
             return -1;
         };
