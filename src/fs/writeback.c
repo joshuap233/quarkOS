@@ -141,7 +141,7 @@ void mark_page_dirty(buf_t *buf) {
     assertk(buf);
     rwlock_wLock(&buf->rwlock);
 
-    if (!(buf->flag & BUF_DIRTY)){
+    if (!(buf->flag & BUF_DIRTY)) {
         buf->flag |= BUF_DIRTY | BUF_VALID;
         lfQueue_put(&cache.dirty, &buf->dirty);
     }
@@ -327,10 +327,13 @@ void mark_inode_dirty(inode_t *inode, enum inode_state state) {
             break;
         case I_DEL:
             break;
-        default:
+        default: {
+            assertk(state = I_NEW);
             // 刚创建的新 inode
             inode->state = state;
             lfQueue_put(&cache.inode_dirty, &inode->dirty);
+        }
+
     }
 }
 

@@ -227,10 +227,10 @@ u32_t alloc_block(inode_t *inode, u32_t bno) {
         bid = *_bid;
     }
 
-    if (ext2_is_dir(inode)) {
-        inode->size += inode->sb->blockSize;
-    }
-    mark_inode_dirty(inode, I_DATA);
+//    if (ext2_is_dir(inode)) {
+//        inode->size += inode->sb->blockSize;
+//    }
+//    mark_inode_dirty(inode, I_DATA);
     return bid;
 }
 

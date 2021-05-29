@@ -130,6 +130,7 @@ static u32_t ext2_write(inode_t *file, uint32_t offset, uint32_t size, char *buf
     file->size = offset + size;
     q_memcpy(page->data + blkOffset, buf, size);
     mark_page_dirty(page);
+    mark_inode_dirty(file, I_DATA);
     return size;
 
     filetype_error:
@@ -147,8 +148,11 @@ static int32_t ext2_mkdir(inode_t *parent, const char *name) {
 
     new = inode_alloc(parent, EXT2_ALL_RWX | EXT2_IFDIR, name);
     alloc_block(new, 0);
+    new->size = new->sb->blockSize;
+
     make_empty_dir(new);
     append_to_parent(parent, new);
+    mark_inode_dirty(new, I_NEW);
     return 0;
 }
 
@@ -163,6 +167,7 @@ static int32_t ext2_mkfile(inode_t *parent, const char *name) {
 
     new = inode_alloc(parent, EXT2_ALL_RWX | EXT2_IFREG, name);
     append_to_parent(parent, new);
+    mark_inode_dirty(new,I_NEW);
     return 0;
 }
 
@@ -199,7 +204,6 @@ static int32_t ext2_link(inode_t *src, inode_t *parent, const char *name) {
 
     append_link_to_parent(parent, dir, src->type);
     mark_inode_dirty(src, I_DATA);
-
     return 0;
 }
 

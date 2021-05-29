@@ -128,7 +128,7 @@ inode_t *inode_alloc(inode_t *parent, u16_t mode, const char *name) {
     if (isDir) desc->dirNum++;
 
     mark_page_dirty(buf);
-    mark_inode_dirty(inode, I_NEW);
+//    mark_inode_dirty(inode, I_NEW);
     return inode;
 }
 
