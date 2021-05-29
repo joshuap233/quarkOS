@@ -13,37 +13,40 @@
 
 typedef struct super_block super_block_t;
 typedef struct inode inode_t;
+typedef inode_t fd_t;
 typedef struct directory directory_t;
 
 #define FILE_NAME_LEN 128
 #define FILE_DNAME_LEN 40
 
 enum SEEK_WHENCE {
-    SEEK_SET = 0, SEEK_CUR, SEEK_END
+    SEEK_SET = 0,  // 参数 offset 即为新的读写位置.
+    SEEK_CUR,      // 读写位置往后增加 offset 字节.
+    SEEK_END       // 文件尾后再增加 offset 个字节
 };
 
 
 // 所有文件系统必须支持的操作
 struct fs_ops {
-    directory_t *(*find)(inode_t *parent, const char *name);
+    directory_t *(*find)(directory_t *parent, const char *name);
 
-    void (*open)(inode_t *inode);
+    int32_t (*open)(inode_t *inode);
 
-    void (*close)(inode_t *inode);
+    int32_t (*close)(inode_t *inode);
 
     u32_t (*read)(inode_t *file, uint32_t offset, uint32_t size, char *buf);
 
     u32_t (*write)(inode_t *file, uint32_t offset, uint32_t size, char *buf);
 
-    int16_t (*mkdir)(inode_t *parent, const char *name);
+    int32_t (*mkdir)(inode_t *parent, const char *name);
 
-    void (*mkfile)(inode_t *parent, const char *name);
+    int32_t (*mkfile)(inode_t *parent, const char *name);
 
-    void (*rmdir)(inode_t *dir);
+    int32_t (*rmdir)(inode_t *dir);
 
-    void (*link)(inode_t *src, inode_t *parent, const char *name);
+    int32_t (*link)(inode_t *src, inode_t *parent, const char *name);
 
-    void (*unlink)(inode_t *parent, directory_t *dir);
+    int32_t (*unlink)(directory_t *file);
 
     void (*ls)(inode_t *dir);
 
@@ -57,23 +60,23 @@ struct fs_ops {
 struct vfs_ops {
     inode_t *(*open)(const char *path);
 
-    void (*close)(inode_t *node);
+    int32_t (*close)(inode_t *node);
 
     u32_t (*read)(inode_t *node, uint32_t size, char *buf);
 
     u32_t (*write)(inode_t *node, uint32_t size, char *buf);
 
-    void (*lseek)(inode_t *node, u32_t offset, enum SEEK_WHENCE whence);
+    int32_t (*lseek)(inode_t *node, int32_t offset, enum SEEK_WHENCE whence);
 
-    void (*mkdir)(const char *path);
+    int32_t (*mkdir)(const char *path);
 
-    void (*rmdir)(const char *path);
+    int32_t (*rmdir)(const char *path);
 
-    void (*mkfile)(const char *path);
+    int32_t (*mkfile)(const char *path);
 
-    void (*unlink)(const char *path);
+    int32_t (*unlink)(const char *path);
 
-    void (*link)(const char *src, const char *desc);
+    int32_t (*link)(const char *src, const char *desc);
 
     void (*ls)(const char *path);
 
@@ -162,7 +165,7 @@ struct super_block {
 
 bool dir_name_cmp(directory_t *dir, const char *name);
 
-void dir_name_set(directory_t *dir, const char *name);
+void dir_name_set(directory_t *dir, const char *name, u32_t len);
 
 char *dir_name_dump(directory_t *dir);
 

@@ -56,20 +56,33 @@ static inode_t *root_init(super_block_t *sb) {
     return root;
 }
 
-static void ext2_open(inode_t *inode) {
-    assertk(inode);
+static int32_t ext2_open(inode_t *inode) {
+    if (!inode) return -1;
+    return 0;
 }
 
-static void ext2_close(inode_t *inode) {
-    assertk(inode);
+static int32_t ext2_close(inode_t *inode) {
+    if (!inode) return -1;
+    if (ext2_is_dir(inode) && inode->offset != 0) {
+        inode->offset = 0;
+    }
+    return 0;
 }
 
-static directory_t *ext2_find(inode_t *parent, const char *name) {
+static directory_t *ext2_find(directory_t *parent, const char *name) {
     directory_t *dir;
 
     dir = find_entry_cache(parent, name);
-    if (!dir) dir = find_entry_disk(parent, name);
-    if (!dir) return NULL;
+    if (dir) return dir;
+
+    // 需要到页缓存(磁盘)查找目录项时,将 inode 拷贝到缓存
+    parent->ops->inode_mount(parent);
+    // 将 directory_t 缓存到 dir->child 时,
+    // 查找则可以不用从页缓存找 inode,因此可以将 inode 回收
+    dir = find_entry_disk(parent->inode, name);
+    if (dir) {
+        list_add_prev(&dir->brother, &parent->child);
+    };
     return dir;
 }
 
@@ -79,10 +92,14 @@ static u32_t ext2_read(inode_t *file, uint32_t offset, uint32_t size, char *buf)
     u32_t blockSize = file->sb->blockSize;
     u32_t blkOffset = offset % blockSize;
     u32_t bno = offset / blockSize;
+
     if (bno >= DIV_CEIL(file->size, blockSize))
         return 0;
 
+    size = MIN(blockSize - blkOffset, size);
     u32_t bid = get_bid(file, bno);
+    if (!bid) return 0;
+
     page = ext2_block_read(bid, file->sb);
 
     q_memcpy(buf, page->data + blkOffset, size);
@@ -98,18 +115,19 @@ static u32_t ext2_write(inode_t *file, uint32_t offset, uint32_t size, char *buf
     buf_t *page;
     u32_t bid;
 
+
     size = MIN(blockSize - blkOffset, size);
 
-    if (bno < get_data_block_cnt(file)) {
+    if (bno < next_free_bno(file)) {
         bid = get_bid(file, bno);
         page = ext2_block_read(bid, file->sb);
     } else {
         // 映射一个新页缓存,可能会创建空洞文件
         bid = alloc_block(file, bno);
-        page = page_get(bid);
+        page = ext2_block_get(bid, file->sb);
     }
 
-    file->size = MEM_ALIGN(offset, file->sb->blockSize);
+    file->size = offset + size;
     q_memcpy(page->data + blkOffset, buf, size);
     mark_page_dirty(page);
     return size;
@@ -119,13 +137,13 @@ static u32_t ext2_write(inode_t *file, uint32_t offset, uint32_t size, char *buf
     return 0; // 返回错误码
 }
 
-static int16_t ext2_mkdir(inode_t *parent, const char *name) {
+static int32_t ext2_mkdir(inode_t *parent, const char *name) {
     if (!ext2_is_dir(parent))
-        return -2;
-    directory_t *dir = ext2_find(parent, name);
+        return -1;
+    directory_t *dir = ext2_find(parent->dir, name);
     inode_t *new;
     if (dir != NULL)
-        return -1;
+        return -2;
 
     new = inode_alloc(parent, EXT2_ALL_RWX | EXT2_IFDIR, name);
     alloc_block(new, 0);
@@ -134,45 +152,47 @@ static int16_t ext2_mkdir(inode_t *parent, const char *name) {
     return 0;
 }
 
-static void ext2_mkfile(inode_t *parent, const char *name) {
-
-    if (!ext2_is_dir(parent)) goto file_type_error;
+static int32_t ext2_mkfile(inode_t *parent, const char *name) {
+    if (!ext2_is_dir(parent))
+        return -1;
 
     inode_t *new;
-    directory_t *dir = ext2_find(parent, name);
+    directory_t *dir = ext2_find(parent->dir, name);
     if (dir != NULL)
-        goto file_exist;
+        return -2;
 
     new = inode_alloc(parent, EXT2_ALL_RWX | EXT2_IFREG, name);
     append_to_parent(parent, new);
-
-    file_exist:
-    error("file_exist");
-    file_type_error:
-    error("file_type_error");
+    return 0;
 }
 
-static void ext2_rmdir(inode_t *inode) {
+static int32_t ext2_rmdir(inode_t *inode) {
     directory_t *dir = inode->dir;
+    inode_t *parent;
+
+    assertk(dir && dir->parent);
     if (!ext2_is_dir(inode))
-        goto type_error;
+        return -1;
     if (!list_empty(&dir->child))
-        goto dir_not_empty;
+        return -2;
     if (!dir_empty(inode))
-        goto dir_not_empty;
+        return -2;
 
+
+    ext2_inode_mount(dir->parent);
+    parent = dir->parent->inode;
+
+    remove_from_parent(parent, inode->dir);
     inode_delete(inode);
-    return;
 
-    type_error:
-    error("type_error");
-    dir_not_empty:
-    error("dir_not_empty");
+    parent->linkCnt--;
+    mark_inode_dirty(parent, I_DATA);
+    return 0;
 }
 
-static void ext2_link(inode_t *src, inode_t *parent, const char *name) {
+static int32_t ext2_link(inode_t *src, inode_t *parent, const char *name) {
     if (!(src->type & EXT2_IFREG))
-        goto type_error;
+        return -1;
     src->linkCnt++;
     directory_t *dir = directory_alloc(name, src->dir->ino, parent->dir, src);
     list_add_next(&dir->link, &src->dir->link);
@@ -180,29 +200,31 @@ static void ext2_link(inode_t *src, inode_t *parent, const char *name) {
     append_link_to_parent(parent, dir, src->type);
     mark_inode_dirty(src, I_DATA);
 
-    type_error:
-    error("type_error");
+    return 0;
 }
 
-static void ext2_unlink(inode_t *parent, directory_t *dir) {
-    assertk(dir && dir->sb);
-    inode_t *file = dir->inode;
-    if (!file)
-        file = inode_cpy(dir->ino, dir->sb);
+static int32_t ext2_unlink(directory_t *file) {
+    assertk(file && file->parent);
+    inode_t *inode, *parent;
 
-    if (!ext2_is_dir(file))
-        goto type_error;
+    ext2_inode_mount(file);
+    if (ext2_is_dir(file->inode))
+        return -1;
 
-    file->linkCnt--;
-    remove_from_parent(parent, dir);
-    if (file->linkCnt == 0) {
-        inode_delete(file);
-    } else {
-        mark_inode_dirty(file, I_DATA);
+    ext2_inode_mount(file->parent);
+    inode = file->inode;
+    parent = file->parent->inode;
+
+
+    inode->linkCnt--;
+    remove_from_parent(parent, file);
+    if (inode->linkCnt == 0) {
+        inode_delete(inode);
+        return 0;
     }
 
-    type_error:
-    error("type_error");
+    mark_inode_dirty(inode, I_DATA);
+    return 0;
 }
 
 static void ext2_ls(inode_t *inode) {
@@ -218,10 +240,17 @@ static void ext2_ls(inode_t *inode) {
 }
 
 void ext2_inode_mount(directory_t *dir) {
+    inode_t *inode;
     if (!dir->inode) {
         directory_t *parent = dir->parent;
         assertk(parent && dir->sb);
-        dir->inode = inode_cpy(dir->ino, dir->sb);
+        inode = inode_cpy(dir->ino, dir->sb);
+        dir->inode = inode;
+        if (!inode->dir) {
+            inode->dir = dir;
+        } else if (inode->dir != dir) {
+            list_add_prev(&dir->link, &inode->dir->link);
+        }
     }
     assertk(dir->inode);
 }

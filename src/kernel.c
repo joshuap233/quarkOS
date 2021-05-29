@@ -81,7 +81,7 @@ void kernel_main() {
 #ifdef TEST
 //    test_ide_rw();
 //    test_dma_rw();
-    test_vfs();
+//    test_vfs();
 
     test_thread();
 #endif // TEST

@@ -45,7 +45,7 @@ directory_t *directory_alloc(
     directory_t *dir = directory_get();
     dir->ino = ino;
     dir->inode = inode;
-    dir_name_set(dir, name);
+    dir_name_set(dir, name, q_strlen(name));
 
     dir->sb = inode->sb;
     dir->ops = &ext2_dir_ops;
@@ -62,7 +62,7 @@ directory_t *directory_cpy(ext2_dir_t *src, directory_t *parent) {
     dir->ino = src->inode;
     dir->inode = NULL;
     dir->ops = &ext2_dir_ops;
-    dir_name_set(dir, src->name);
+    dir_name_set(dir, src->name, src->nameLen);
 
     assertk(parent->sb);
     dir->sb = parent->sb;
@@ -74,12 +74,11 @@ directory_t *directory_cpy(ext2_dir_t *src, directory_t *parent) {
     return dir;
 }
 
-directory_t *find_entry_cache(inode_t *parent, const char *name) {
+directory_t *find_entry_cache(directory_t *parent, const char *name) {
     size_t len = q_strlen(name);
-    directory_t *dir = parent->dir;
     list_head_t *hdr;
 
-    list_for_each(hdr, &dir->child) {
+    list_for_each(hdr, &parent->child) {
         directory_t *tmp = dir_brother_entry(hdr);
         if (tmp->nameLen == len && dir_name_cmp(tmp, name))
             return tmp;
@@ -93,7 +92,7 @@ directory_t *find_entry_disk(inode_t *parent, const char *name) {
     size_t name_len = q_strlen(name);
     ext2_dir_t *dir;
     u32_t bid;
-    for_each_block(bid, ext2_i(parent)) {
+    for_each_block(bid, parent) {
         dir = ext2_block_read(bid, parent->sb)->data;
         for_each_dir(dir, parent->sb->blockSize) {
             if (dir->inode != 0
@@ -111,11 +110,14 @@ directory_t *find_entry_disk(inode_t *parent, const char *name) {
 // 向后合并多个 inode 为 0 的目录项
 static void merge_dir_entry(ext2_dir_t *dir, u32_t blockSize) {
     assertk(dir);
+
+    if (dir->inode != 0) return;
+
     size_t size = 0;
     ext2_dir_t *hdr = dir;
     for_each_dir(hdr, blockSize) {
-        size += hdr->entrySize;
         if (hdr->inode != 0)break;
+        size += hdr->entrySize;
     }
     dir->entrySize = size;
 }
@@ -152,14 +154,13 @@ static ext2_dir_t *new_dir_entry(ext2_dir_t *dir, u32_t ino, char *name, size_t 
 
 
 static void create_dir_entry(inode_t *parent, char *name, u32_t ino, u8_t type) {
-    ext2_inode_info_t *info = ext2_i(parent);
     ext2_dir_t *dir, *new;
     u32_t bid;
     buf_t *buf;
     u32_t blockSize = parent->sb->blockSize;
     size_t nameLen = q_strlen(name);
 
-    for_each_block(bid, info) {
+    for_each_block(bid, parent) {
         buf = ext2_block_read(bid, parent->sb);
         dir = buf->data;
         for_each_dir(dir, blockSize) {
@@ -171,7 +172,7 @@ static void create_dir_entry(inode_t *parent, char *name, u32_t ino, u8_t type) 
         }
     }
 
-    bid = alloc_block(parent, ino);
+    bid = alloc_block(parent, next_free_bno(parent));
     parent->size += blockSize;
     buf = ext2_block_read(bid, parent->sb);
 
@@ -243,7 +244,7 @@ bool dir_empty(inode_t *inode) {
     if (inode->linkCnt != 2) {
         return false;
     }
-    for_each_block(bid, ext2_i(inode)) {
+    for_each_block(bid, inode) {
         buf = ext2_block_read(bid, inode->sb);
         dir = buf->data;
         for_each_dir(dir, blockSize) {
@@ -271,7 +272,7 @@ void remove_from_parent(inode_t *parent, directory_t *target) {
     size_t name_len = target->nameLen;
     char *name = dir_name_dump(target);
 
-    for_each_block(bid, ext2_i(parent)) {
+    for_each_block(bid, parent) {
         buf = ext2_block_read(bid, parent->sb);
         dir = buf->data;
         for_each_dir(dir, blockSize) {

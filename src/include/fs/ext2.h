@@ -270,6 +270,8 @@ INLINE ext2_sb_info_t *ext2_s(super_block_t *sb) {
 #define EXT2_INODE2GROUP(ino, sb)    (((ino)-1) / (sb)->inodePerGroup)
 
 #define ext2_block_read(blk_no, sb)      page_read_no(EXT2_BLOCK2LBA(blk_no,sb))
+#define ext2_block_get(blk_no, sb)       page_get(EXT2_BLOCK2LBA(blk_no,sb))
+
 
 extern struct fs_ops ext2_ops;
 extern struct directory_ops ext2_dir_ops;
@@ -295,7 +297,7 @@ extern directory_t *directory_alloc(const char *name, u32_t ino, directory_t *pa
 
 extern directory_t *find_entry_disk(inode_t *parent, const char *name);
 
-extern directory_t *find_entry_cache(inode_t *parent, const char *name);
+extern directory_t *find_entry_cache(directory_t *parent, const char *name);
 
 extern void ext2_dir_init();
 
@@ -314,7 +316,7 @@ extern void directory_destroy(directory_t *dir);
 // block.c
 extern u32_t set_block_bitmap(inode_t *inode);
 
-extern void clear_block_bitmap(inode_t *inode, u32_t bno);
+extern void clear_block_bitmap(inode_t *inode, u32_t bid);
 
 extern u32_t alloc_block(inode_t *inode, u32_t bno);
 
@@ -322,13 +324,17 @@ extern void free_blocks(inode_t *inode);
 
 extern u32_t get_bid(inode_t *inode, u32_t bno);
 
-#define for_each_block(bid, inode)        for(u32_t bno=0;((bid) = next_block(inode, bno++));)
+#define for_each_block(bid, inode)        for(u16_t id[4]={0,0,0,0};((bid) = next_block(inode, id));)
 
-extern u32_t next_block(ext2_inode_info_t *inode, u32_t bno);
+extern u32_t next_block(inode_t *inode, u16_t id[4]);
 
 extern int32_t set_next_zero_bit(u8_t *map, u32_t max);
 
-extern u32_t get_data_block_cnt(inode_t *inode);
+INLINE u32_t next_free_bno(inode_t *inode) {
+    //仅在没有预先分配块的情况下生效;
+    u64_t cnt = DIV_CEIL(inode->size, inode->sb->blockSize);
+    return cnt;
+}
 
 // ext2
 void ext2_inode_mount(directory_t *dir);

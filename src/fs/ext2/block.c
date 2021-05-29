@@ -5,10 +5,9 @@
 #include <fs/vfs.h>
 #include <fs/ext2.h>
 #include <fs/writeback.h>
-#include <lib/qlib.h>
 #include <lib/qstring.h>
 
-static int32_t find_block_layer(u32_t bno, u32_t id[3], u32_t n_ptr);
+static int32_t find_block_layer(u32_t bno, u32_t id[3], inode_t *inode);
 
 static u8_t get_clear_bit(u8_t ch) {
     u8_t no = 0;
@@ -32,31 +31,42 @@ int32_t set_next_zero_bit(u8_t *map, u32_t max) {
     return -1;
 }
 
-static u32_t next_iBlock(ext2_inode_info_t *inode, u32_t bno) {
-    // 遍历间接块
-    u32_t *ptr;
-    u32_t bid;
-    int32_t layer;
-    u32_t id[3];
-    u32_t blockSize = inode->inode.sb->blockSize;
-    u32_t n_ptr = blockSize / sizeof(u32_t);
-
-    layer = find_block_layer(bno, id, n_ptr);
-
-    bid = inode->blocks[N_DIRECT_BLOCK + layer];
-    for (int32_t i = layer; i >= 0; --i) {
-        ptr = ext2_block_read(bid, inode->inode.sb)->data;
-        bid = ptr[id[i]];
+static int32_t get_layer(const u16_t id[3]) {
+    for (int i = 2; i >= 0; --i) {
+        if (id[i]) return i;
     }
-    return bid;
+    return 0;
 }
 
-// 遍历直接指针与间接指针
-u32_t next_block(ext2_inode_info_t *inode, u32_t bno) {
-    if (bno < N_DIRECT_BLOCK)
-        return inode->blocks[bno];
+// 遍历目录的直接指针与间接指针,
+u32_t next_block(inode_t *inode, u16_t id[4]) {
+    u32_t n_ptr = inode->sb->blockSize / sizeof(u32_t);
+    ext2_inode_info_t *info = ext2_i(inode);
+    u32_t *ptr = NULL;
+    u32_t bid;
+    int32_t layer;
+    if (id[3] >= n_ptr)
+        return 0;
 
-    return next_iBlock(inode, bno);
+    if (id[0] < N_DIRECT_BLOCK)
+        return info->blocks[id[0]++];
+
+    layer = get_layer(id + 1);
+    bid = info->blocks[N_DIRECT_BLOCK + layer];
+    for (int i = layer; i >= 0; --i) {
+        if (!bid) return 0;
+        ptr = ext2_block_read(bid, inode->sb)->data;
+        bid = ptr[id[i]];
+    }
+
+    id[1]++;
+    for (int i = 1; i <= 2; ++i) {
+        if (id[i] >= n_ptr) {
+            id[i] = 0;
+            id[i + 1] += 1;
+        }
+    }
+    return bid;
 }
 
 
@@ -119,47 +129,29 @@ u32_t set_block_bitmap(inode_t *inode) {
 }
 
 
-void clear_block_bitmap(inode_t *inode, u32_t bno) {
+void clear_block_bitmap(inode_t *inode, u32_t bid) {
     buf_t *d_buf, *b_buf;
     ext2_sb_info_t *sb = ext2_s(inode->sb);
-    u32_t groupNo = bno / sb->blockPerGroup;
+    u32_t groupNo = bid / sb->blockPerGroup;
 
     ext2_gd_t *desc = get_raw_gd(&d_buf, groupNo, inode->sb);
     desc->freeBlockCnt++;
 
     b_buf = ext2_block_read(sb->desc[groupNo].blockBitmapAddr, inode->sb);
     u8_t *map = b_buf->data;
-    clear_bit(&map[bno / 8], bno % 8);
+    clear_bit(&map[bid / 8], bid % 8);
 
     mark_page_dirty(d_buf);
     mark_page_dirty(b_buf);
 }
 
-u32_t get_data_block_cnt(inode_t *inode) {
-    u32_t cnt = ext2_i(inode)->blockCnt, bno;
-    u32_t ib_cnt, sqr, n_ptr;
-
-    if (cnt < N_DIRECT_BLOCK) return cnt;
-
-    bno = cnt - N_DIRECT_BLOCK;
-    n_ptr = inode->sb->blockSize / sizeof(u32_t);
-    ib_cnt = 1;
-    if (bno >= n_ptr) {
-        ib_cnt += n_ptr;
-        bno -= n_ptr;
-    };
-    sqr = n_ptr * n_ptr;
-
-    if (bno >= sqr) ib_cnt += sqr;
-
-    return cnt - ib_cnt;
-}
-
 // 找到指针是第几重间接指针
-static int32_t find_block_layer(u32_t bno, u32_t id[3], u32_t n_ptr) {
+static int32_t find_block_layer(u32_t bno, u32_t id[3], inode_t *inode) {
     int32_t layer = 0;
-    bno -= N_DIRECT_BLOCK;
     u32_t sqr;
+    u32_t n_ptr = inode->sb->blockSize / sizeof(u32_t);
+
+    bno -= N_DIRECT_BLOCK;
     if (bno >= n_ptr) {
         bno -= n_ptr;
         layer = 1;
@@ -185,19 +177,19 @@ static u32_t new_empty_block(inode_t *inode) {
     return bid;
 }
 
+
 // 使用块号(inode 对应的数据块号)找到块id(在磁盘的块编号)
 u32_t get_bid(inode_t *inode, u32_t bno) {
     ext2_inode_info_t *info = ext2_i(inode);
-    u32_t n_ptr = inode->sb->blockSize / sizeof(u32_t);
     u32_t id[3];
     u32_t bid, layer;
 
     if (bno < N_DIRECT_BLOCK) {
         return info->blocks[bno];
     }
-    layer = find_block_layer(bno, id, n_ptr);
+    layer = find_block_layer(bno, id, inode);
     bid = info->blocks[N_DIRECT_BLOCK + layer];
-    for (int64_t i = layer; i >= 0; ++i) {
+    for (int64_t i = layer; i >= 0; --i) {
         if (!bid) break;
         u32_t *ptr = ext2_block_read(bid, inode->sb)->data;
         bid = ptr[id[i]];
@@ -213,7 +205,6 @@ u32_t alloc_block(inode_t *inode, u32_t bno) {
     u32_t *ptr, bid;
     buf_t *buf = NULL;
     ext2_inode_info_t *info = ext2_i(inode);
-    u32_t n_ptr = inode->sb->blockSize / sizeof(u32_t);
 
     if (bno < N_DIRECT_BLOCK) {
         assertk(info->blocks[bno] == 0);
@@ -221,7 +212,7 @@ u32_t alloc_block(inode_t *inode, u32_t bno) {
         info->blockCnt++;
         info->blocks[bno] = bid;
     } else {
-        layer = find_block_layer(bno, id, n_ptr);
+        layer = find_block_layer(bno, id, inode);
         u32_t *_bid = &info->blocks[N_DIRECT_BLOCK + layer];
         for (int32_t i = layer; i >= -1; --i) {
             if (!(*_bid)) {
@@ -244,17 +235,17 @@ u32_t alloc_block(inode_t *inode, u32_t bno) {
 }
 
 
-void free_ptr(u32_t bno, u32_t layer, inode_t *inode, u32_t n_ptr) {
+void free_ptr(u32_t bid, u32_t layer, inode_t *inode, u32_t n_ptr) {
     if (layer == 0) {
-        clear_block_bitmap(inode, bno);
+        clear_block_bitmap(inode, bid);
         return;
     };
 
-    u32_t *ptr = ext2_block_read(bno, inode->sb)->data;
+    u32_t *ptr = ext2_block_read(bid, inode->sb)->data;
     for (u32_t i = 0; i < n_ptr && ptr[i]; ++i) {
         free_ptr(ptr[i], layer - 1, inode, n_ptr);
     }
-    clear_block_bitmap(inode, bno);
+    clear_block_bitmap(inode, bid);
 }
 
 

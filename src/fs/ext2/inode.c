@@ -206,9 +206,6 @@ void inode_delete(inode_t *inode) {
     u32_t time = cur_timestamp();
     u32_t isDir = ext2_is_dir(inode);
     ext2_gd_t *desc;
-    inode_t *parent;
-    ext2_inode_mount(inode->dir->parent);
-    parent = inode->dir->parent->inode;
 
     // 清空数据块
     free_blocks(inode);
@@ -219,18 +216,12 @@ void inode_delete(inode_t *inode) {
 
     list_del(&inode->dir->brother);
 
-    remove_from_parent(parent, inode->dir);
-
     // 修改元数据
     groupNo = EXT2_INODE2GROUP(inode->dir->ino, ext2_s(inode->sb));
     desc = get_raw_gd(&buf, groupNo, inode->sb);
     desc->freeInodesCnt++;
 
-    if (isDir) {
-        desc->dirNum--;
-        parent->linkCnt--;
-        mark_inode_dirty(parent, I_DATA);
-    }
+    if (isDir) desc->dirNum--;
 
     mark_inode_dirty(inode, I_DEL);
     mark_page_dirty(buf);
@@ -239,6 +230,7 @@ void inode_delete(inode_t *inode) {
 void ext2_write_back(inode_t *inode) {
     buf_t *buf;
     ext2_inode_t *ino = get_raw_inode(&buf, inode->sb, inode->dir->ino);
+
     if (inode->state == I_TIME || inode->state == I_NEW) {
         ino->accessTime = inode->accessTime;
         ino->delTime = inode->deleteTime;
@@ -255,7 +247,11 @@ void ext2_write_back(inode_t *inode) {
         ino->mode = inode->type | inode->permission;
     }
     if (inode->state == I_DEL) {
+        assertk(inode->linkCnt == 0);
+        ino->linkCnt = 0;
         ino->delTime = inode->deleteTime;
+        ino->cntSectors = 0;
+        q_memset(ino->blocks, 0, N_BLOCKS * sizeof(u32_t));
         directory_destroy(inode->dir);
         inode_destroy(inode);
     } else {

@@ -31,35 +31,45 @@ static inode_t *cwd(const char *path) {
         assertk(vfs_tree && vfs_tree->dir && vfs_tree->dir->inode);
         return vfs_tree->dir->inode;
     } else {
+        assertk(CUR_TCB->cwd);
         return CUR_TCB->cwd;
     }
 }
 
 inode_t *vfs_open(const char *_path) {
-    char *path = parse_path(_path);
+    int32_t error;
+    inode_t *inode;
+    char *path;
 
-    inode_t *inode = vfs_find(path);
-    assertk(inode);
-    inode->ops->open(inode);
+    path = parse_path(_path);
+
+    inode = vfs_find(path);
+    if (!inode) return NULL;
+
+    error = inode->ops->open(inode);
+    if (error != 0) return NULL;
     inode->refCnt++;
 
     kfree(path);
     return inode;
 }
 
-void vfs_close(inode_t *node) {
-    assertk(node);
+int32_t vfs_close(inode_t *node) {
+    int32_t error;
+    if (!node) return -1;
     node->refCnt--;
     if (node->refCnt == 0) {
-        node->ops->close(node);
+        error = node->ops->close(node);
+        if (error != 0) return error;
     }
+    return 0;
 }
 
 
 u32_t vfs_read(inode_t *node, uint32_t size, char *buf) {
     u32_t rdSize;
     int64_t remain = size;
-    while (remain >= 0) {
+    while (remain > 0) {
         rdSize = node->ops->read(node, node->offset, remain, buf);
         if (rdSize == 0) break;
         node->offset += rdSize;
@@ -72,7 +82,7 @@ u32_t vfs_read(inode_t *node, uint32_t size, char *buf) {
 u32_t vfs_write(inode_t *node, uint32_t size, char *buf) {
     u32_t wtSize;
     int64_t remain = size;
-    while (remain >= 0) {
+    while (remain > 0) {
         wtSize = node->ops->write(node, node->offset, remain, buf);
         if (wtSize == 0)break;
         node->offset += wtSize;
@@ -82,77 +92,117 @@ u32_t vfs_write(inode_t *node, uint32_t size, char *buf) {
     return size - remain;
 }
 
-void vfs_lseek(inode_t *node, u32_t offset, enum SEEK_WHENCE whence) {
+int32_t vfs_lseek(inode_t *node, int32_t offset, enum SEEK_WHENCE whence) {
+    int64_t end;
+    if (!node) return -2;
     switch (whence) {
         case SEEK_SET:
+            if (offset < 0) return -1;
             node->offset = offset;
             break;
         case SEEK_END:
+            end = node->size + offset;
+            if (end < 0)
+                return -1;
             node->offset = node->size + offset;
             break;
         case SEEK_CUR:
-            node->offset += offset;
+            end = node->offset + offset;
+            if (end < 0)
+                return -1;
+            node->offset = end;
             break;
         default: error("seek error");
     }
+    return node->offset;
 }
 
-void vfs_mkdir(const char *_path) {
+int32_t vfs_mkdir(const char *_path) {
     inode_t *parent;
-    char *path = parse_path(_path);
+    int32_t error;
+    char *path, *name;
 
-    char *name = split_path(path, &parent);
-    parent->ops->mkdir(parent, name);
+    path = parse_path(_path);
+    name = split_path(path, &parent);
+    if (!parent) return -1;
+    error = parent->ops->mkdir(parent, name);
+    if (error != 0) return error;
 
     kfree(path);
+    return 0;
 }
 
 
-void vfs_rmdir(const char *_path) {
-    char *path = parse_path(_path);
+int32_t vfs_rmdir(const char *_path) {
+    int32_t error;
+    inode_t *node;
+    char *path;
 
-    inode_t *node = vfs_find(path);
-    assertk(node);
-    node->ops->rmdir(node);
-
+    path = parse_path(_path);
+    node = vfs_find(path);
+    if (!node) return -1;
+    error = node->ops->rmdir(node);
+    if (error != 0) return error;
     kfree(path);
+    return 0;
 }
 
-void vfs_mkfile(const char *_path) {
+int32_t vfs_mkfile(const char *_path) {
     inode_t *parent;
-    char *path = parse_path(_path);
+    int32_t error;
+    char *path, *name;
 
-    char *name = split_path(path, &parent);
-    parent->ops->mkfile(parent, name);
-
+    path = parse_path(_path);
+    name = split_path(path, &parent);
+    if (!parent) return -1;
+    error = parent->ops->mkfile(parent, name);
+    if (error != 0) return error;
     kfree(path);
+    return 0;
 }
 
 
-void vfs_unlink(const char *_path) {
-    inode_t *parent;
-    char *path = parse_path(_path);
-
-    char *name = split_path(path, &parent);
-    directory_t *dir = find_dir(name);
-    assertk(dir);
-    parent->ops->unlink(parent, dir);
-
-    kfree(path);
-}
-
-void vfs_link(const char *src, const char *desc) {
-    char *n_src = parse_path(src);
-    char *n_desc = parse_path(desc);
-
-    inode_t *sInode = vfs_find(n_src);
-    assertk(sInode);
+int32_t vfs_unlink(const char *_path) {
+    int32_t error;
+    directory_t *file;
     inode_t *inode;
-    char *name = split_path(n_desc, &inode);
-    inode->ops->link(sInode, inode, name);
+    char *path;
+
+    path = parse_path(_path);
+
+    file = find_dir(path);
+    if (!file) return -2;
+
+    file->ops->inode_mount(file);
+    inode = file->inode;
+    assertk(inode);
+
+    error = inode->ops->unlink(file);
+    if (error != 0) return error;
+    kfree(path);
+    return 0;
+}
+
+int32_t vfs_link(const char *src, const char *desc) {
+    int32_t error;
+    inode_t *inode, *sInode;
+    char *n_src, *n_desc, *name;
+
+    n_src = parse_path(src);
+    n_desc = parse_path(desc);
+
+    sInode = vfs_find(n_src);
+    if (!sInode) return -4;
+
+    name = split_path(n_desc, &inode);
+    if (!inode) return -3;
+
+    error = inode->ops->link(sInode, inode, name);
+    if (error != 0) return error;
 
     kfree(n_desc);
     kfree(n_src);
+    return 0;
 }
 
 void vfs_ls(const char *_path) {
@@ -169,16 +219,21 @@ static directory_t *find_dir(char *path) {
     int i = 0;
 
     inode_t *parent = cwd(path);
-    directory_t *dir;
+    directory_t *dir = parent->dir;
+
+    if (path[0] == SEPARATOR)
+        path++;
 
     while (path[0]) {
-        if (path[0] == SEPARATOR)
-            path++;
         for (; path[i] && path[i] != SEPARATOR; ++i);
+        if (!path[i]) {
+            dir = parent->ops->find(dir, path);
+            break;
+        }
         path[i] = '\0';
-        dir = parent->ops->find(parent, path);
+        dir = parent->ops->find(dir, path);
         if (!dir) return NULL;
-        path = path + i;
+        path = path + i + 1;
     }
 
     return dir;
@@ -186,7 +241,8 @@ static directory_t *find_dir(char *path) {
 
 inode_t *vfs_find(char *path) {
     directory_t *dir = find_dir(path);
-    assertk(dir && dir->ops);
+    if (!dir) return NULL;
+    assertk(dir->ops);
     dir->ops->inode_mount(dir);
     return dir->inode;
 }
@@ -213,7 +269,7 @@ static char *split_path(char *path, inode_t **parent) {
     } else {
         path[i] = '\0';
         *parent = vfs_find(path);
-        assertk(*parent);
+        if (!(*parent)) return NULL;
     }
     return path + i + 1;
 }
@@ -230,10 +286,9 @@ char *dir_name_dump(directory_t *dir) {
     return name;
 }
 
-void dir_name_set(directory_t *dir, const char *name) {
-    u32_t len = q_strlen(name);
-    u32_t cpy = MIN(len, FILE_DNAME_LEN);
+void dir_name_set(directory_t *dir, const char *name, u32_t len) {
     assertk(len <= FILE_NAME_LEN);
+    u32_t cpy = MIN(len, FILE_DNAME_LEN);
 
     q_memcpy(dir->l_name, name, cpy);
     dir->h_name = NULL;
@@ -309,28 +364,48 @@ void vfs_init() {
 
 
 #ifdef TEST
-static char charBuf[4097] = "";
+UNUSED static char charBuf[4098] = "11111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111";
 
-void test_vfs() {
-    vfs_ops.mkdir("/foo");
-    vfs_ops.mkdir("/foo2");
-    vfs_ops.mkdir("/foo3");
-
-    vfs_ops.rmdir("/foo3");
+UNUSED void test_vfs() {
+    inode_t *zsh = vfs_ops.open("/zsh");
+    assertk(zsh != NULL);
+    assertk(vfs_ops.lseek(zsh, 880640, SEEK_SET) >= 0);
+//    assertk(vfs_ops.read(zsh, 4098, charBuf) != 0);
+    assertk(vfs_ops.write(zsh, 4098, charBuf) != 0);
+    assertk(vfs_ops.unlink("/zsh") == 0);
+    vfs_ops.close(zsh);
     page_fsync();
 
-    // 测试读,需要预先创建文件
-    inode_t *read = vfs_ops.open("/txt");
-    vfs_ops.read(read, 4097, charBuf);
+
+    assertk(vfs_ops.mkdir("/foo") == 0);
+    assertk(vfs_ops.mkdir("/foo2") == 0);
+    assertk(vfs_ops.mkdir("/foo3") == 0);
+
+    assertk(vfs_ops.rmdir("/foo3") == 0);
+
+
+    char path[] = "/foo/txt1";
+    assertk(find_dir(path) == NULL);
+
+    assertk(vfs_ops.mkfile("/foo/txt") == 0);
 
     // 测试写
-    vfs_ops.mkfile("/foo/txt");
     inode_t *txt = vfs_ops.open("/foo/txt");
-    vfs_ops.write(txt, 4097, charBuf);
+    assertk(txt != NULL);
+    vfs_ops.write(txt, 4098, charBuf);
+    assertk(vfs_ops.close(txt) == 0);
 
-    vfs_ops.link("/foo/txt", "/foo2/hh");
-    vfs_ops.unlink("/foo/txt");
+    // 测试读,需要预先创建文件
+    inode_t *reader = vfs_ops.open("/txt");
+    assertk(reader);
+    vfs_ops.read(reader, 4098, charBuf);
+    assertk(vfs_ops.close(reader) == 0);
 
+    assertk(vfs_ops.link("/foo/txt", "/foo2/hh") == 0);
+    assertk(vfs_ops.link("/txt", "/foo2/txt2") == 0);
+
+    assertk(vfs_ops.unlink("/foo2/txt2") == 0);
+    page_fsync();
 }
 
 #endif //TEST
