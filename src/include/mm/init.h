@@ -5,10 +5,9 @@
 #ifndef QUARKOS_MM_INIT_H
 #define QUARKOS_MM_INIT_H
 
-void vmm_init();
-void pmm_init();
-void slab_init();
-void memBlock_init();
-void vm_area_init();
+extern void kvm_init();
+extern void pmm_init();
+extern void slab_init();
+extern void memBlock_init();
 
 #endif //QUARKOS_MM_INIT_H

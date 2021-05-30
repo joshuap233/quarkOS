@@ -1,12 +1,12 @@
 //
 // Created by pjs on 2021/2/1.
 //
-//虚拟内存管理
-#include "mm/vmm.h"
-#include "mm/page_alloc.h"
-#include "lib/qstring.h"
-#include "lib/qlib.h"
-#include "mm/vm_area.h"
+//内核空间虚拟内存管理,采用递归映射
+#include <mm/kvm_map.h>
+#include <mm/page_alloc.h>
+#include <lib/qstring.h>
+#include <lib/qlib.h>
+#include <mm/block_alloc.h>
 
 //内核页表本身在页表内的索引
 #define K_PD_INDEX        1023
@@ -32,21 +32,30 @@ static pdr_t _Alignas(PAGE_SIZE) pageDir = {
 
 
 // 初始化内核页表
-void vmm_init() {
+void kvm_init() {
+    ptr_t startKernel = (ptr_t) _startKernel;
+    ptr_t rodataStart = (ptr_t) _rodataStart;
+    ptr_t dataStart = (ptr_t) _dataStart;
+    ptr_t endKernel = (ptr_t) _endKernel;
+
+
     cr3_t cr3 = CR3_CTRL | ((ptr_t) &pageDir);
     pageDir.entry[N_PDE - 1] = (ptr_t) &pageDir | VM_KW | VM_PRES;
 
-    struct vm_area *vm_area;
-    for_each_vm_area(vm_area) {
-        if (vm_area->type == KERNEL_AREA) {
-            struct area *area;
-            for_each_area(area, vm_area->area) {
-                assertk((area->size & PAGE_MASK) == 0);
-                vmm_mapd(area->addr, area->addr, area->size, area->flag);
-            }
-            break;
-        }
-    }
+    // 低于 1M 的内存区域
+    kvm_mapd(0, 0, startKernel, VM_PRES | VM_KW);
+
+    // text 段
+    kvm_mapd(startKernel, startKernel, rodataStart - startKernel, VM_PRES | VM_KR);
+
+    // rodada段
+    kvm_mapd(rodataStart, rodataStart, dataStart - rodataStart, VM_PRES | VM_KR);
+
+    // data 段, bss 段 与初始化内核分配的内存
+    kvm_mapd(dataStart, dataStart, endKernel - dataStart, VM_PRES | VM_KW);
+
+    // 使用 block_alloc 分配的内存
+    kvm_mapd(endKernel, endKernel, PAGE_ALIGN(block_start()) - endKernel, VM_PRES | VM_KW);
 
     cr3_set(cr3);
 }
@@ -67,7 +76,7 @@ static ptb_t *getPageTable(ptr_t va, u32_t flags) {
     return pt;
 }
 
-void vmm_mapPage(ptr_t va, ptr_t pa, u32_t flags) {
+void kvm_mapPage(ptr_t va, ptr_t pa, u32_t flags) {
     assertk((va & PAGE_MASK) == 0);
     ptb_t *pt = getPageTable(va, flags);
     PTE(pt, va) = pa | flags;
@@ -75,48 +84,48 @@ void vmm_mapPage(ptr_t va, ptr_t pa, u32_t flags) {
 }
 
 // 直接映射
-void vmm_mapd(ptr_t va, ptr_t pa, u32_t size, u32_t flags) {
+void kvm_mapd(ptr_t va, ptr_t pa, u32_t size, u32_t flags) {
     assertk((va & PAGE_MASK) == 0);
     ptr_t end = va + size;
     for (; va < end; pa += PAGE_SIZE, va += PAGE_SIZE) {
-        vmm_mapPage(va, pa, flags);
+        kvm_mapPage(va, pa, flags);
     }
 }
 
 // 映射 va ~ va+size-1
-void vmm_mapv(ptr_t va, u32_t size, u32_t flags) {
+void kvm_mapv(ptr_t va, u32_t size, u32_t flags) {
     assertk((va & PAGE_MASK) == 0);
     ptr_t end = va + size;
     for (; va < end; va += PAGE_SIZE) {
         ptr_t pa;
         assertk((pa = pm_alloc_page()) != PMM_NULL);
-        vmm_mapPage(va, pa, flags);
+        kvm_mapPage(va, pa, flags);
     }
 }
 
 
 // 使用虚拟地址找到物理地址
-ptr_t vmm_vm2pm(ptr_t va) {
+ptr_t kvm_vm2pm(ptr_t va) {
     ptb_t *pt = (ptb_t *) PTB(va);
     return PAGE_ADDR(PTE(pt, va)) + (va & PAGE_MASK);
 }
 
-void vmm_unmapPage(ptr_t va) {
+void kvm_unmapPage(ptr_t va) {
     ptb_t *pt = (ptb_t *) PTB(va);
     PTE(pt, va) = VM_NPRES;
     tlb_flush(va);
 }
 
 // size 为需要释放的内存大小
-void vmm_unmap(void *va, u32_t size) {
+void kvm_unmap(void *va, u32_t size) {
     assertk((size & PAGE_MASK) == 0);
     void *end = va + size;
     for (; va < end; va += PAGE_SIZE) {
-        vmm_unmapPage((ptr_t) va);
+        kvm_unmapPage((ptr_t) va);
     }
 }
 
 
-void vmm_recycle() {
+void kvm_recycle() {
     // TODO: 内存不足时再回收 unmap 没有释放的空页表
 }

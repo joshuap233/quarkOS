@@ -49,17 +49,17 @@ typedef table_t pdr_t;
 typedef table_t ptb_t;
 
 
-void vmm_mapv(ptr_t va, uint32_t size, uint32_t flags);
+void kvm_mapv(ptr_t va, uint32_t size, uint32_t flags);
 
-void vmm_unmap(void *va, uint32_t size);
+void kvm_unmap(void *va, uint32_t size);
 
-void vmm_mapd(ptr_t va, ptr_t pa, uint32_t size, uint32_t flags);
+void kvm_mapd(ptr_t va, ptr_t pa, uint32_t size, uint32_t flags);
 
-void vmm_mapPage(ptr_t va, ptr_t pa, uint32_t flags);
+void kvm_mapPage(ptr_t va, ptr_t pa, uint32_t flags);
 
-ptr_t vmm_vm2pm(ptr_t va);
+ptr_t kvm_vm2pm(ptr_t va);
 
-void vmm_unmapPage(ptr_t va);
+void kvm_unmapPage(ptr_t va);
 
 typedef ptr_t pointer_t;
 #endif //QUARKOS_MM_VMM_H

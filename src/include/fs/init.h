@@ -5,21 +5,21 @@
 #ifndef QUARKOS_FS_INIT_H
 #define QUARKOS_FS_INIT_H
 
-void ext2_init();
+extern void ext2_init();
 
-void page_cache_init();
+extern void page_cache_init();
 
-void vfs_init();
+extern void vfs_init();
 
 #ifdef TEST
 
-void test_ide_rw();
+extern void test_ide_rw();
 
-void test_ext2();
+extern void test_ext2();
 
-void test_dma_rw();
+extern void test_dma_rw();
 
-void test_vfs();
+extern void test_vfs();
 
 #endif // TEST
 

@@ -106,6 +106,10 @@ INLINE void set_eflags(uint32_t eflags) {
     );
 }
 
+static inline void lcr3(u32_t cr3){
+    asm volatile("movl %0,%%cr3" : : "r" (cr3));
+}
+
 INLINE void enable_paging() {
     asm volatile (
     "mov %%cr0, %%eax       \n\t"

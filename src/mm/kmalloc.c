@@ -5,7 +5,7 @@
 #include "mm/page_alloc.h"
 #include "mm/slab.h"
 #include "types.h"
-#include "mm/vmm.h"
+#include "mm/kvm_map.h"
 #include "lib/qstring.h"
 #include "lib/qlib.h"
 
@@ -15,7 +15,7 @@ void *kmalloc(u32_t size) {
     ptr_t addr = pm_alloc(size);
     if (!IS_POWER_OF_2(size))
         size = fixSize(size);
-    vmm_mapd(addr, addr, size, VM_PRES | VM_KW);
+    kvm_mapd(addr, addr, size, VM_PRES | VM_KW);
     return (void *) addr;
 }
 
@@ -44,5 +44,5 @@ void kfree(void *addr) {
     if ((ptr_t) addr & PAGE_MASK)
         return slab_free(addr);
     u32_t size = pm_free((ptr_t) addr);
-    vmm_unmap((void *) addr, size);
+    kvm_unmap((void *) addr, size);
 }

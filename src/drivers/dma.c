@@ -10,7 +10,7 @@
 #include "lib/list.h"
 #include "sched/kthread.h"
 #include "drivers/ide.h"
-#include "mm/vmm.h"
+#include "mm/kvm_map.h"
 
 #define N_PRD   N_BUF
 #define LH list_head_t

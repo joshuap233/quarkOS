@@ -9,14 +9,14 @@
 
 //tss 描述符结构
 typedef struct tss_desc {
-    uint16_t limit; // 段界限 0-15位, 置 0xffff
-    uint16_t base_l; // 段基地址 0-15 位, 置 0
-    uint8_t base_m;  // 段基地址16-23 位, 置 0
+    uint16_t limit;         // 段界限 0-15位, 置 0xffff
+    uint16_t base_l;        // 段基地址 0-15 位, 置 0
+    uint8_t base_m;         // 段基地址16-23 位, 置 0
     uint8_t access;
-    uint8_t limit_h: 4;  // limit 16-19 位,置 0xf ,
-    uint8_t flag: 4;  // 标志位,置 0xc
-    uint8_t base_h;  // 段基址 24-31 位, 置 0
-#define TSS_BUSY   0b1011 //A busy task is currently running or suspended.
+    uint8_t limit_h: 4;     // limit 16-19 位,置 0xf ,
+    uint8_t flag: 4;        // 标志位,置 0xc
+    uint8_t base_h;         // 段基址 24-31 位, 置 0
+#define TSS_BUSY   0b1011   //A busy task is currently running or suspended.
 #define TSS_NBUSY  0b1001
 #define TSS_PRES   1 << 7
 #define TSS_NPRES  0 << 7

@@ -4,7 +4,7 @@
 #include "mm/page_alloc.h"
 #include "lib/qlib.h"
 #include "mm/slab.h"
-#include "mm/vmm.h"
+#include "mm/kvm_map.h"
 
 #define SLAB_INDEX(size) (log2(size)-2)
 #define SLAB_INFO_MAGIC 0xac616749
@@ -124,7 +124,7 @@ static void *_slab_alloc(list_head_t *head, list_head_t *full, uint16_t size) {
 static void add_slab(list_head_t *slab, uint16_t chunkSize) {
     ptr_t addr = pm_alloc_page();
     assertk((addr & PAGE_MASK) == 0);
-    vmm_mapPage(addr, addr, VM_PRES | VM_KW);
+    kvm_mapPage(addr, addr, VM_PRES | VM_KW);
 
     // slabInfo 结构位于当前 slab 页的头部
     uint16_t cnt_unused = (PAGE_SIZE - sizeof(slabInfo_t)) / chunkSize;
@@ -169,12 +169,12 @@ static void recycle(list_head_t *head) {
         if (info->n_allocated == 0) {
             list_del(&info->head);
             pm_free((ptr_t) info);
-            vmm_unmapPage((ptr_t) info);
+            kvm_unmapPage((ptr_t) info);
         }
     };
 }
 
-// vmm_unmapPage 开启分页后才能使用,
+// kvm_unmapPage 开启分页后才能使用,
 // 因此 slab_recycle 需要在分页开启后测试
 void slab_recycle() {
     for (int i = 0; i < LIST_SIZE; ++i) {

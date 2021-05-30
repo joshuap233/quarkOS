@@ -40,22 +40,30 @@ typedef struct tcb {
 #define KTHREAD_STACK_SIZE PAGE_SIZE
 #define KTHREAD_NUM        1024
 #define MAX_PRIORITY       3
+
     list_head_t run_list;    //运行队列
+
 #ifdef DEBUG
 #define THREAD_MAGIC       0x18ee7305
     u32_t magic;
     u32_t spin_cnt;          // 自旋锁自旋次数
     u64_t last_run_time;     // 上次运行时间
 #endif // DEBUG
+
     kthread_t tid;
     kthread_state state;
-    u16_t priority;
+    u16_t priority;           // 优先级
     u16_t timer_slice;        // 时间片
     char name[KTHREAD_NAME_LEN];
-    void *stack;              // 指向栈首地址,用于回收
+    void *stack;              // 内核栈地址
+    ptr_t *pgdir;             // 页目录物理地址
+    struct mm_struct *mm;     // 分配的虚拟内存,内核线程共用一个
+
     inode_t *cwd;
     context_t context;        // 上下文信息
 } tcb_t;
+
+
 
 
 // i r esp / ~(uint32_t)(4096 - 1)

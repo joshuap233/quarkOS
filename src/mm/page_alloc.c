@@ -11,7 +11,6 @@
 #include "mm/mm.h"
 #include "mm/page_alloc.h"
 #include "mm/block_alloc.h"
-#include "mm/vm_area.h"
 
 typedef struct treeNode {
 #define SIZE(sizeLog) (1<<(sizeLog)) // 获取实际内存单元个数
@@ -66,13 +65,13 @@ struct allocator {
 
 
 void pmm_init() {
-    // TODO:还有不足 4M 的内存, 且该管理器管理固定大小内存,而不是所有剩余内存
+    // TODO:还有不足 4M 的内存
     // 且 block_alloc 可分配内存块并不连续,但 pmm allocator 只有一个 addr(起始地址)
     pmm.blockSize = PAGE_SIZE;
     u32_t size = block_size() / (4 * K) / 2; //需要分配的节点数
     node_t *list = (node_t *) block_alloc(sizeof(node_t) * size);
     // pmm.add 以下区域为内核
-    vm_area_expand(PAGE_ALIGN(block_start()), KERNEL_AREA);
+//    vm_area_expand(PAGE_ALIGN(block_start()), KERNEL_AREA);
 
     // 初始化空闲链表
     for (u32_t i = 0; i < size - 1; ++i) {
