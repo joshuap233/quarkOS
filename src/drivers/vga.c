@@ -3,9 +3,9 @@
 #include "x86.h"
 #include "lib/qstring.h"
 #include "lib/qlib.h"
+#include <mm/mm.h>
 
-
-#define VGA_TEXT_MODE_MEM 0xB8000
+#define VGA_TEXT_MODE_MEM (0xB8000 + HIGH_MEM)
 
 // VGA模式 3 提供 80 * 25的字符窗口显示
 // 0xB8000 ~ 0xBFFFF 内存地址映射到显存(VGA text mode)

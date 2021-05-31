@@ -4,7 +4,7 @@
 #include "mm/page_alloc.h"
 #include "lib/qlib.h"
 #include "mm/slab.h"
-#include "mm/kvm_map.h"
+#include "mm/kvm.h"
 
 #define SLAB_INDEX(size) (log2(size)-2)
 #define SLAB_INFO_MAGIC 0xac616749

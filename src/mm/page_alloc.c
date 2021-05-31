@@ -3,19 +3,25 @@
 //
 // TODO: 分配需要分配 3K, 5K, 9K...这种内存依然会造成大量内存碎片
 // 可以将多余的内存划分给 slab 分配器?
-// 如果多余的内存没有划分给slab,多余的内存是否需要映射到虚拟地址空间?
+
+#include <types.h>
+#include <lib/qlib.h>
+#include <mm/mm.h>
+#include <mm/page_alloc.h>
+#include <mm/block_alloc.h>
+#include <mm/page.h>
 
 
-#include "types.h"
-#include "lib/qlib.h"
-#include "mm/mm.h"
-#include "mm/page_alloc.h"
-#include "mm/block_alloc.h"
+enum memZoneType {
+    HIGH_MEM_ZONE = 0,
+    NORMAL_ZONE
+};
+
 
 typedef struct treeNode {
 #define SIZE(sizeLog) (1<<(sizeLog)) // 获取实际内存单元个数
-    u32_t sizeLog: 8;                // 当前节点管理的内存单元(4K)个数取log2
-    u32_t pn: 24;                    // 页帧号
+    u32_t sizeLog: 8;                // 内存单元(4K)个数取log2
+    u32_t pn: 24;
     struct treeNode *left;
     struct treeNode *right;
 } node_t;
@@ -64,6 +70,110 @@ struct allocator {
 } pmm;
 
 
+/*
+ * 物理内存分配器
+ * zone 0 为第 3G 内存, zone 1 为 高 1G 内存
+ * 内存不足 4G 则没有 zone 1,内核使用 zone 0 区域
+ * root:        root[11] 管理已分配块,root[0]-root[10] 对应 4K - 4M 内存块
+ * addr:        物理内存分配器管理的内存起始地址
+ * blockSize:   最小内存单元大小
+ */
+struct mem_zone {
+#define MAX_ORDER 10
+#define ORDER_SIZE(order) (1<<(order))
+    struct page *root[MAX_ORDER + 1];
+    u16_t blockSize;
+    u32_t size;
+} memZone[2];
+
+
+//返回分配的页面数
+size_t parse_mem_block(struct page *pages, u32_t pageCnt, ptr_t addr, ptr_t size) {
+    assertk((size & PAGE_MASK) == 0);
+
+    struct page *page;
+    struct mem_zone *zone = addr >= HIGH_MEM ? &memZone[1] : &memZone[0];
+    u32_t cnt, counter = 0;
+
+    size /= PAGE_SIZE;
+    assertk(pageCnt >= size);
+
+    for (int i = 0; size > 0 && i <= MAX_ORDER; ++i) {
+        cnt = size / ORDER_SIZE(i);
+        counter += cnt * ORDER_SIZE(i);
+
+        size %= ORDER_SIZE(i);
+        for (u32_t j = 0; j < cnt; ++j) {
+            page = &pages[j * ORDER_SIZE(i)];
+            if (zone->root[i] == NULL) {
+                zone->root[i] = page;
+            } else {
+                list_add_prev(&page->cachePage.list, &zone->root[i]->cachePage.list);
+            }
+        }
+        page += cnt * ORDER_SIZE(i);
+    }
+    return counter;
+}
+
+void zone_init() {
+    list_head_t *hdr;
+    blockInfo_t *info;
+    ptr_t addr;
+
+    //TODO: 不需要 block_low_mem_size 与 block_high_mem_size
+    // 下面分配页的时候再计算
+    u32_t lowSize = block_low_mem_size();
+    assertk((lowSize & PAGE_MASK) == 0);
+
+    u32_t highSize = block_high_mem_size();
+    assertk((highSize & PAGE_MASK) == 0);
+
+    u32_t pageCnt = (lowSize + highSize) / PAGE_SIZE;
+
+    //TODO: 空洞页面保留 page, 因此可以使用 O(1) 找到 buddy 页,
+    //因此创建 (pmm_end - kernel_end)/page_size 个页面
+    struct page *pages = (struct page *) block_alloc(sizeof(struct page) * pageCnt);
+
+    for (int j = 0; j < 2; ++j) {
+        for (int i = 0; i <= MAX_ORDER; ++i) {
+            memZone[j].root[i] = NULL;
+        }
+    }
+
+    //创建 low_mem page
+    //暂时将 page 连接到 zone.cache_page.list, 用于后面生成树,否则直接插入会导致树失衡
+    u32_t index = 0;
+    list_for_each(hdr, &blockAllocator.head) {
+        info = block_mem_entry(hdr);
+        addr = (ptr_t) info;
+        if (addr > HIGH_MEM) break;
+        if (addr + info->size > HIGH_MEM) {
+            //TODO: 怎么生成树呢?
+            index++;
+            break;
+        }
+        index++;
+    }
+
+    //创建 high_mem page
+    list_for_each(hdr, &blockAllocator.head) {
+        info = block_mem_entry(hdr);
+        addr = (ptr_t) info;
+        if (addr + info->size < HIGH_MEM) continue;
+        if (addr < HIGH_MEM) {
+            break;
+        }
+    }
+    memZone[0].size = index * PAGE_SIZE;
+    memZone[0].blockSize = PAGE_SIZE;
+
+
+    memZone[1].blockSize = PAGE_SIZE;
+    memZone[1].size = highSize;
+}
+
+// pmm_init 初始化后,弃用 block_alloc
 void pmm_init() {
     // TODO:还有不足 4M 的内存
     // 且 block_alloc 可分配内存块并不连续,但 pmm allocator 只有一个 addr(起始地址)

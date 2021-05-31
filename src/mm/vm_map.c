@@ -4,7 +4,7 @@
 // 管理用户空间虚拟内存
 #include <mm/vm_map.h>
 #include <mm/mm.h>
-#include <mm/kvm_map.h>
+#include <mm/kvm.h>
 #include <mm/page_alloc.h>
 #include <lib/qlib.h>
 #include <lib/list.h>

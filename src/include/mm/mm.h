@@ -21,6 +21,8 @@
 extern char _endKernel[], _startKernel[];
 extern char _rodataStart[], _dataStart[];
 
+#define HIGH_MEM     0xc0000000
+#define KERNEL_START HIGH_MEM
 
 #define MEM_ALIGN(s, align) (((s)+(align)-1)&(~((align)-1)))
 

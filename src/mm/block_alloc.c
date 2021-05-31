@@ -2,32 +2,25 @@
 // Created by pjs on 2021/5/5.
 //
 // 最原始的物理内存管理器
-// TODO: 管理 1M 以下 内存?
-#include "mm/block_alloc.h"
-#include "multiboot2.h"
-#include "lib/qlib.h"
-#include "mm/mm.h"
-#include "lib/qstring.h"
+#include <mm/block_alloc.h>
+#include <multiboot2.h>
+#include <lib/qlib.h>
+#include <mm/mm.h>
+#include <lib/qstring.h>
 
+#define entry block_mem_entry
 
-typedef struct blockInfo {
-    list_head_t head;
-    u32_t size; // 块大小,包括该块头
-} blockInfo_t;
+// g_mem_start - kernel_end 之间的内存为内核初始化消耗的内存
+// 需要在初始化页表时直接映射
+ptr_t g_mem_start = 0;
 
-static struct block_allocator {
-    list_head_t head;
-    ptr_t addr;  // 管理器起始地址, <= addr 部分内存需要直接映射
-    u32_t total;
-} allocator;
-
-#define entry(ptr) list_entry(ptr, blockInfo_t, head)
+struct block_allocator blockAllocator;
 
 static void reload();
 
 void memBlock_init() {
-    allocator.total = 0;
-    list_header_init(&allocator.head);
+    blockAllocator.total = 0;
+    list_header_init(&blockAllocator.head);
 
     boot_mmap_entry_t *entry;
     for_each_mmap(entry) {
@@ -46,32 +39,74 @@ void memBlock_init() {
             if (entry->len >= sizeof(blockInfo_t)) {
                 blockInfo_t *info = (void *) MEM_ALIGN(entry->addr, 4);
                 info->size = entry->len - ((ptr_t) info - entry->addr);
-                list_add_prev(&info->head, &allocator.head);
+                list_add_prev(&info->head, &blockAllocator.head);
             }
-            allocator.total += entry->len;
+            blockAllocator.total += entry->len;
         }
     }
 
     // blockInfo_t 按地址大小排序
     list_head_t *hdr, *next;
-    list_for_each_del(hdr, next, &allocator.head) {
+    list_for_each_del(hdr, next, &blockAllocator.head) {
         list_head_t *tmp = hdr->prev;
-        for (; tmp != &allocator.head && (ptr_t) entry(hdr) < (ptr_t) entry(tmp); tmp = tmp->prev);
+        for (; tmp != &blockAllocator.head && (ptr_t) entry(hdr) < (ptr_t) entry(tmp); tmp = tmp->prev);
         if (tmp != hdr->prev) {
             list_del(hdr);
             list_add_next(hdr, tmp);
         }
     }
-    allocator.addr = (ptr_t) allocator.head.next;
+    blockAllocator.addr = (ptr_t) blockAllocator.head.next;
     reload();
 }
 
+INLINE ptr_t block_align_size(ptr_t addr, ptr_t size) {
+    return PAGE_ADDR(size - (PAGE_ALIGN(addr) - addr));
+}
+
+// 丢弃不是页对齐的内存
+ptr_t block_low_mem_size() {
+    list_head_t *hdr;
+    blockInfo_t *info;
+    ptr_t size = 0;
+    ptr_t addr;
+
+    list_for_each(hdr, &blockAllocator.head) {
+        info = entry(hdr);
+        addr = (ptr_t) info;
+        if (addr > HIGH_MEM) break;
+        if (addr + info->size > HIGH_MEM) {
+            size += block_align_size(addr, HIGH_MEM - addr);
+            break;
+        }
+        size += block_align_size(addr, size);
+    }
+    return size;
+}
+
+ptr_t block_high_mem_size() {
+    list_head_t *hdr;
+    blockInfo_t *info;
+    ptr_t size = 0;
+    ptr_t addr;
+
+    list_for_each(hdr, &blockAllocator.head) {
+        info = entry(hdr);
+        addr = (ptr_t) info;
+        if (addr + info->size < HIGH_MEM) continue;
+        if (addr < HIGH_MEM) {
+            size += block_align_size(HIGH_MEM, addr + size - HIGH_MEM);
+            break;
+        }
+        size += block_align_size(addr, size);
+    }
+    return size;
+}
 
 ptr_t block_alloc(u32_t size) {
-    assertk(allocator.total >= size);
+    assertk(blockAllocator.total >= size);
     size = MEM_ALIGN(size, 4);
     list_head_t *hdr;
-    list_for_each(hdr, &allocator.head) {
+    list_for_each(hdr, &blockAllocator.head) {
         blockInfo_t *info = entry(hdr);
         u32_t blkSize = info->size;
         if (blkSize >= size) {
@@ -81,11 +116,11 @@ ptr_t block_alloc(u32_t size) {
                 blockInfo_t *new = (void *) info + size;
                 new->size = info->size - size;
                 list_add_next(&new->head, prev);
-                allocator.total -= size;
+                blockAllocator.total -= size;
             } else {
-                allocator.total -= info->size;
+                blockAllocator.total -= info->size;
             }
-            allocator.addr = (ptr_t) allocator.head.next;
+            blockAllocator.addr = (ptr_t) blockAllocator.head.next;
             return (ptr_t) info;
         }
     }
@@ -100,11 +135,11 @@ ptr_t block_alloc_align(u32_t size, u32_t align) {
 }
 
 u32_t block_size() {
-    return allocator.total;
+    return blockAllocator.total;
 }
 
-u32_t block_start() {
-    return allocator.addr;
+void block_set_g_mem_start() {
+    g_mem_start = PAGE_ALIGN(blockAllocator.addr);
 }
 
 //移动 信息块

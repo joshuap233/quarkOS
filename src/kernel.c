@@ -1,13 +1,14 @@
-#include "types.h"
-#include "multiboot2.h"
-#include "mm/init.h"
-#include "sched/kthread.h"
-#include "drivers/init.h"
-#include "isr.h"
-#include "sched/init.h"
-#include "lib/qlib.h"
-#include "fs/init.h"
-
+#include <types.h>
+#include <multiboot2.h>
+#include <mm/init.h>
+#include <sched/kthread.h>
+#include <drivers/init.h>
+#include <isr.h>
+#include <sched/init.h>
+#include <lib/qlib.h>
+#include <fs/init.h>
+#include <mm/mm.h>
+#include <mm/kvm.h>
 
 #ifdef __linux__
 #error "你没有使用跨平台编译器进行编译"
@@ -87,3 +88,47 @@ void kernel_main() {
 
     block_thread(NULL, NULL);
 }
+
+/** 映射临时页表 **/
+static _Alignas(KTHREAD_STACK_SIZE) u8_t kStack[KTHREAD_STACK_SIZE];
+
+static uint32_t kStack_top = (ptr_t) kStack + KTHREAD_STACK_SIZE;
+
+extern pdr_t *boot_page_dir;
+extern ptb_t *boot_page_table1;
+extern ptb_t *boot_page_table2;
+
+// 映射临时页表
+__attribute__((section(".init.text"))) void map_tmp_page(void) {
+    // 映射物理地址 0-4M 到虚拟地址 0 - 4M 与 HIGH_MEM ~ HIGH_MEM + 4M
+    // 否则开启分页后,无法运行 init 代码
+    boot_page_dir->entry[0] = (ptr_t) boot_page_table1 | VM_PRES | VM_KW;
+    boot_page_dir->entry[1023] = (ptr_t) boot_page_table2 | VM_PRES | VM_KW;
+
+    for (int i = 0; i < 1024; ++i) {
+        boot_page_table1->entry[i] = (i << 12) | VM_PRES | VM_KW;
+    }
+
+    for (int i = 0; i < 1024; ++i) {
+        boot_page_table2->entry[i] = (i << 12) | VM_PRES | VM_KW;
+    }
+
+    lcr3((ptr_t) boot_page_dir);
+}
+
+
+__attribute__((section(".init.text"))) void kern_entry(void) {
+    map_tmp_page();
+
+    enable_paging();
+
+    // 切换到新栈, ebp 清 0 用于追踪栈底
+    __asm__ volatile ("mov %0, %%esp\n\t"
+                      "xor %%ebp, %%ebp" : : "r" (kStack_top));
+
+    // 更新全局 mba 地址
+    mba = (multiboot_info_t *) ((ptr_t) mba + KERNEL_START);
+
+    kernel_main();
+}
+

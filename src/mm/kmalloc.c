@@ -5,7 +5,7 @@
 #include "mm/page_alloc.h"
 #include "mm/slab.h"
 #include "types.h"
-#include "mm/kvm_map.h"
+#include "mm/kvm.h"
 #include "lib/qstring.h"
 #include "lib/qlib.h"
 

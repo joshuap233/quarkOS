@@ -2,7 +2,7 @@
 // Created by pjs on 2021/2/1.
 //
 //内核空间虚拟内存管理,采用递归映射
-#include <mm/kvm_map.h>
+#include <mm/kvm.h>
 #include <mm/page_alloc.h>
 #include <lib/qstring.h>
 #include <lib/qlib.h>
@@ -41,7 +41,6 @@ void kvm_init() {
 
     cr3_t cr3 = CR3_CTRL | ((ptr_t) &pageDir);
     pageDir.entry[N_PDE - 1] = (ptr_t) &pageDir | VM_KW | VM_PRES;
-
     // 低于 1M 的内存区域
     kvm_mapd(0, 0, startKernel, VM_PRES | VM_KW);
 
@@ -54,8 +53,11 @@ void kvm_init() {
     // data 段, bss 段 与初始化内核分配的内存
     kvm_mapd(dataStart, dataStart, endKernel - dataStart, VM_PRES | VM_KW);
 
+    block_set_g_mem_start();
+    assertk(g_mem_start > endKernel);
+
     // 使用 block_alloc 分配的内存
-    kvm_mapd(endKernel, endKernel, PAGE_ALIGN(block_start()) - endKernel, VM_PRES | VM_KW);
+    kvm_mapd(endKernel, endKernel, g_mem_start - endKernel, VM_PRES | VM_KW);
 
     cr3_set(cr3);
 }
@@ -77,6 +79,8 @@ static ptb_t *getPageTable(ptr_t va, u32_t flags) {
 }
 
 void kvm_mapPage(ptr_t va, ptr_t pa, u32_t flags) {
+    //TODO:
+    pa += HIGH_MEM;
     assertk((va & PAGE_MASK) == 0);
     ptb_t *pt = getPageTable(va, flags);
     PTE(pt, va) = pa | flags;
