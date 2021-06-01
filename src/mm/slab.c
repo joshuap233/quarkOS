@@ -8,7 +8,7 @@
 
 #define SLAB_INDEX(size) (log2(size)-2)
 #define SLAB_INFO_MAGIC 0xac616749
-#define entry(ptr) list_entry(ptr,slabInfo_t,head)
+#define slab_entry(ptr) list_entry(ptr,slabInfo_t,head)
 #define SLAB_SIZE(idx)   (SLAB_MIN<<(idx))
 
 #define chunk_foreach(chunk) for ((chunk) = info->chunk; chunk; (chunk) = (chunk)->next)
@@ -107,7 +107,7 @@ static void *_slab_alloc(list_head_t *head, list_head_t *full, uint16_t size) {
         add_slab(head, size);
     }
 
-    slabInfo_t *slabInfo = entry(head->next);
+    slabInfo_t *slabInfo = slab_entry(head->next);
     assertk(!list_empty(head) && slabInfo->chunk);
 
     slabInfo->n_allocated++;
@@ -165,7 +165,7 @@ static void recycle(list_head_t *head) {
     slabInfo_t *info;
     list_head_t *hdr;
     list_for_each(hdr, head) {
-        info = entry(hdr);
+        info = slab_entry(hdr);
         if (info->n_allocated == 0) {
             list_del(&info->head);
             pm_free((ptr_t) info);
@@ -195,7 +195,7 @@ void *slabAddr[CHUNK_CNT(0)][2];
 
 void except_chunk_size(u32_t idx, u32_t except) {
     size_t size = 0;
-    slabInfo_t *info = entry(allocator.slab[idx].next);
+    slabInfo_t *info = slab_entry(allocator.slab[idx].next);
     assertk(info && info->chunk);
     chunkLink_t *chunk;
 
@@ -237,12 +237,12 @@ void test_slab_alloc() {
         slab_free(slabAddr[i][0]);
     }
     assertk(!list_empty(&allocator.slab[0]));
-    assertk(allocator.slab->next != entry(allocator.slab->next)->head.next)
+    assertk(allocator.slab->next != slab_entry(allocator.slab->next)->head.next)
     except_chunk_size(0, CHUNK_CNT(0));
 
     slab_free(slabAddr[0][1]);
     size_t size = 0;
-    slabInfo_t *info = entry(entry(&allocator.slab[0])->head.next);
+    slabInfo_t *info = slab_entry(slab_entry(&allocator.slab[0])->head.next);
     assertk(info && info->chunk);
 
     chunkLink_t *chunk;

@@ -8,7 +8,7 @@
 #include <mm/mm.h>
 #include <lib/qstring.h>
 
-#define entry block_mem_entry
+#define block_entry block_mem_entry
 
 // g_mem_start - kernel_end 之间的内存为内核初始化消耗的内存
 // 需要在初始化页表时直接映射
@@ -49,7 +49,7 @@ void memBlock_init() {
     list_head_t *hdr, *next;
     list_for_each_del(hdr, next, &blockAllocator.head) {
         list_head_t *tmp = hdr->prev;
-        for (; tmp != &blockAllocator.head && (ptr_t) entry(hdr) < (ptr_t) entry(tmp); tmp = tmp->prev);
+        for (; tmp != &blockAllocator.head && (ptr_t) block_entry(hdr) < (ptr_t) block_entry(tmp); tmp = tmp->prev);
         if (tmp != hdr->prev) {
             list_del(hdr);
             list_add_next(hdr, tmp);
@@ -71,7 +71,7 @@ ptr_t block_low_mem_size() {
     ptr_t addr;
 
     list_for_each(hdr, &blockAllocator.head) {
-        info = entry(hdr);
+        info = block_entry(hdr);
         addr = (ptr_t) info;
         if (addr > HIGH_MEM) break;
         if (addr + info->size > HIGH_MEM) {
@@ -90,7 +90,7 @@ ptr_t block_high_mem_size() {
     ptr_t addr;
 
     list_for_each(hdr, &blockAllocator.head) {
-        info = entry(hdr);
+        info = block_entry(hdr);
         addr = (ptr_t) info;
         if (addr + info->size < HIGH_MEM) continue;
         if (addr < HIGH_MEM) {
@@ -107,7 +107,7 @@ ptr_t block_alloc(u32_t size) {
     size = MEM_ALIGN(size, 4);
     list_head_t *hdr;
     list_for_each(hdr, &blockAllocator.head) {
-        blockInfo_t *info = entry(hdr);
+        blockInfo_t *info = block_entry(hdr);
         u32_t blkSize = info->size;
         if (blkSize >= size) {
             list_head_t *prev = info->head.prev;

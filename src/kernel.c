@@ -36,9 +36,9 @@ void hello() {
     printfk("\n");
 }
 
+static multiboot_info_t *mba;
+static uint32_t magic;
 
-extern multiboot_info_t *mba;
-extern uint32_t magic;
 
 //mba 为 multiboot info struct 首地址
 void kernel_main() {
@@ -89,45 +89,76 @@ void kernel_main() {
     block_thread(NULL, NULL);
 }
 
-/** 映射临时页表 **/
-static _Alignas(KTHREAD_STACK_SIZE) u8_t kStack[KTHREAD_STACK_SIZE];
 
-static uint32_t kStack_top = (ptr_t) kStack + KTHREAD_STACK_SIZE;
+/**** 映射临时页表  ****/
 
-extern pdr_t *boot_page_dir;
-extern ptb_t *boot_page_table1;
-extern ptb_t *boot_page_table2;
+// 内核栈
+static _Alignas(STACK_SIZE)
+u8_t kStack[STACK_SIZE];
 
+static _Alignas(STACK_SIZE) SECTION(".init.data")
+pdr_t boot_page_dir = {
+        .entry = {[0 ...1023]=0}
+};
+
+static _Alignas(PAGE_SIZE)
+SECTION(".init.data") ptb_t boot_page_table1 = {
+        .entry = {[0 ...1023]=0}
+};
+
+static _Alignas(PAGE_SIZE)
+SECTION(".init.data") ptb_t boot_page_table2 = {
+        .entry = {[0 ...1023]=0}
+};
+
+
+// 临时 mba 与 magic
+SECTION(".init.data") multiboot_info_t *tmp_mba;
+SECTION(".init.data") uint32_t tmp_magic;
+
+#define VM_WRITE  0x2
 // 映射临时页表
-__attribute__((section(".init.text"))) void map_tmp_page(void) {
+SECTION(".init.text")
+void map_tmp_page(void) {
     // 映射物理地址 0-4M 到虚拟地址 0 - 4M 与 HIGH_MEM ~ HIGH_MEM + 4M
     // 否则开启分页后,无法运行 init 代码
-    boot_page_dir->entry[0] = (ptr_t) boot_page_table1 | VM_PRES | VM_KW;
-    boot_page_dir->entry[1023] = (ptr_t) boot_page_table2 | VM_PRES | VM_KW;
+    boot_page_dir.entry[0] = (ptr_t) &boot_page_table1 | VM_PRES | VM_WRITE;
+    boot_page_dir.entry[PDE_INDEX(HIGH_MEM)] = (ptr_t) &boot_page_table2 | VM_PRES | VM_WRITE;
 
     for (int i = 0; i < 1024; ++i) {
-        boot_page_table1->entry[i] = (i << 12) | VM_PRES | VM_KW;
+        boot_page_table1.entry[i] = (i << 12) | VM_PRES | VM_WRITE;
+        boot_page_table2.entry[i] = (i << 12) | VM_PRES | VM_WRITE;
     }
 
-    for (int i = 0; i < 1024; ++i) {
-        boot_page_table2->entry[i] = (i << 12) | VM_PRES | VM_KW;
-    }
-
-    lcr3((ptr_t) boot_page_dir);
+    // 不能直接用 x86.h 的 lcr3 与 enable_paging
+    asm volatile("movl %0,%%cr3" : : "r" (&boot_page_dir));
 }
 
 
-__attribute__((section(".init.text"))) void kern_entry(void) {
+SECTION(".init.text")
+void kern_entry(void) {
+
     map_tmp_page();
 
-    enable_paging();
+    // 开启分页
+    asm volatile (
+    "mov %%cr0, %%eax       \n\t"
+    "or  $0x80000000, %%eax \n\t"
+    "mov %%eax, %%cr0"
+    :: :"%eax");
+
+    uint32_t kStack_top = (ptr_t) ((void *) &kStack + STACK_SIZE);
 
     // 切换到新栈, ebp 清 0 用于追踪栈底
-    __asm__ volatile ("mov %0, %%esp\n\t"
-                      "xor %%ebp, %%ebp" : : "r" (kStack_top));
+    asm volatile (
+    "mov %0, %%esp\n\t"
+    "xor %%ebp, %%ebp" : :
+    "r" (kStack_top));
 
-    // 更新全局 mba 地址
-    mba = (multiboot_info_t *) ((ptr_t) mba + KERNEL_START);
+    // mba 在 data 节,而 tmp_mba 在 init 节,
+    // data 节分页开启前无法直接访问,因此需要先设置 tmp_mba
+    mba = (void *) tmp_mba + KERNEL_START;
+    magic = tmp_magic;
 
     kernel_main();
 }

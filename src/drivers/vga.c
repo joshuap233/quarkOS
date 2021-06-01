@@ -3,7 +3,8 @@
 #include "x86.h"
 #include "lib/qstring.h"
 #include "lib/qlib.h"
-#include <mm/mm.h>
+#include <highmem.h>
+
 
 #define VGA_TEXT_MODE_MEM (0xB8000 + HIGH_MEM)
 

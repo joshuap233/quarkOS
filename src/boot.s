@@ -1,4 +1,6 @@
     .extern kern_entry
+    .extern tmp_mba
+    .extern tmp_magic
     /* multiboot 头常量 */
     .set MAGIC,         0xE85250D6
     .set ARCHITECTURE,  0
@@ -6,7 +8,7 @@
     .set CHECKSUM,      -(HEADER_LENGTH + MAGIC + ARCHITECTURE)
 
 /* multiboot2 头需要 8 字节对齐,且必须在 OS image 的前 1K */
-    .section .init.text
+    .section .init.multiboot2
     .align 8
 headerStart:
 
@@ -51,8 +53,8 @@ _start:
 	/* 设置临时内核栈, x86 栈向低地址扩展, c 函数执行需要栈 */
 	mov $stack_top, %esp
 
-    movl %eax, magic
-    movl %ebx, mba
+    movl %eax, tmp_magic
+    movl %ebx, tmp_mba
 	call kern_entry
 
 	cli
@@ -62,18 +64,6 @@ _start:
 .size _start, . - _start
 
 
-/* 内核解析 multiboot info 相关信息的全局数据 */
-    .section .data
-    .global mba
-mba:
-    .long 0
-
-    .section .data
-    .global magic
-magic:
-    .long 0
-
-
 /* 临时内核栈 */
     .section .init.data
     .align   16
@@ -81,16 +71,3 @@ stack_bottom:
     .skip    4096
 stack_top:
 
-
-/* 临时页目录,放在 bss 段,内存置 0 */
-    .section .init.bss
-    .global boot_page_dir
-    .global boot_page_table1
-    .global boot_page_table2
-    .align   4096
-boot_page_dir:
-    .skip    4096
-boot_page_table1:
-	.skip 4096
-boot_page_table2:
-	.skip 4096

@@ -7,22 +7,17 @@ SECTIONS
 	/* .text 从内存 1M 开始*/
 	. = 1M;
 
-    init_text_start = .;
-    .init.text BLOCK(4K) : ALIGN(4K)
+    .init.text ALIGN(4K) :
     {
-            *(.init.text)
+        init_text_start = .;
+        *(.init.multiboot2)
+        *(.init.text)
     }
 
-    init_data_start = .;
-    .init.data BLOCK(4K) : ALIGN(4K)
+    .init.data ALIGN(4K) :
     {
-            *(.init.data)
-    }
-
-    init_bss_start = .;
-    .init.bss BLOCK(4K) : ALIGN(4K)
-    {
-            *(.init.bss)
+        init_data_start = .;
+        *(.init.data)
     }
 
     . += 0xC0000000;
@@ -51,9 +46,9 @@ SECTIONS
 	/* 未初始化的可读写 数据/栈 */
 	.bss ALIGN(4K) : AT (ADDR (.bss) - 0xC0000000)
 	{
+	    _bssStart = .;
 		*(COMMON)
 		*(.bss)
-		_ebss = .;
 	}
 
     /* 用于获取内核结束地址 */

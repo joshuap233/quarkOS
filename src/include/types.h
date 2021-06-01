@@ -30,6 +30,7 @@ typedef uint32_t lba28;
 #define INLINE __attribute__((always_inline)) static inline
 #define INT    __attribute__((interrupt)) static void
 #define UNUSED __attribute__((unused))
+#define SECTION(sec)  __attribute__((section(sec)))
 
 #define TEST
 #define DEBUG

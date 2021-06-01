@@ -37,7 +37,7 @@ typedef enum kthread_state {
 
 typedef struct tcb {
 #define KTHREAD_NAME_LEN   16
-#define KTHREAD_STACK_SIZE PAGE_SIZE
+#define KTHREAD_STACK_SIZE STACK_SIZE
 #define KTHREAD_NUM        1024
 #define MAX_PRIORITY       3
 

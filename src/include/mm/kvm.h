@@ -17,21 +17,21 @@
 
 #define PTE_SIZE            sizeof(pte_t)                   //页表项大小
 #define PDE_SIZE            sizeof(pde_t)
-#define N_PTE              (PAGE_SIZE/PTE_SIZE)  //每个页面的表项数
-#define N_PDE              (PAGE_SIZE/PDE_SIZE)
+#define N_PTE               (PAGE_SIZE/PTE_SIZE)  //每个页面的表项数
+#define N_PDE               (PAGE_SIZE/PDE_SIZE)
 #define PT_SIZE             N_PDE * N_PTE * PTE_SIZE // 页表项总大小
 
-#define CR3_CTRL 0         //不使用 write-through,且页目录允许缓存
-#define PAGE_ENTRY_NUM     (PAGE_SIZE / sizeof(entry))
+#define CR3_CTRL 0          //不使用 write-through,且页目录允许缓存
+#define PAGE_ENTRY_NUM      (PAGE_SIZE / sizeof(entry))
 
-#define VM_A_MASK          (0b1<<5) //访问位掩码
-#define VM_D_MASK          (0b1<<6) //脏位掩码
-#define VM_PRES          0b1    // 在物理内存中
-#define VM_NPRES         0b0    // 不在物理内存中
-#define VM_KR            0b100  // 特权可读页
-#define VM_KW            0b110  // 特权可读写页
-#define VM_UR            0b000  // 用户可读页
-#define VM_UW            0b010
+#define VM_A_MASK           (0b1<<5) //访问位掩码
+#define VM_D_MASK           (0b1<<6) //脏位掩码
+#define VM_PRES             0b1    // 在物理内存中
+#define VM_NPRES            0b0    // 不在物理内存中
+#define VM_KR               0b100  // 特权可读页
+#define VM_KW               0b110  // 特权可读写页
+#define VM_UR               0b000  // 用户可读页
+#define VM_UW               0b010
 
 
 typedef uint32_t entry;

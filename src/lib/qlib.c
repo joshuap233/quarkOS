@@ -1,10 +1,11 @@
 #include <stdarg.h> // 可变参数
-#include "lib/qstring.h"
-#include "lib/qlib.h"
-#include "types.h"
-#include "drivers/vga.h"
-#include "elf.h"
-#include "multiboot2.h"
+#include <lib/qstring.h>
+#include <lib/qlib.h>
+#include <types.h>
+#include <drivers/vga.h>
+#include <elf.h>
+#include <multiboot2.h>
+#include <highmem.h>
 
 #define U64LEN 20  // uint64 十进制数长度
 
@@ -60,7 +61,7 @@ char *cur_func_name(ptr_t addr) {
         if (ELF32_ST_TYPE(bInfo.symtab.header[i].st_info) == STT_FUNC) {
             elf32_symbol_t entry = bInfo.symtab.header[i];
             if ((addr >= entry.st_value) && (addr <= entry.st_value + entry.st_size)) {
-                return &bInfo.strtab.addr[entry.st_name];
+                return (void *) &bInfo.strtab.addr[entry.st_name] + HIGH_MEM;
             }
         }
     }
