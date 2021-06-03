@@ -13,7 +13,7 @@
 #include <fs/ext2.h>
 #include <fs/writeback.h>
 #include <lib/qlib.h>
-#include <fs/buf.h>
+#include <mm/page.h>
 #include <fs/vfs.h>
 #include <lib/qstring.h>
 #include <mm/slab.h>
@@ -88,7 +88,7 @@ static directory_t *ext2_find(directory_t *parent, const char *name) {
 
 // 读写的数据不会越过 4K (BLOCK_SIZE)边界
 static u32_t ext2_read(inode_t *file, uint32_t offset, uint32_t size, char *buf) {
-    buf_t *page;
+    struct page*page;
     u32_t blockSize = file->sb->blockSize;
     u32_t blkOffset = offset % blockSize;
     u32_t bno = offset / blockSize;
@@ -112,7 +112,7 @@ static u32_t ext2_write(inode_t *file, uint32_t offset, uint32_t size, char *buf
     u32_t blockSize = file->sb->blockSize;
     u32_t blkOffset = offset % blockSize;
     u32_t bno = offset / blockSize;
-    buf_t *page;
+    struct page*page;
     u32_t bid;
 
 

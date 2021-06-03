@@ -19,26 +19,26 @@
  * list:      等待读写队列
  * ref_cnt:   引用次数
  */
-typedef struct buf {
-#define BUF_DIRTY   1
-#define BUF_VALID   (1<<1)
-#define SECTOR_SIZE 512
-#define BUF_SIZE    PAGE_SIZE
-    list_head_t list;
-    lfq_node dirty;
-
-    u32_t timestamp;
-
-    void *data;
-
-    uint16_t flag;
-    uint16_t ref_cnt;
-    uint32_t no_secs;
-
-    rwlock_t rwlock;
-} buf_t;
-
-#define buf_entry(ptr)   list_entry(ptr,buf_t,list)
-#define buf_dirty_entry(ptr) list_entry(ptr,buf_t,dirty)
+//typedef struct buf {
+//#define BUF_DIRTY   1
+//#define BUF_VALID   (1<<1)
+//#define SECTOR_SIZE 512
+//#define BUF_SIZE    PAGE_SIZE
+//    list_head_t list;
+//    lfq_node dirty;
+//
+//    u32_t timestamp;
+//
+//    void *data;
+//
+//    uint16_t flag;
+//    uint16_t ref_cnt;
+//    uint32_t no_secs;
+//
+//    rwlock_t rwlock;
+//} buf_t;
+//
+//#define buf_entry(ptr)   list_entry(ptr,buf_t,list)
+//#define buf_dirty_entry(ptr) list_entry(ptr,buf_t,dirty)
 
 #endif //QUARKOS_FS_BUF_H

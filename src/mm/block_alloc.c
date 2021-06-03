@@ -10,19 +10,25 @@
 
 #define block_entry block_mem_entry
 
-// g_mem_start - kernel_end 之间的内存为内核初始化消耗的内存
-// 需要在初始化页表时直接映射
+// (g_mem_start+HIGH_MEM) - kernel_end 之间的内存为
+// 内核初始化消耗的内存,需要在初始化页表时直接映射
 ptr_t g_mem_start = 0;
 
-struct block_allocator blockAllocator;
+block_allocator_t blockAllocator;
+
+static void sort_block_info();
 
 static void reload();
 
+// 直接将块信息头嵌入内存会导致开启分页后无法使用
 void memBlock_init() {
-    blockAllocator.total = 0;
+    blockAllocator.size = 0;
     list_header_init(&blockAllocator.head);
 
-    boot_mmap_entry_t *entry;
+    u32_t cnt = 0;
+    boot_mmap_entry_t *entry, *firstMem = NULL;
+
+    // 统计可用内存区域个数
     for_each_mmap(entry) {
         assertk(entry->zero == 0);
         if (entry->type == MULTIBOOT_MEMORY_AVAILABLE) {
@@ -36,118 +42,119 @@ void memBlock_init() {
                 entry->addr = K_END;
                 entry->len = end_addr - entry->addr;
             }
-            if (entry->len >= sizeof(blockInfo_t)) {
-                blockInfo_t *info = (void *) MEM_ALIGN(entry->addr, 4);
-                info->size = entry->len - ((ptr_t) info - entry->addr);
-                list_add_prev(&info->head, &blockAllocator.head);
+            if (!firstMem || firstMem->addr > entry->addr) {
+                firstMem = entry;
             }
-            blockAllocator.total += entry->len;
+            cnt++;
         }
     }
 
+    // 区域必须在临时页表内映射区域内
+    assertk(firstMem->addr < 4 * M);
+    assertk(cnt != 0);
+
+    // 初始化 block 分配器
+    u32_t alloc = sizeof(struct blockInfo) * cnt;
+    struct blockInfo *infos = (void *) firstMem->addr + HIGH_MEM;
+    assertk(firstMem != NULL && firstMem->len > alloc);
+    firstMem->len -= alloc;
+    firstMem->addr += alloc;
+
+    struct blockInfo *info = infos;
+    for_each_mmap(entry) {
+        assertk(entry->zero == 0);
+        if (entry->type == MULTIBOOT_MEMORY_AVAILABLE) {
+            blockAllocator.size += entry->len;
+            info->addr = entry->addr;
+            info->size = entry->len;
+            list_add_prev(&info->head, &blockAllocator.head);
+            info++;
+        }
+    }
+    assertk(info == (void *) infos + alloc);
+
+    // 内存块按地址排序
+    sort_block_info();
+    blockAllocator.addr = block_entry(blockAllocator.head.next)->addr;
+    reload();
+}
+
+
+static void sort_block_info() {
     // blockInfo_t 按地址大小排序
     list_head_t *hdr, *next;
     list_for_each_del(hdr, next, &blockAllocator.head) {
         list_head_t *tmp = hdr->prev;
-        for (; tmp != &blockAllocator.head && (ptr_t) block_entry(hdr) < (ptr_t) block_entry(tmp); tmp = tmp->prev);
+        while (tmp != &blockAllocator.head &&
+               block_entry(hdr) < block_entry(tmp)) {
+            tmp = tmp->prev;
+        }
+
         if (tmp != hdr->prev) {
             list_del(hdr);
             list_add_next(hdr, tmp);
         }
     }
-    blockAllocator.addr = (ptr_t) blockAllocator.head.next;
-    reload();
 }
 
 INLINE ptr_t block_align_size(ptr_t addr, ptr_t size) {
     return PAGE_ADDR(size - (PAGE_ALIGN(addr) - addr));
 }
 
-// 丢弃不是页对齐的内存
-ptr_t block_low_mem_size() {
-    list_head_t *hdr;
-    blockInfo_t *info;
-    ptr_t size = 0;
-    ptr_t addr;
-
-    list_for_each(hdr, &blockAllocator.head) {
-        info = block_entry(hdr);
-        addr = (ptr_t) info;
-        if (addr > HIGH_MEM) break;
-        if (addr + info->size > HIGH_MEM) {
-            size += block_align_size(addr, HIGH_MEM - addr);
-            break;
-        }
-        size += block_align_size(addr, size);
-    }
-    return size;
-}
-
-ptr_t block_high_mem_size() {
-    list_head_t *hdr;
-    blockInfo_t *info;
-    ptr_t size = 0;
-    ptr_t addr;
-
-    list_for_each(hdr, &blockAllocator.head) {
-        info = block_entry(hdr);
-        addr = (ptr_t) info;
-        if (addr + info->size < HIGH_MEM) continue;
-        if (addr < HIGH_MEM) {
-            size += block_align_size(HIGH_MEM, addr + size - HIGH_MEM);
-            break;
-        }
-        size += block_align_size(addr, size);
-    }
-    return size;
-}
 
 ptr_t block_alloc(u32_t size) {
-    assertk(blockAllocator.total >= size);
+    assertk(blockAllocator.size >= size);
     size = MEM_ALIGN(size, 4);
     list_head_t *hdr;
+    blockInfo_t *info;
+    ptr_t addr = 0;
     list_for_each(hdr, &blockAllocator.head) {
-        blockInfo_t *info = block_entry(hdr);
-        u32_t blkSize = info->size;
-        if (blkSize >= size) {
-            list_head_t *prev = info->head.prev;
-            list_del(&info->head);
-            if (blkSize - size > sizeof(blockInfo_t)) {
-                blockInfo_t *new = (void *) info + size;
-                new->size = info->size - size;
-                list_add_next(&new->head, prev);
-                blockAllocator.total -= size;
-            } else {
-                blockAllocator.total -= info->size;
+        info = block_entry(hdr);
+        if (info->size >= size) {
+            addr = info->addr;
+            info->addr += size;
+            info->size -= size;
+
+            blockAllocator.size -= size;
+            if (&info->head == blockAllocator.head.next) {
+                blockAllocator.addr = info->addr;
             }
-            blockAllocator.addr = (ptr_t) blockAllocator.head.next;
-            return (ptr_t) info;
+            break;
         }
     }
-    assertk(0);
-    return 0;
+    assertk(addr != 0);
+
+    return addr;
 }
 
 ptr_t block_alloc_align(u32_t size, u32_t align) {
     assertk(align > 4 && (align & 0x3) == 0);
     ptr_t addr = block_alloc(size + align - 1);
-    return PAGE_ALIGN(addr);
+    return MEM_ALIGN(addr, align);
+}
+
+u32_t block_start() {
+    return blockAllocator.addr;
+}
+
+u32_t block_end() {
+    assertk(!list_empty(&blockAllocator.head));
+    blockInfo_t *info = block_mem_entry(blockAllocator.head.prev);
+    return info->addr + info->size;
 }
 
 u32_t block_size() {
-    return blockAllocator.total;
+    return blockAllocator.size;
 }
 
-void block_set_g_mem_start() {
-    g_mem_start = PAGE_ALIGN(blockAllocator.addr);
-}
 
 //移动 信息块
 static void *move(void *addr, size_t size) {
     //如果需要移动的内存在 1M 以下,则不移动
+    assertk((ptr_t) addr < HIGH_MEM + 4 * M);
     if (addr > (void *) (1 * M)) {
-        void *new = (void *) block_alloc(size);
-        assertk(new != 0);
+        void *new = (void *) block_alloc(size) + HIGH_MEM;
+        assertk(new != NULL && (ptr_t) new < HIGH_MEM + 4 * M);
         q_memcpy(new, addr, size);
         return new;
     }

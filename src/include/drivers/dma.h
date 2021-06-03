@@ -10,7 +10,7 @@
 #include "drivers/pci.h"
 #include "isr.h"
 
-void dma_rw(buf_t *buf);
+void dma_rw(struct page*buf);
 
 struct ide_dma_dev {
     bool dma;                     // 是否支持 dma

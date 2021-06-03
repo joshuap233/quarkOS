@@ -118,15 +118,15 @@ int32_t ide_wait(bool check_error) {
 }
 
 
-void ide_isr(buf_t *buf, bool write) {
+void ide_isr(struct page*buf, bool write) {
     if (!write) {
         read_sector(buf->data, 8);
     }
 }
 
 
-void ide_driver_init(buf_t *buf, uint32_t secs_cnt) {
-    uint32_t no_sec = buf->no_secs;
+void ide_driver_init(struct page*buf, uint32_t secs_cnt) {
+    uint32_t no_sec = buf->pageCache.no_secs;
     // 选择 ide 驱动, 发送 lba 值, 设置扇区数
     assertk(ide_wait(0) == 0);
 
@@ -140,7 +140,7 @@ void ide_driver_init(buf_t *buf, uint32_t secs_cnt) {
     outb(IDE_CYL_H, (no_sec >> 16) & MASK_U8(8));
 }
 
-void ide_start(buf_t *buf, bool write) {
+void ide_start(struct page*buf, bool write) {
     ide_driver_init(buf, 8);
     if (write) {
         ide_send_cmd(CMD_WRITE_MULTIPLE);

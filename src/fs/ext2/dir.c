@@ -156,7 +156,7 @@ static ext2_dir_t *new_dir_entry(ext2_dir_t *dir, u32_t ino, char *name, size_t 
 static void create_dir_entry(inode_t *parent, char *name, u32_t ino, u8_t type) {
     ext2_dir_t *dir, *new;
     u32_t bid;
-    buf_t *buf;
+    struct page*buf;
     u32_t blockSize = parent->sb->blockSize;
     size_t nameLen = q_strlen(name);
 
@@ -185,7 +185,7 @@ static void create_dir_entry(inode_t *parent, char *name, u32_t ino, u8_t type) 
 
 void make_empty_dir(inode_t *inode) {
     // 创建 . 与 .. 条目
-    buf_t *buf;
+    struct page*buf;
     ext2_dir_t *dir;
     u32_t bid = ext2_i(inode)->blocks[0];
     u32_t blockSize = inode->sb->blockSize;
@@ -238,7 +238,7 @@ void append_to_parent(inode_t *parent, inode_t *child) {
 bool dir_empty(inode_t *inode) {
     u32_t bid;
     ext2_dir_t *dir;
-    buf_t *buf;
+    struct page*buf;
     u32_t blockSize = inode->sb->blockSize;
     assertk(ext2_is_dir(inode));
     if (inode->linkCnt != 2) {
@@ -267,7 +267,7 @@ void remove_from_parent(inode_t *parent, directory_t *target) {
 
     ext2_dir_t *dir;
     u32_t bid;
-    buf_t *buf;
+    struct page*buf;
     u32_t blockSize = parent->sb->blockSize;
     size_t name_len = target->nameLen;
     char *name = dir_name_dump(target);

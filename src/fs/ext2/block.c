@@ -110,7 +110,7 @@ u32_t set_block_bitmap(inode_t *inode) {
     int32_t bit;
     u8_t *map;
     ext2_gd_t *desc;
-    buf_t *buf, *b_buf;
+    struct page*buf, *b_buf;
 
     groupNo = find_group(inode);
     // 设置位图
@@ -130,7 +130,7 @@ u32_t set_block_bitmap(inode_t *inode) {
 
 
 void clear_block_bitmap(inode_t *inode, u32_t bid) {
-    buf_t *d_buf, *b_buf;
+    struct page*d_buf, *b_buf;
     ext2_sb_info_t *sb = ext2_s(inode->sb);
     u32_t groupNo = bid / sb->blockPerGroup;
 
@@ -172,7 +172,7 @@ static int32_t find_block_layer(u32_t bno, u32_t id[3], inode_t *inode) {
 static u32_t new_empty_block(inode_t *inode) {
     // 分配新块,并将数据置 0
     u32_t bid = set_block_bitmap(inode);
-    buf_t *foo = ext2_block_read(bid, inode->sb);
+    struct page*foo = ext2_block_read(bid, inode->sb);
     q_memset(foo->data, 0, inode->sb->blockSize);
     return bid;
 }
@@ -203,7 +203,7 @@ u32_t alloc_block(inode_t *inode, u32_t bno) {
     u32_t id[3];
     int32_t layer;
     u32_t *ptr, bid;
-    buf_t *buf = NULL;
+    struct page*buf = NULL;
     ext2_inode_info_t *info = ext2_i(inode);
 
     if (bno < N_DIRECT_BLOCK) {

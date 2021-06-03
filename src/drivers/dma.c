@@ -87,7 +87,7 @@ static void prdt_init() {
     prdt[i - 1].end = 1;
 }
 
-void dma_buf_sort(buf_t *buf) {
+void dma_buf_sort(struct page*buf) {
     // 将需要读/写的磁盘地址按照 no_secs 排序
     bool dirty = buf->flag & BUF_DIRTY;
     LH *head = &buf->queue, *last = &buf->queue;
@@ -104,7 +104,7 @@ void dma_buf_sort(buf_t *buf) {
 
 // 返回需要读扇区数
 // TODO: 有些情况不需要排序,比如文件系统需要立即强制写入数据块
-uint32_t dma_set_prdt(buf_t *buf) {
+uint32_t dma_set_prdt(struct page*buf) {
 //    dma_buf_sort(buf);
     uint32_t i = 0;
     bool dirty = buf->flag & BUF_DIRTY;
@@ -120,7 +120,7 @@ uint32_t dma_set_prdt(buf_t *buf) {
 }
 
 
-void dma_start(buf_t *buf) {
+void dma_start(struct page*buf) {
     uint32_t i = dma_set_prdt(buf);
     outl(dma_dev.bm + BM_PRDT_ADDR, (ptr_t) prdt);
 
@@ -136,7 +136,7 @@ void dma_start(buf_t *buf) {
     outb(dma_dev.bm + BM_CMD, bm_cmd | BM_CMD_START);
 }
 
-void dma_rw(buf_t *buf) {
+void dma_rw(struct page*buf) {
     queue_put(&buf->queue, &queue);
     if (&buf->queue == HEAD) {
         dma_start(buf);
@@ -152,7 +152,7 @@ void dma_isr_handler(UNUSED interrupt_frame_t *frame) {
 
     list_head_t *hdr, *next;
     list_for_each_del(hdr, next, &queue) {
-        buf_t *buf = buf_entry(hdr);
+        struct page*buf = buf_entry(hdr);
         if ((buf->flag & BUF_DIRTY) == dirty) {
             unblock_threads(&buf->sleep);
             buf->flag |= BUF_VALID;

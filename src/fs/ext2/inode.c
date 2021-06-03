@@ -22,13 +22,13 @@ void ext2_inode_init() {
     cache_alloc_create(&inoCache, sizeof(ext2_inode_info_t));
 }
 
-static ext2_inode_t *get_raw_inode(buf_t **_buf, super_block_t *_sb, u32_t ino) {
+static ext2_inode_t *get_raw_inode(struct page**_buf, super_block_t *_sb, u32_t ino) {
     ext2_sb_info_t *sb = ext2_s(_sb);
     u32_t bIno = ((ino) - 1) % sb->inodePerGroup;;// inode 块内编号
     u32_t inodePerBlock = _sb->blockSize / _sb->inodeSize;
     u32_t base = sb->desc[EXT2_INODE2GROUP(ino, sb)].inodeTableAddr;
     u32_t blk_no = (base) + bIno / inodePerBlock;
-    buf_t *buf = ext2_block_read(blk_no, _sb);
+    struct page*buf = ext2_block_read(blk_no, _sb);
     if (_buf)*_buf = buf;
     return (void *) buf->data + bIno * sb->sb.inodeSize;
 }
@@ -54,21 +54,30 @@ inode_t *inode_cpy(u32_t ino, super_block_t *sb) {
     info->blockCnt = ei->cntSectors / 8;
 
     inode->refCnt = 0;
+    inode->linkCnt = ei->linkCnt;
+
     inode->permission = ei->mode & 0xfff;
     inode->type = ei->mode & (~0xfff);
-    inode->linkCnt = ei->linkCnt;
     inode->size = ei->size;
+
     inode->createTime = ei->createTime;
     // 将 inode 缓存到 cache 时,更新访问时间
     inode->accessTime = cur_timestamp();
     inode->modifiedTime = ei->modTime;
     inode->deleteTime = ei->delTime;
+
     inode->offset = 0;
-    inode->sb = sb;
-    inode->ops = &ext2_ops;
+    list_header_init(&inode->lru);
     lfQueue_node_init(&inode->dirty);
+
+    inode->ops = &ext2_ops;
+    inode->sb = sb;
+    inode->dir = NULL;
     rwlock_init(&inode->rwlock);
+
+    // info 信息
     q_memcpy(info->blocks, ei->blocks, sizeof(u32_t) * N_BLOCKS);
+    info->blockCnt = ei->cntSectors / (sb->blockSize / SECTOR_SIZE);
 
     mark_inode_dirty(inode, I_TIME);
     return inode;
@@ -79,7 +88,7 @@ inode_t *inode_alloc(inode_t *parent, u16_t mode, const char *name) {
     // 初始化新分配的 inode
     u32_t linkCnt, groupNo;
     ext2_gd_t *desc;
-    buf_t *buf;
+    struct page*buf;
     bool isDir = false;
 
     super_block_t *sb = parent->sb;
@@ -103,22 +112,31 @@ inode_t *inode_alloc(inode_t *parent, u16_t mode, const char *name) {
     }
 
     inode->refCnt = 0;
+    inode->linkCnt = linkCnt;
+
     inode->permission = mode & 0xfff;
     inode->type = mode & (~0xfff);
-    inode->linkCnt = linkCnt;
     inode->size = 0;
+
     inode->createTime = time;
     inode->accessTime = time;
     inode->modifiedTime = time;
     inode->deleteTime = 0;
+
     inode->offset = 0;
-    inode->sb = sb;
+
+    list_header_init(&inode->lru);
+    lfQueue_node_init(&inode->dirty);
+
     inode->ops = &ext2_ops;
     inode->dir = dir;
+    inode->sb = sb;
 
-    lfQueue_node_init(&inode->dirty);
     rwlock_init(&inode->rwlock);
+
+    // info 信息
     q_memset(info->blocks, 0, sizeof(u32_t) * N_BLOCKS);
+    info->blockCnt = 0;
 
     // 修改元数据
     groupNo = EXT2_INODE2GROUP(ino, ext2_s(inode->sb));
@@ -137,7 +155,7 @@ static void clear_inode_bitmap(inode_t *inode) {
     u32_t ino = inode->dir->ino;
     ext2_sb_info_t *sb = ext2_s(inode->sb);
     u32_t groupNo = EXT2_INODE2GROUP(ino, sb);
-    buf_t *buf;
+    struct page*buf;
 
 
     buf = ext2_block_read(sb->desc[groupNo].inodeBitmapAddr, inode->sb);
@@ -186,7 +204,7 @@ static u32_t set_inode_bitmap(inode_t *parent) {
     u32_t groupNo;
     int32_t bit;
     u8_t *map;
-    buf_t *buf;
+    struct page*buf;
 
     groupNo = find_group(parent);
 
@@ -202,7 +220,7 @@ static u32_t set_inode_bitmap(inode_t *parent) {
 
 void inode_delete(inode_t *inode) {
     u32_t groupNo;
-    buf_t *buf;
+    struct page*buf;
     u32_t time = cur_timestamp();
     u32_t isDir = ext2_is_dir(inode);
     ext2_gd_t *desc;
@@ -228,7 +246,7 @@ void inode_delete(inode_t *inode) {
 }
 
 void ext2_write_back(inode_t *inode) {
-    buf_t *buf;
+    struct page*buf;
     ext2_inode_t *ino = get_raw_inode(&buf, inode->sb, inode->dir->ino);
 
     if (inode->state == I_TIME || inode->state == I_NEW) {

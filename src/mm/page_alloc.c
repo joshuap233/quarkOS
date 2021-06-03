@@ -11,459 +11,334 @@
 #include <mm/block_alloc.h>
 #include <mm/page.h>
 
-
-enum memZoneType {
-    HIGH_MEM_ZONE = 0,
-    NORMAL_ZONE
-};
-
-
-typedef struct treeNode {
-#define SIZE(sizeLog) (1<<(sizeLog)) // 获取实际内存单元个数
-    u32_t sizeLog: 8;                // 内存单元(4K)个数取log2
-    u32_t pn: 24;
-    struct treeNode *left;
-    struct treeNode *right;
-} node_t;
-
-
-#define VALID_CHILD(node) ((node)->left ? (node)->left : (node)->right)
-#define NEXT_NODE(node, v) (((node)->pn > (v)) ? (node)->left : (node)->right)
-#define NEXT_NODE_ADDR(node, v) ((node)->pn > (v) ? &(node)->left : &(node)->right)
-#define LIST_NEXT(node) ((node).right)
-
-static node_t *sortedArrayToBST(u16_t start, u16_t size);
-
-static node_t *bst_search(node_t *root, u32_t pn);
-
-static node_t *bst_delete(node_t *root, u32_t pn, node_t **del);
-
-static node_t *bst_insert(node_t *root, node_t *target);
-
-static node_t *bst_deleteMin(node_t *root, node_t **del);
-
-static void bst_print(node_t *root);
-
-uint32_t get_buddy_pn(uint32_t pn, uint8_t sizeLog);
-
-INLINE node_t *new_node();
-
-INLINE void node_free(node_t *node);
-
-/*
- * 物理内存分配器
- * root:        root[11] 管理已分配块,root[0]-root[10] 对应 4K - 4M 内存块
- * allocated:   以分配内存块
- * addr:        物理内存分配器管理的内存起始地址
- * blockSize:   最小内存单元大小
- * listCnt:     list 链表剩余节点数量
- * list:        list 空闲节点链表
- */
-struct allocator {
-#define MAX_ORDER 10
-    node_t *root[MAX_ORDER + 1];
-    node_t *allocated;
-    node_t *list;
-    u16_t listCnt;
-    u16_t blockSize;
-    uint32_t addr;
-} pmm;
-
-
 /*
  * 物理内存分配器
  * zone 0 为第 3G 内存, zone 1 为 高 1G 内存
  * 内存不足 4G 则没有 zone 1,内核使用 zone 0 区域
- * root:        root[11] 管理已分配块,root[0]-root[10] 对应 4K - 4M 内存块
- * addr:        物理内存分配器管理的内存起始地址
- * blockSize:   最小内存单元大小
+ * root[0] - root[10] 为 0 - 4M 内存块
  */
-struct mem_zone {
 #define MAX_ORDER 10
-#define ORDER_SIZE(order) (1<<(order))
-    struct page *root[MAX_ORDER + 1];
-    u16_t blockSize;
-    u32_t size;
-} memZone[2];
+#define ORDER_SIZE(order) ((ptr_t)1<<(order)<<12)
+#define ORDER_CNT(order)  (1<<(order))
+static struct {
+    struct mem_zone {
+        list_head_t root[MAX_ORDER + 1];
+        struct page *first;
+        ptr_t addr;
+        ptr_t size;
+        ptr_t freeSize;
+    } zone[2];
+    struct page *pages;
+    u32_t pageCnt;
+} allocator;
 
 
-//返回分配的页面数
-size_t parse_mem_block(struct page *pages, u32_t pageCnt, ptr_t addr, ptr_t size) {
-    assertk((size & PAGE_MASK) == 0);
+//返回已经使用的页面数量
+struct page *page_setup(struct page *pages, ptr_t addr, ptr_t size) {
+    u32_t reSize = allocator.pageCnt - (pages - allocator.pages);
+    assertk(reSize >= (size >> 12));
 
-    struct page *page;
-    struct mem_zone *zone = addr >= HIGH_MEM ? &memZone[1] : &memZone[0];
-    u32_t cnt, counter = 0;
+    size = PAGE_ADDR(size - (PAGE_ALIGN(addr) - addr));
+    addr = PAGE_ALIGN(addr);
 
-    size /= PAGE_SIZE;
-    assertk(pageCnt >= size);
+    struct page *page = pages;
+    struct mem_zone *zone = addr >= HIGH_MEM ? &allocator.zone[1] : &allocator.zone[0];
+    u32_t cnt;
+    u32_t orderSize;
 
-    for (int i = 0; size > 0 && i <= MAX_ORDER; ++i) {
-        cnt = size / ORDER_SIZE(i);
-        counter += cnt * ORDER_SIZE(i);
 
-        size %= ORDER_SIZE(i);
+    for (int i = MAX_ORDER; size > 0 && i >= 0; --i) {
+        orderSize = ORDER_SIZE(i);
+        if (size < orderSize) continue;
+
+        cnt = size / orderSize;
+        size %= orderSize;
         for (u32_t j = 0; j < cnt; ++j) {
-            page = &pages[j * ORDER_SIZE(i)];
-            if (zone->root[i] == NULL) {
-                zone->root[i] = page;
-            } else {
-                list_add_prev(&page->cachePage.list, &zone->root[i]->cachePage.list);
+            page->flag |= PG_Head;
+            page->size = orderSize;
+            list_add_prev(&page->head, &zone->root[i]);
+            for (int k = 0; k < ORDER_CNT(i); ++k) {
+                page->flag |= PG_Page;
+                page++;
             }
         }
-        page += cnt * ORDER_SIZE(i);
     }
-    return counter;
+    zone->size += (page - pages) << 12;
+    return page;
 }
 
-void zone_init() {
+// 在内核分页开启前预留内存
+void pmm_init_mm() {
+    u32_t pageCnt = (block_end() - block_start()) >> 12;
+    allocator.pageCnt = pageCnt;
+    allocator.pages = (void *) block_alloc_align(pageCnt * sizeof(struct page), sizeof(struct page)) + HIGH_MEM;
+}
+
+void pmm_init() {
     list_head_t *hdr;
     blockInfo_t *info;
-    ptr_t addr;
+    struct page *page;
 
-    //TODO: 不需要 block_low_mem_size 与 block_high_mem_size
-    // 下面分配页的时候再计算
-    u32_t lowSize = block_low_mem_size();
-    assertk((lowSize & PAGE_MASK) == 0);
+    allocator.zone[0].size = 0;
+    allocator.zone[1].size = 0;
 
-    u32_t highSize = block_high_mem_size();
-    assertk((highSize & PAGE_MASK) == 0);
+    allocator.zone[0].addr = PAGE_ALIGN(block_start());
+    allocator.zone[1].addr = HIGH_MEM;
 
-    u32_t pageCnt = (lowSize + highSize) / PAGE_SIZE;
+    allocator.zone[0].first = allocator.pages;
+    allocator.zone[1].first = NULL;
 
-    //TODO: 空洞页面保留 page, 因此可以使用 O(1) 找到 buddy 页,
-    //因此创建 (pmm_end - kernel_end)/page_size 个页面
-    struct page *pages = (struct page *) block_alloc(sizeof(struct page) * pageCnt);
+    // 初始化页面
+    page = allocator.pages;
+    for (u64_t i = 0; i < allocator.pageCnt; ++i) {
+        page->flag = PG_Hole | PG_Tail;
+        page->ref_cnt = 0;
+        page->size = 0;
 
-    for (int j = 0; j < 2; ++j) {
-        for (int i = 0; i <= MAX_ORDER; ++i) {
-            memZone[j].root[i] = NULL;
+#ifdef DEBUG
+        page->magic = PAGE_MAGIC;
+#endif //DEBUG
+
+        rwlock_init(&page->rwlock);
+        list_header_init(&page->head);
+        page++;
+    }
+
+    // 初始化 zone
+    for (int i = 0; i < 2; ++i) {
+        for (int j = 0; j <= MAX_ORDER; ++j) {
+            list_header_init(&allocator.zone[i].root[j]);
         }
     }
 
-    //创建 low_mem page
-    //暂时将 page 连接到 zone.cache_page.list, 用于后面生成树,否则直接插入会导致树失衡
-    u32_t index = 0;
+    u32_t addr, size;
+    page = allocator.pages;
+
+    // 将 page 放入 zone
     list_for_each(hdr, &blockAllocator.head) {
         info = block_mem_entry(hdr);
-        addr = (ptr_t) info;
-        if (addr > HIGH_MEM) break;
-        if (addr + info->size > HIGH_MEM) {
-            //TODO: 怎么生成树呢?
-            index++;
-            break;
+        addr = info->addr;
+        size = info->size;
+
+        if (addr < HIGH_MEM && addr + size > HIGH_MEM) {
+            page = page_setup(page, addr, HIGH_MEM - addr);
+            addr = HIGH_MEM;
+            size = addr + size - HIGH_MEM;
+            allocator.zone[1].first = page;
         }
-        index++;
+        page = page_setup(page, addr, size);
     }
-
-    //创建 high_mem page
-    list_for_each(hdr, &blockAllocator.head) {
-        info = block_mem_entry(hdr);
-        addr = (ptr_t) info;
-        if (addr + info->size < HIGH_MEM) continue;
-        if (addr < HIGH_MEM) {
-            break;
-        }
-    }
-    memZone[0].size = index * PAGE_SIZE;
-    memZone[0].blockSize = PAGE_SIZE;
-
-
-    memZone[1].blockSize = PAGE_SIZE;
-    memZone[1].size = highSize;
-}
-
-// pmm_init 初始化后,弃用 block_alloc
-void pmm_init() {
-    // TODO:还有不足 4M 的内存
-    // 且 block_alloc 可分配内存块并不连续,但 pmm allocator 只有一个 addr(起始地址)
-    pmm.blockSize = PAGE_SIZE;
-    u32_t size = block_size() / (4 * K) / 2; //需要分配的节点数
-    node_t *list = (node_t *) block_alloc(sizeof(node_t) * size);
-    // pmm.add 以下区域为内核
-//    vm_area_expand(PAGE_ALIGN(block_start()), KERNEL_AREA);
-
-    // 初始化空闲链表
-    for (u32_t i = 0; i < size - 1; ++i) {
-        LIST_NEXT(list[i]) = &list[i + 1];
-    }
-    LIST_NEXT(list[size - 1]) = NULL;
-    pmm.list = &list[0];
-    pmm.listCnt = size;
-
-    // 初始化用与管理 4M 内存块的节点
-    for (int i = 0; i < MAX_ORDER; ++i) {
-        pmm.root[i] = NULL;
-    }
-
-    size = block_size() & (~(u32_t) (4 * M - 1));
-    pmm.addr = block_alloc_align(size, PAGE_SIZE);
-
-
-    pmm.root[MAX_ORDER] = sortedArrayToBST(0, size / (4 * M));
-    pmm.allocated = NULL;
+    allocator.pageCnt = page - allocator.pages;
+    allocator.zone[0].freeSize = allocator.zone[0].size;
+    allocator.zone[1].freeSize = allocator.zone[1].size;
 
 #ifdef TEST
     test_alloc();
 #endif //TEST
 }
 
+INLINE struct mem_zone *get_zone(struct page *page) {
+    struct mem_zone *zone = &allocator.zone[1];
+    return (zone->first && zone->first < page)
+           ? &allocator.zone[1]
+           : &allocator.zone[0];
+}
 
-ptr_t pm_alloc(u32_t size) {
+ptr_t page_addr(struct page *page) {
+    ptr_t start = allocator.zone[0].addr;
+    return start + ((ptr_t) (page - allocator.pages) << 12);
+}
+
+struct page *get_page(ptr_t addr) {
+    assertk((addr & PAGE_MASK) == 0);
+    ptr_t start = allocator.zone[0].addr;
+    assertk(addr >= start);
+    struct page *page = &allocator.pages[(addr - start) >> 12];
+#ifdef DEBUG
+    assertk(page->magic = PAGE_MAGIC);
+#endif //DEBUG
+    return page;
+}
+
+INLINE struct page *get_buddy(struct page *page) {
+    struct mem_zone *zone = get_zone(page);
+    u32_t pgCnt = page->size >> 12;
+    u32_t cnt = (page - zone->first) / pgCnt;
+    struct page *buddy = (cnt & 1) ? page - pgCnt : page + pgCnt;
+    if (allocator.pages + allocator.pageCnt <= buddy) {
+        buddy = NULL;
+        return buddy;
+    }
+    return buddy;
+}
+
+static struct page *__alloc_pages(struct mem_zone *zone, u32_t size) {
+    size = fixSize(size);
     assertk(size > 0 && size <= 4 * M);
-    node_t *root, *del;
-    u32_t pn;
-    size = log2(PAGE_ALIGN(size) >> 12);
+    struct page *page = NULL, *new;
+    list_head_t *root;
+    u32_t logSize = log2(size >> 12);
 
-    for (uint16_t i = size; i <= MAX_ORDER; ++i) {
-        root = pmm.root[i];
-        if (root) {
-            //TODO: 一直删除最小的元素导致树失衡
-            pmm.root[i] = bst_deleteMin(root, &del);
-            assertk(del);
-
-            del->sizeLog = size;
-            pn = del->pn;
-
-            // 被分配内存块插入 allocated
-            pmm.allocated = bst_insert(pmm.allocated, del);
-
-            // 不要删 j <= MAX_ORDER
-            for (u32_t j = i - 1; j >= size && j <= MAX_ORDER; j--) {
-                node_t *new = new_node();
-                new->sizeLog = j;
-                new->pn = pn + SIZE(j + 1) / 2;
-                pmm.root[j] = bst_insert(pmm.root[j], new);
+    for (uint16_t i = logSize; i <= MAX_ORDER; ++i) {
+        root = &zone->root[i];
+        if (!list_empty(root)) {
+            page = PAGE_ENTRY(root->next);
+            assertk(page_head(page));
+            for (u64_t j = i - 1; j >= logSize && j <= MAX_ORDER; j--) {
+                u32_t pageCnt = ORDER_CNT(j);
+                new = page + pageCnt;
+                assertk(!page_head(new));
+                new->size = ORDER_SIZE(j);
+                new->flag |= PG_Head;
+                list_add_prev(&new->head, &zone->root[j]);
             }
-            return pmm.addr + (pn << 12);
+            break;
         }
     }
-    return PMM_NULL;
+    assertk(page != NULL);
+    zone->size -= size;
+    list_del(&page->head);
+    page->size = size;
+    page->ref_cnt = 1;
+    return page;
 }
 
-u32_t pm_chunk_size(ptr_t addr) {
-    assertk(addr >= pmm.addr && (addr & PAGE_MASK) == 0)
-    u32_t pn = (addr - pmm.addr) >> 12;
-    node_t *node = bst_search(pmm.allocated, pn);
-    assertk(node);
-    return PAGE_SIZE * SIZE(node->sizeLog);
+struct page *__alloc_page(u32_t size) {
+    return __alloc_pages(&allocator.zone[0], size);
 }
 
-u32_t pm_free(ptr_t addr) {
-    assertk(addr >= pmm.addr && (addr & PAGE_MASK) == 0)
-    uint16_t i;
-    u32_t buddy_pn, pn, retSize;
-    node_t *node, *buddy;
+// 分配 0 -3G 内存
+ptr_t alloc_page(u32_t size) {
+    struct page *page = __alloc_page(size);
+    return page_addr(page);
+}
 
-    pn = (addr - pmm.addr) >> 12;
+ptr_t alloc_one_page() {
+    return alloc_page(PAGE_SIZE);
+}
 
-    pmm.allocated = bst_delete(pmm.allocated, pn, &node);
-    assertk(node);
-    retSize = SIZE(node->sizeLog) << 12;
+// 分配 3-4 G 内存
+struct page *__kalloc_page(u32_t size) {
+    struct mem_zone *zone =
+            allocator.zone[0].freeSize > size ?
+            &allocator.zone[0] : &allocator.zone[1];
+    return __alloc_pages(zone, size);
+}
 
-    for (i = node->sizeLog; i < MAX_ORDER; ++i) {
-        buddy_pn = get_buddy_pn(pn, node->sizeLog);
-        pmm.root[i] = bst_delete(pmm.root[i], buddy_pn, &buddy);
-        if (!buddy) break;
-        node->sizeLog++;
-        pn = MIN(buddy_pn, pn);
-        node_free(buddy);
+ptr_t kalloc_page(u32_t size) {
+    struct page *page = __kalloc_page(size);
+    return page_addr(page);
+}
+
+ptr_t kalloc_one_page() {
+    return kalloc_page(PAGE_SIZE);
+}
+
+void __free_page(struct page *page) {
+    assertk(page->ref_cnt > 0);
+    assertk(page->flag & PG_Head);
+
+    page->ref_cnt--;
+    if (page->ref_cnt > 0) return;
+
+    struct mem_zone *zone = get_zone(page);
+    u32_t order = log2(page->size >> 12);
+    page->flag |= PG_Page | PG_Head; // 清除其他 flag
+    for (; page->ref_cnt == 0 && order <= MAX_ORDER; ++order) {
+        struct page *buddy = get_buddy(page);
+        if (!buddy ||                   // 部分页面没有buddy
+            buddy->ref_cnt != 0 ||      // 被引用的页面
+            buddy->size != page->size ||// buddy 的部分页面没有被释放
+            order == MAX_ORDER) {       // 页面大小为 4M 不需要继续合并
+            list_add_prev(&page->head, &zone->root[order]);
+            break;
+        }
+        list_del(&buddy->head);
+        struct page *tmp = MAX(buddy, page);
+        page = MIN(buddy, page);
+        assertk(page + (page->size >> 12) == tmp);
+
+        CLEAR_BIT(tmp->flag, PG_HEAD_BIT);
+        list_header_init(&tmp->head);
+
+        page->size <<= 1;
     }
-    pmm.root[i] = bst_insert(pmm.root[i], node);
-
-    return retSize;
 }
 
-ptr_t pm_alloc_page() {
-    return pm_alloc(PAGE_SIZE);
-}
+void free_page(ptr_t addr) {
+    assertk((addr & PAGE_MASK) == 0);
+    struct page *page = get_page(addr);
 
-uint32_t get_buddy_pn(uint32_t pn, uint8_t sizeLog) {
-    size_t size = SIZE(sizeLog);
-    return ((pn >> sizeLog) & 1) ? pn - size : pn + size;
-}
+    assertk(page->flag & PG_Head);
 
-static node_t *sortedArrayToBST(u16_t start, u16_t size) {
-    if (size == 0) return NULL;
-    u16_t temp = size;
-    size >>= 1;
-    u16_t mid = start + size;
-    node_t *root = new_node();
-    root->pn = mid * (1 << MAX_ORDER);
-    root->sizeLog = MAX_ORDER;
-    root->left = sortedArrayToBST(start, size);
-    root->right = sortedArrayToBST(mid + 1, temp - size - 1);
-    return root;
-}
-
-static node_t *bst_search(node_t *root, u32_t pn) {
-    assertk(root);
-    while (root != NULL) {
-        if (root->pn == pn) return root;
-        root = NEXT_NODE(root, pn);
-    }
-    return NULL;
-}
-
-
-// 返回新根
-static node_t *bst_delete(node_t *root, u32_t pn, node_t **del) {
-    node_t **node = &root;
-    while (*node != NULL && pn != (*node)->pn)
-        node = NEXT_NODE_ADDR(*node, pn);
-
-    if (*node == NULL) {
-        if (del)*del = NULL;
-        return root;
-    }
-
-    if (del) *del = *node;
-    if (!(*node)->left || !(*node)->right) {
-        (*node) = VALID_CHILD(*node);
-    } else {
-        node_t *min;
-        (*node)->right = bst_deleteMin((*node)->right, &min);
-        min->right = (*node)->right;
-        min->left = (*node)->left;
-        *node = min;
-    }
-    return root;
-}
-
-
-static node_t *bst_deleteMin(node_t *root, node_t **del) {
-    assertk(root);
-    node_t **node = &root;
-    while ((*node)->left != NULL)
-        node = &(*node)->left;
-    if (del)*del = *node;
-    (*node) = (*node)->right;
-    return root;
-}
-
-static node_t *bst_insert(node_t *root, node_t *target) {
-    assertk(target);
-    target->left = NULL;
-    target->right = NULL;
-    if (!root) return target;
-
-    node_t **node = &root;
-    while (*node != NULL)
-        node = NEXT_NODE_ADDR(*node, target->pn);
-    *node = target;
-    return root;
-}
-
-UNUSED static void bst_print(node_t *root) {
-    if (!root) return;
-    bst_print(root->left);
-    printfk("%u,", ((uint32_t *) root)[0] >> 8);
-    bst_print(root->right);
-}
-
-INLINE node_t *new_node() {
-    assertk(pmm.list != NULL && pmm.listCnt != 0);
-    pmm.listCnt--;
-    node_t *ret = pmm.list;
-    pmm.list = LIST_NEXT(*ret);
-    return ret;
-}
-
-INLINE void node_free(node_t *node) {
-    assertk(node);
-    pmm.listCnt++;
-    LIST_NEXT(*node) = pmm.list;
-    pmm.list = node;
+    __free_page(page);
 }
 
 
 #ifdef TEST
 
-size_t cnt = 0;
 
-static void node_cnt(node_t *root) {
-    if (!root) return;
-    node_cnt(root->left);
-    cnt++;
-    node_cnt(root->right);
-}
-
-static void except_cnt(node_t *root, size_t except) {
-    cnt = 0;
-    node_cnt(root);
-    assertk(cnt == except);
-}
-
-static void except_list_cnt(size_t except) {
-    size_t count = 0;
-    node_t *node = pmm.list;
-    while (node) {
-        count++;
-        node = LIST_NEXT(*node);
+static u32_t page_cnt() {
+    u32_t pageCnt = 0;
+    for (int i = 0; i < 2; ++i) {
+        if (allocator.zone[i].freeSize <= 0) continue;
+        for (int j = 0; j <= MAX_ORDER; ++j) {
+            pageCnt += list_cnt(&allocator.zone[i].root[j]);
+        }
     }
-    assertk(count == except);
+    return pageCnt;
 }
 
-ptr_t addr[MAX_ORDER + 1] = {[1 ...MAX_ORDER] = 0};
+static u32_t allocator_size() {
+    u32_t size = 0;
+    list_head_t *hdr;
+    for (int i = 0; i < 2; ++i) {
+        if (allocator.zone[i].freeSize <= 0) continue;
+        for (int j = 0; j <= MAX_ORDER; ++j) {
+            u32_t orderSize = ORDER_SIZE(j);
+            list_for_each(hdr, &allocator.zone[i].root[j]) {
+                struct page *page = PAGE_ENTRY(hdr);
+                size += orderSize;
+                assertk(page->size == orderSize);
+            }
+        }
+    }
+    return size;
+}
+
+static ptr_t pages[MAX_ORDER];
+static ptr_t pages2[20];
 
 void test_alloc() {
-    test_start
-    size_t total, alloc = 0, listCnt = pmm.listCnt;
-    except_list_cnt(listCnt);
-
-    // 测试内存块分配
-    node_cnt(pmm.root[MAX_ORDER]);
-    total = cnt;
-
-    ptr_t temp_adr = pm_alloc(PAGE_SIZE);
-    alloc++;
-    for (int i = 0; i < MAX_ORDER; ++i)
-        except_cnt(pmm.root[i], 1);
-    except_cnt(pmm.root[MAX_ORDER], total - 1);
-    except_cnt(pmm.allocated, alloc);
-
-    for (int i = 0; i <= MAX_ORDER; ++i) {
-        addr[i] = pm_alloc(PAGE_SIZE << i);
-        alloc++;
-        // 统计 root[0] - root[11] 树节点个数
-        for (int j = 0; j <= MAX_ORDER; ++j) {
-            if (j == MAX_ORDER) {
-                if (i != MAX_ORDER)
-                    except_cnt(pmm.root[MAX_ORDER], total - 1);
-                else
-                    except_cnt(pmm.root[MAX_ORDER], total - 2);
-            } else
-                except_cnt(pmm.root[j], j <= i ? 0 : 1);
-            except_cnt(pmm.allocated, alloc);
-        }
+    u32_t pageCnt = page_cnt();
+    u32_t size = allocator_size();
+    ptr_t start = allocator.zone[0].addr;
+    struct page *page;
+    for (int i = 0; i < 10; ++i) {
+        page = get_page(start + (i << 12));
+        assertk((start + (i << 12)) == page_addr(page));
     }
 
-    // 测试内存块释放
-    for (int i = 0; i <= MAX_ORDER; ++i) {
-        pm_free(addr[i]);
-        alloc--;
-
-        for (int j = 0; j <= MAX_ORDER; ++j) {
-            if (j == MAX_ORDER) {
-                if (i != MAX_ORDER)
-                    except_cnt(pmm.root[MAX_ORDER], total - 2);
-                else
-                    except_cnt(pmm.root[MAX_ORDER], total - 1);
-            } else
-                except_cnt(pmm.root[j], j <= i ? 1 : 0);
-            except_cnt(pmm.allocated, alloc);
-        }
+    assertk(size == (allocator.pageCnt << 12));
+    for (int i = 0; i < MAX_ORDER; ++i) {
+        pages[i] = kalloc_page(ORDER_SIZE(i));
     }
 
-    pm_free(temp_adr);
-    alloc--;
-    assertk(alloc == 0);
-    for (int i = 0; i < MAX_ORDER; ++i)
-        except_cnt(pmm.root[i], 0);
-    except_cnt(pmm.root[MAX_ORDER], total);
-    except_cnt(pmm.allocated, 0);
-    except_list_cnt(listCnt);
-    test_pass
+    for (int i = 0; i < 20; ++i) {
+        pages2[i] = kalloc_page(PAGE_SIZE);
+    }
+
+    for (int i = 0; i < MAX_ORDER; ++i) {
+        free_page(pages[i]);
+    }
+
+    for (int i = 0; i < 20; ++i) {
+        free_page(pages2[i]);
+    }
+
+    assertk(allocator_size() == size);
+    assertk(page_cnt() == pageCnt);
 }
+
 
 #endif //TEST

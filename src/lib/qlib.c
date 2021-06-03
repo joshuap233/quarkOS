@@ -61,7 +61,7 @@ char *cur_func_name(ptr_t addr) {
         if (ELF32_ST_TYPE(bInfo.symtab.header[i].st_info) == STT_FUNC) {
             elf32_symbol_t entry = bInfo.symtab.header[i];
             if ((addr >= entry.st_value) && (addr <= entry.st_value + entry.st_size)) {
-                return (void *) &bInfo.strtab.addr[entry.st_name] + HIGH_MEM;
+                return (void *) &bInfo.strtab.addr[entry.st_name];
             }
         }
     }

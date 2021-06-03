@@ -5,34 +5,35 @@
 #ifndef QUARKOS_MM_PMM_H
 #define QUARKOS_MM_PMM_H
 
-#include "types.h"
-#include "lib/list.h"
-
-//typedef struct page {
-//    struct list_head list;
-//    struct address_space *mapping;
-//    unsigned long index;
-//    struct page *next_hash;
-//    atomic_t count;
-//    unsigned long flags; /* atomic flags, some possibly updated asynchronously */
-//    struct list_head lru;
-//    unsigned long age;
-//    wait_queue_head_t wait;
-//    struct page **pprev_hash;
-//    struct buffer_head *buffers;
-//    void *virtual; /* non-NULL if kmapped */
-//    struct zone_struct *zone;
-//} mem_map_t;
+#include <types.h>
+#include <lib/list.h>
+#include <mm/page.h>
 
 #define PMM_NULL 0xffffffff
 
-ptr_t pm_alloc(u32_t size);
+//ptr_t pm_alloc(u32_t size);
+//
+//ptr_t pm_alloc_page();
+//
+//u32_t pm_free(ptr_t addr);
+//
+//u32_t pm_chunk_size(ptr_t addr);
 
-ptr_t pm_alloc_page();
 
-u32_t pm_free(ptr_t addr);
+struct page *__kalloc_page(u32_t size);
+ptr_t kalloc_page(u32_t size);
+ptr_t kalloc_one_page();
 
-u32_t pm_chunk_size(ptr_t addr);
+struct page *__alloc_page(u32_t size);
+ptr_t alloc_one_page();
+ptr_t alloc_page(u32_t size);
+
+void __free_page(struct page *page);
+void free_page(ptr_t addr);
+
+ptr_t page_addr(struct page *page);
+struct page *get_page(ptr_t addr);
+void pmm_init_mm();
 
 #ifdef TEST
 

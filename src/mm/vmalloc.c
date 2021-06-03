@@ -2,7 +2,7 @@
 // Created by pjs on 2021/5/30.
 //
 // 管理用户空间虚拟内存
-#include <mm/vm_map.h>
+#include <mm/vmalloc.h>
 #include <mm/mm.h>
 #include <mm/kvm.h>
 #include <mm/page_alloc.h>

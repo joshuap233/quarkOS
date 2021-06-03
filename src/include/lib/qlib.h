@@ -50,6 +50,21 @@ void printfk(char *__restrict str, ...);
 // 向上取整除法,可能溢出, y 为被除数
 #define DIV_CEIL(x, y)  (((x) + (y) - 1) / (y))
 
+#define IS_POWER_OF_2(x) (!((x)&((x)-1)))
+
+// 将不是 2 的幂的数变成 2 的幂
+INLINE u32_t fixSize(u32_t size) {
+    if (IS_POWER_OF_2(size))
+        return size;
+    size |= size >> 1;
+    size |= size >> 2;
+    size |= size >> 4;
+    size |= size >> 8;
+    size |= size >> 16;
+    return size + 1;
+}
+
+
 // bit 为 0-7
 INLINE void set_bit(uint8_t *value, uint8_t bit) {
     *value |= (0b1 << bit);

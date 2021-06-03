@@ -47,6 +47,7 @@ void kernel_main() {
     assertk(mba->zero == 0);
     multiboot_init(mba);
     memBlock_init();
+
     hello();
     gdt_init();
 
@@ -54,17 +55,19 @@ void kernel_main() {
     idt_init();
     pic_init(32, 40);
     pit_init();
+
+    // 内存管理模块初始化
+    kvm_init();
+    pmm_init();
+    slab_init();
+
     // ps2 设备初始化
     ps2_init();
     kb_init();
 
-    // 内存管理模块初始化
-    pmm_init();
-    slab_init();
-    kvm_init();
-
+    // 磁盘驱动初始化
     ide_init();
-//    dma_init();
+    // dma_init();
 
     scheduler_init();
     thread_init();
@@ -81,7 +84,7 @@ void kernel_main() {
 #ifdef TEST
 //    test_ide_rw();
 //    test_dma_rw();
-//    test_vfs();
+    test_vfs();
 
     test_thread();
 #endif // TEST
@@ -97,19 +100,13 @@ static _Alignas(STACK_SIZE)
 u8_t kStack[STACK_SIZE];
 
 static _Alignas(STACK_SIZE) SECTION(".init.data")
-pdr_t boot_page_dir = {
-        .entry = {[0 ...1023]=0}
-};
+pde_t boot_page_dir[N_PDE] = {[0 ...N_PDE - 1]=VM_NPRES};
 
-static _Alignas(PAGE_SIZE)
-SECTION(".init.data") ptb_t boot_page_table1 = {
-        .entry = {[0 ...1023]=0}
-};
+static _Alignas(PAGE_SIZE) SECTION(".init.data")
+pte_t boot_page_table1[N_PTE] = {[0 ...N_PDE - 1]=VM_NPRES};
 
-static _Alignas(PAGE_SIZE)
-SECTION(".init.data") ptb_t boot_page_table2 = {
-        .entry = {[0 ...1023]=0}
-};
+static _Alignas(PAGE_SIZE) SECTION(".init.data")
+pte_t boot_page_table2[N_PTE] = {[0 ...N_PDE - 1]=VM_NPRES};
 
 
 // 临时 mba 与 magic
@@ -122,12 +119,12 @@ SECTION(".init.text")
 void map_tmp_page(void) {
     // 映射物理地址 0-4M 到虚拟地址 0 - 4M 与 HIGH_MEM ~ HIGH_MEM + 4M
     // 否则开启分页后,无法运行 init 代码
-    boot_page_dir.entry[0] = (ptr_t) &boot_page_table1 | VM_PRES | VM_WRITE;
-    boot_page_dir.entry[PDE_INDEX(HIGH_MEM)] = (ptr_t) &boot_page_table2 | VM_PRES | VM_WRITE;
+    boot_page_dir[0] = (ptr_t) &boot_page_table1 | VM_PRES | VM_WRITE;
+    boot_page_dir[PDE_INDEX(HIGH_MEM)] = (ptr_t) &boot_page_table2 | VM_PRES | VM_WRITE;
 
     for (int i = 0; i < 1024; ++i) {
-        boot_page_table1.entry[i] = (i << 12) | VM_PRES | VM_WRITE;
-        boot_page_table2.entry[i] = (i << 12) | VM_PRES | VM_WRITE;
+        boot_page_table1[i] = (i << 12) | VM_PRES | VM_WRITE;
+        boot_page_table2[i] = (i << 12) | VM_PRES | VM_WRITE;
     }
 
     // 不能直接用 x86.h 的 lcr3 与 enable_paging

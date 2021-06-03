@@ -14,24 +14,20 @@ ptr_t block_alloc_align(u32_t size, u32_t align);
 
 u32_t block_size();
 
-void block_set_g_mem_start();
+u32_t block_start();
 
-ptr_t block_low_mem_size();
-
-ptr_t block_high_mem_size();
-
-struct block_allocator {
-    list_head_t head;
-    ptr_t addr;  // 管理器起始地址, <= addr 部分内存需要直接映射
-    u32_t total;
-};
+u32_t block_end();
 
 typedef struct blockInfo {
     list_head_t head;
+    u32_t addr;
     u32_t size; // 块大小,包括该块头
 } blockInfo_t;
 
-extern struct block_allocator blockAllocator;
+typedef blockInfo_t block_allocator_t;
+
+extern block_allocator_t blockAllocator;
+
 extern ptr_t g_mem_start;
 
 #define block_mem_entry(ptr) list_entry(ptr, blockInfo_t, head)

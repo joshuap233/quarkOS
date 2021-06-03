@@ -1,136 +1,127 @@
 //
 // Created by pjs on 2021/2/1.
 //
-//内核空间虚拟内存管理,采用递归映射
+// 内核空间虚拟内存管理
 #include <mm/kvm.h>
 #include <mm/page_alloc.h>
 #include <lib/qstring.h>
 #include <lib/qlib.h>
 #include <mm/block_alloc.h>
 
-
-//内核页表本身在页表内的索引
-#define K_PD_INDEX        1023
-//PDE 虚拟地址
-#define K_PTE_VA         ((ptr_t)K_PD_INDEX << 22)
-//返回页目录索引为index的页表首地址
-#define PTE_ADDR(pde_index) (K_PTE_VA + ((pde_index) << 12))
-
-// 返回 va 对应的页目录项虚拟地址
-#define PDE(va) (pageDir.entry[PDE_INDEX(va)])
-// 返回 va 对应的页表首地址
-#define PTB(va) PTE_ADDR(PDE_INDEX(va))
-// 返回页目录项地址
-#define PTE(pt, va) ((pt)->entry[PTE_INDEX(va)])
-
-extern void cr3_set(ptr_t);
-
-static ptb_t *getPageTable(ptr_t va, u32_t flags);
-
-static pdr_t _Alignas(PAGE_SIZE) pageDir = {
-        .entry = {[0 ...PAGE_ENTRY_NUM - 1]=(VM_KR | VM_NPRES)}
+static pde_t _Alignas(PAGE_SIZE) pageDir[N_PTE] = {
+        [0 ...N_PTE - 1]=VM_NPRES
 };
 
+// 内核部分页表
+_Alignas(PAGE_SIZE) static pte_t kPageTables[N_PTE / 4][N_PTE] = {
+        [0 ...N_PTE / 4 - 1] = {[0 ...N_PTE - 1]=VM_NPRES}
+};
 
-// 初始化内核页表
+static void kvm_page_init(ptr_t va, size_t size, u32_t flags);
+
+// 初始化内核页表, 需要在在物理内存管理器初始化前调用,
+// 因为物理内存管理器初始化消耗的内存(初始化page结构)可能超过临时页表映射的 4M
 void kvm_init() {
+    // block 分配器预留物理内存
+    pmm_init_mm();
+    g_mem_start = PAGE_ALIGN(block_start());
+
     ptr_t startKernel = (ptr_t) _startKernel;
-    ptr_t rodataStart = (ptr_t) _rodataStart;
     ptr_t dataStart = (ptr_t) _dataStart;
     ptr_t endKernel = (ptr_t) _endKernel;
+    assertk(g_mem_start > endKernel - HIGH_MEM);
 
+    pde_t *pdr = &pageDir[PDE_INDEX(HIGH_MEM)];
+    for (u32_t i = 0; i < N_PTE / 4; ++i) {
+        pdr[i] = ((ptr_t) &kPageTables[i] - HIGH_MEM) | VM_KW | VM_PRES;
+    }
 
-    cr3_t cr3 = CR3_CTRL | ((ptr_t) &pageDir);
-    pageDir.entry[N_PDE - 1] = (ptr_t) &pageDir | VM_KW | VM_PRES;
+    cr3_t cr3 = CR3_CTRL | (((ptr_t) &pageDir) - HIGH_MEM);
+
     // 低于 1M 的内存区域
-    kvm_mapd(0, 0, startKernel, VM_PRES | VM_KW);
+    kvm_page_init(HIGH_MEM, startKernel - HIGH_MEM, VM_KW);
 
-    // text 段
-    kvm_mapd(startKernel, startKernel, rodataStart - startKernel, VM_PRES | VM_KR);
-
-    // rodada段
-    kvm_mapd(rodataStart, rodataStart, dataStart - rodataStart, VM_PRES | VM_KR);
+    // text 段 与 rodada 段
+    kvm_page_init(startKernel, dataStart - startKernel, VM_KR);
 
     // data 段, bss 段 与初始化内核分配的内存
-    kvm_mapd(dataStart, dataStart, endKernel - dataStart, VM_PRES | VM_KW);
+    kvm_page_init(dataStart, g_mem_start - (dataStart - HIGH_MEM), VM_KW);
 
-    block_set_g_mem_start();
-    assertk(g_mem_start > endKernel);
-
-    // 使用 block_alloc 分配的内存
-    kvm_mapd(endKernel, endKernel, g_mem_start - endKernel, VM_PRES | VM_KW);
-
-    cr3_set(cr3);
+    lcr3(cr3);
 }
 
-// 映射页目录
-static ptb_t *getPageTable(ptr_t va, u32_t flags) {
-    bool paging = is_paging();
-    pde_t *pde = &PDE(va);
-    ptb_t *pt = (ptb_t *) (paging ? PTB(va) : PAGE_ADDR(*pde));
+INLINE pte_t *getPageTableEntry(ptr_t va) {
+    assertk(va >= HIGH_MEM);
+    return &((u32_t *) kPageTables)[(va - HIGH_MEM) >> 12];
+}
 
-    if (!(*pde & VM_PRES)) {
-        ptr_t pa;
-        assertk((pa = pm_alloc_page()) != PMM_NULL);
-        *pde = pa | flags;
-        if (!paging) pt = (ptb_t *) pa;
-        q_memset(pt, 0, sizeof(ptb_t));
+static void kvm_page_init(ptr_t va, size_t size, u32_t flags) {
+    assertk((va & PAGE_MASK) == 0);
+
+    ptr_t pa = va - HIGH_MEM;
+    ptr_t end = pa + size;
+    pte_t *pte = getPageTableEntry(va);
+    for (; pa < end; pa += PAGE_SIZE) {
+        *pte = pa | VM_PRES | flags;
+        pte++;
     }
-    return pt;
 }
 
-void kvm_mapPage(ptr_t va, ptr_t pa, u32_t flags) {
-    //TODO:
-    pa += HIGH_MEM;
-    assertk((va & PAGE_MASK) == 0);
-    ptb_t *pt = getPageTable(va, flags);
-    PTE(pt, va) = pa | flags;
-    tlb_flush(va);
-}
 
-// 直接映射
-void kvm_mapd(ptr_t va, ptr_t pa, u32_t size, u32_t flags) {
-    assertk((va & PAGE_MASK) == 0);
+// 返回实际映射的虚拟地址
+void kvm_map(struct page *page, u32_t flags) {
+    ptr_t pa = page_addr(page);
+    ptr_t va = pa;
+
+    // 3G 以上的物理内存不足
+    if (va < HIGH_MEM) {
+        va = HIGH_MEM + (pa & (1 * G - 1));
+    }
+    page->data = (void *) va;
+
+    //TODO: 如果已经被映射则查找可用地址空间
+    ptr_t size = page->size;
     ptr_t end = va + size;
+    pte_t *pte = getPageTableEntry(va);
     for (; va < end; pa += PAGE_SIZE, va += PAGE_SIZE) {
-        kvm_mapPage(va, pa, flags);
+        assertk((*pte & VM_PRES) == 0);
+        *pte = pa | flags;
+        pte++;
+        tlb_flush(va);
     }
 }
 
-// 映射 va ~ va+size-1
-void kvm_mapv(ptr_t va, u32_t size, u32_t flags) {
-    assertk((va & PAGE_MASK) == 0);
-    ptr_t end = va + size;
-    for (; va < end; va += PAGE_SIZE) {
-        ptr_t pa;
-        assertk((pa = pm_alloc_page()) != PMM_NULL);
-        kvm_mapPage(va, pa, flags);
-    }
+struct page *va_get_page(ptr_t addr) {
+    addr = kvm_vm2pm(addr);
+    assertk(addr != 0);
+    struct page *page = get_page(addr);
+    assertk(page_head(page));
+    return page;
 }
-
 
 // 使用虚拟地址找到物理地址
 ptr_t kvm_vm2pm(ptr_t va) {
-    ptb_t *pt = (ptb_t *) PTB(va);
-    return PAGE_ADDR(PTE(pt, va)) + (va & PAGE_MASK);
-}
-
-void kvm_unmapPage(ptr_t va) {
-    ptb_t *pt = (ptb_t *) PTB(va);
-    PTE(pt, va) = VM_NPRES;
-    tlb_flush(va);
+    pte_t *pte = getPageTableEntry(va);
+    return PAGE_ADDR(*pte);
 }
 
 // size 为需要释放的内存大小
-void kvm_unmap(void *va, u32_t size) {
+void kvm_unmap(struct page *page) {
+    void *va = page->data;
+    u32_t size = page->size;
+
+    assertk((ptr_t) va > HIGH_MEM);
     assertk((size & PAGE_MASK) == 0);
+
     void *end = va + size;
+    pte_t *pte = getPageTableEntry((ptr_t) va);
     for (; va < end; va += PAGE_SIZE) {
-        kvm_unmapPage((ptr_t) va);
+        *pte = VM_NPRES;
+        tlb_flush((ptr_t) va);
+        pte++;
     }
 }
 
-
 void kvm_recycle() {
-    // TODO: 内存不足时再回收 unmap 没有释放的空页表
+    // 回收 kvm_unmapPage 没有释放的物理页
 }

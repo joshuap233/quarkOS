@@ -13,6 +13,18 @@
 #define list_entry container_of
 
 
+#define list_for_each(hdr, head) \
+    for ((hdr) = (head)->next; (hdr) != (head); (hdr) = (hdr)->next)
+
+
+#define list_for_each_del(hdr, nxt, head) \
+        for ((hdr) = (head)->next, (nxt)=(hdr)->next; (hdr) != (head); (hdr) = (nxt),(nxt)=(nxt)->next)
+
+// 逆序遍历
+#define list_for_each_rev(hdr, head) \
+    for ((hdr) = (head)->prev; (hdr) != (head); (hdr) = (hdr)->prev)
+
+
 //双向链表指针域
 typedef struct list_head {
     struct list_head *next, *prev;
@@ -54,6 +66,15 @@ INLINE void list_link(list_head_t *header, list_head_t *tail) {
     tail->prev = header;
 }
 
+INLINE u32_t list_cnt(list_head_t *header) {
+    list_head_t *hdr;
+    u32_t cnt = 0;
+    list_for_each(hdr, header) {
+        cnt++;
+    }
+    return cnt;
+}
+
 INLINE list_head_t *list_first(list_head_t *header) {
     return header->next;
 }
@@ -72,18 +93,6 @@ INLINE list_head_t *list_get_first(list_head_t *header) {
     }
     return NULL;
 }
-
-
-#define list_for_each(hdr, head) \
-    for ((hdr) = (head)->next; (hdr) != (head); (hdr) = (hdr)->next)
-
-
-#define list_for_each_del(hdr, nxt, head) \
-        for ((hdr) = (head)->next, (nxt)=(hdr)->next; (hdr) != (head); (hdr) = (nxt),(nxt)=(nxt)->next)
-
-// 逆序遍历
-#define list_for_each_rev(hdr, head) \
-    for ((hdr) = (head)->prev; (hdr) != (head); (hdr) = (hdr)->prev)
 
 
 #define queue_empty list_empty

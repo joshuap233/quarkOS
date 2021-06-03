@@ -8,7 +8,7 @@
 #include <types.h>
 #include <lib/list.h>
 #include <lib/rwlock.h>
-#include <fs/buf.h>
+#include <mm/page.h>
 #include <lib/queue.h>
 
 typedef struct super_block super_block_t;

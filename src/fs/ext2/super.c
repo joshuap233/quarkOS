@@ -19,14 +19,14 @@
 
 static void check_superBlock(ext2_sb_t *sb);
 
-ext2_sb_t *get_raw_sb(buf_t **buf, super_block_t *sb) {
-    buf_t *tmp = ext2_block_read(EXT2_SB_BNO, sb);
+ext2_sb_t *get_raw_sb(struct page**buf, super_block_t *sb) {
+    struct page*tmp = ext2_block_read(EXT2_SB_BNO, sb);
     if (buf) *buf = tmp;
     return tmp->data + SECTOR_SIZE * SUPER_BLOCK_NO;
 }
 
-ext2_gd_t *get_raw_gd(buf_t **buf, u32_t gno, super_block_t *sb) {
-    buf_t *tmp = ext2_block_read(DESCRIPTOR_BID(gno, sb), sb);
+ext2_gd_t *get_raw_gd(struct page**buf, u32_t gno, super_block_t *sb) {
+    struct page*tmp = ext2_block_read(DESCRIPTOR_BID(gno, sb), sb);
     if (buf) *buf = tmp;
     return tmp->data + DESCRIPTOR_OFFSET(gno, sb);
 }
@@ -90,7 +90,7 @@ u32_t get_free_block_cnt(u32_t groupCnt, super_block_t *sb) {
 
 void ext2_write_super_block(super_block_t *_sb) {
     ext2_sb_info_t *sb = ext2_s(_sb);
-    buf_t *sbBuf;
+    struct page*sbBuf;
     u64_t freeInodeCnt = get_free_inode_cnt(sb->groupCnt, &sb->sb);
     u64_t freeBlockCnt = get_free_block_cnt(sb->groupCnt,&sb->sb);
     ext2_sb_t *blk = get_raw_sb(&sbBuf, &sb->sb);

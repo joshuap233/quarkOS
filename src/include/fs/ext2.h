@@ -279,7 +279,7 @@ extern struct directory_ops ext2_dir_ops;
 // super.c
 extern ext2_sb_info_t *superBlock_init();
 
-extern ext2_gd_t *get_raw_gd(buf_t **buf, u32_t gno, super_block_t *sb);
+extern ext2_gd_t *get_raw_gd(struct page**buf, u32_t gno, super_block_t *sb);
 
 // inode.c
 extern void ext2_inode_init();
