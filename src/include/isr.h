@@ -5,17 +5,16 @@
 #ifndef QUARKOS_ISR_H
 #define QUARKOS_ISR_H
 
-#include "types.h"
-#include "drivers/pic.h"
+#include <types.h>
+#include <drivers/pic.h>
 
 typedef struct interrupt_frame {
     uint32_t eip;
-    uint16_t cs;
-    uint32_t flags: 20;
-    uint32_t zero: 12;
+    uint32_t cs;
+    uint32_t flags;
     // 特权级切换时会入栈
-    uint16_t esp;
-    uint16_t ss;
+    uint32_t esp;
+    uint32_t ss;
 }PACKED interrupt_frame_t;
 
 

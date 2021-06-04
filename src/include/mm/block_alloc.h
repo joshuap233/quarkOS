@@ -2,8 +2,8 @@
 // Created by pjs on 2021/5/5.
 //
 
-#ifndef QUARKOS_MM_MEMBLOCK_H
-#define QUARKOS_MM_MEMBLOCK_H
+#ifndef QUARKOS_MM_BLOCK_ALLOC_H
+#define QUARKOS_MM_BLOCK_ALLOC_H
 
 #include <types.h>
 #include <lib/list.h>
@@ -32,4 +32,4 @@ extern ptr_t g_mem_start;
 
 #define block_mem_entry(ptr) list_entry(ptr, blockInfo_t, head)
 
-#endif //QUARKOS_MM_MEMBLOCK_H
+#endif //QUARKOS_MM_BLOCK_ALLOC_H

@@ -1,14 +1,15 @@
 #include <types.h>
 #include <multiboot2.h>
 #include <mm/init.h>
-#include <sched/kthread.h>
-#include <drivers/init.h>
-#include <isr.h>
-#include <sched/init.h>
-#include <lib/qlib.h>
-#include <fs/init.h>
 #include <mm/mm.h>
 #include <mm/kvm.h>
+#include <sched/kthread.h>
+#include <sched/init.h>
+#include <drivers/init.h>
+#include <lib/qlib.h>
+#include <fs/init.h>
+#include <isr.h>
+
 
 #ifdef __linux__
 #error "你没有使用跨平台编译器进行编译"
@@ -39,7 +40,7 @@ void hello() {
 static multiboot_info_t *mba;
 static uint32_t magic;
 
-
+extern void goto_usermode();
 //mba 为 multiboot info struct 首地址
 void kernel_main() {
     vga_init();
@@ -84,7 +85,8 @@ void kernel_main() {
 #ifdef TEST
 //    test_ide_rw();
 //    test_dma_rw();
-    test_vfs();
+//    test_vfs();
+    goto_usermode();
 
     test_thread();
 #endif // TEST
@@ -113,18 +115,17 @@ pte_t boot_page_table2[N_PTE] = {[0 ...N_PDE - 1]=VM_NPRES};
 SECTION(".init.data") multiboot_info_t *tmp_mba;
 SECTION(".init.data") uint32_t tmp_magic;
 
-#define VM_WRITE  0x2
 // 映射临时页表
 SECTION(".init.text")
 void map_tmp_page(void) {
     // 映射物理地址 0-4M 到虚拟地址 0 - 4M 与 HIGH_MEM ~ HIGH_MEM + 4M
     // 否则开启分页后,无法运行 init 代码
-    boot_page_dir[0] = (ptr_t) &boot_page_table1 | VM_PRES | VM_WRITE;
-    boot_page_dir[PDE_INDEX(HIGH_MEM)] = (ptr_t) &boot_page_table2 | VM_PRES | VM_WRITE;
+    boot_page_dir[0] = (ptr_t) &boot_page_table1 | VM_PRES | VM_KW;
+    boot_page_dir[PDE_INDEX(HIGH_MEM)] = (ptr_t) &boot_page_table2 | VM_PRES | VM_KW;
 
     for (int i = 0; i < 1024; ++i) {
-        boot_page_table1[i] = (i << 12) | VM_PRES | VM_WRITE;
-        boot_page_table2[i] = (i << 12) | VM_PRES | VM_WRITE;
+        boot_page_table1[i] = (i << 12) | VM_PRES | VM_KW;
+        boot_page_table2[i] = (i << 12) | VM_PRES | VM_KW;
     }
 
     // 不能直接用 x86.h 的 lcr3 与 enable_paging

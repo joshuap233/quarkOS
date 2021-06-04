@@ -14,3 +14,12 @@ gdtr_set:
 
 foo:
     ret
+
+
+    .global tr_set
+    .type   tr_set, @function
+    .text
+tr_set:
+    movw 4(%esp),%ax
+    ltr  %ax
+    ret

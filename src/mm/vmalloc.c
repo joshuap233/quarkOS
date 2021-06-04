@@ -67,42 +67,42 @@ static void mm_struct_init(mm_struct_t *mm,
 }
 
 
-//ptr_t vm_area_alloc(mm_struct_t *mm, u32_t size, u16_t flag) {
-//    // 从 brk 向后查找
-//    size = PAGE_ALIGN(size);
-//    list_head_t *hdr;
-//    list_for_each(hdr, &mm->area) {
-//
-//    }
-//}
-//
-//int32_t vm_area_del(ptr_t addr) {
-//    // 只能删除整个 vm_area,不能切割内存
-//}
+ptr_t vm_area_alloc(mm_struct_t *mm, u32_t size, u16_t flag) {
+    // 从 brk 向后查找
+    size = PAGE_ALIGN(size);
+    list_head_t *hdr;
+    list_for_each(hdr, &mm->area) {
+
+    }
+}
+
+int32_t vm_area_del(ptr_t addr) {
+    // 只能删除整个 vm_area,不能切割内存
+}
 
 
-//ptr_t vm_init(mm_struct_t *mm) {
+ptr_t vm_init(mm_struct_t *mm) {
 //    ptr_t pgdir = pm_alloc_page();
 //    return pgdir;
-//}
-//
-//void vm_map_page(mm_struct_t *mm) {
-//
-//}
-//
-//void vm_maps() {
-//
-//}
-//
-//
-//void vm_unmap_page() {
-//
-//}
-//
-//void vm_unmaps() {
-//
-//}
-//
-//void vm_vm2pm() {
-//
-//}
+}
+
+void vm_map_page(mm_struct_t *mm) {
+
+}
+
+void vm_maps() {
+
+}
+
+
+void vm_unmap_page() {
+
+}
+
+void vm_unmaps() {
+
+}
+
+void vm_vm2pm() {
+
+}

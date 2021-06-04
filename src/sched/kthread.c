@@ -176,7 +176,6 @@ int kthread_create(kthread_t *tid, void *(worker)(void *), void *args) {
     //TODO:
     thread->cwd = NULL;
 
-
     ir_lock(&lock);
     thread->tid = alloc_tid(thread);
     *tid = thread->tid;

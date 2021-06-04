@@ -2,8 +2,8 @@
 // Created by pjs on 2021/5/4.
 //
 
-#ifndef QUARKOS_SLAB_H
-#define QUARKOS_SLAB_H
+#ifndef QUARKOS_MM_SLAB_H
+#define QUARKOS_MM_SLAB_H
 
 #include <types.h>
 #include <mm/mm.h>
@@ -46,4 +46,4 @@ void test_slab_recycle();
 
 #endif //TEST
 
-#endif //QUARKOS_SLAB_H
+#endif //QUARKOS_MM_SLAB_H

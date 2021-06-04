@@ -2,8 +2,8 @@
 // Created by pjs on 2021/5/30.
 //
 
-#ifndef QUARKOS_MM_VM_MAP_H
-#define QUARKOS_MM_VM_MAP_H
+#ifndef QUARKOS_MM_VMALLOC_H
+#define QUARKOS_MM_VMALLOC_H
 
 #include <types.h>
 #include <lib/list.h>
@@ -27,4 +27,4 @@ void vm_area_add(ptr_t addr, u32_t size, u16_t flag);
 void vm_area_init();
 
 
-#endif //QUARKOS_MM_VM_MAP_H
+#endif //QUARKOS_MM_VMALLOC_H

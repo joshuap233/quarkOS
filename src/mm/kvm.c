@@ -33,19 +33,19 @@ void kvm_init() {
 
     pde_t *pdr = &pageDir[PDE_INDEX(HIGH_MEM)];
     for (u32_t i = 0; i < N_PTE / 4; ++i) {
-        pdr[i] = ((ptr_t) &kPageTables[i] - HIGH_MEM) | VM_KW | VM_PRES;
+        pdr[i] = ((ptr_t) &kPageTables[i] - HIGH_MEM) | VM_UW | VM_PRES;
     }
 
     cr3_t cr3 = CR3_CTRL | (((ptr_t) &pageDir) - HIGH_MEM);
 
     // 低于 1M 的内存区域
-    kvm_page_init(HIGH_MEM, startKernel - HIGH_MEM, VM_KW);
+    kvm_page_init(HIGH_MEM, startKernel - HIGH_MEM, VM_UW);
 
     // text 段 与 rodada 段
-    kvm_page_init(startKernel, dataStart - startKernel, VM_KR);
+    kvm_page_init(startKernel, dataStart - startKernel, VM_UR);
 
     // data 段, bss 段 与初始化内核分配的内存
-    kvm_page_init(dataStart, g_mem_start - (dataStart - HIGH_MEM), VM_KW);
+    kvm_page_init(dataStart, g_mem_start - (dataStart - HIGH_MEM), VM_UW);
 
     lcr3(cr3);
 }

@@ -1,17 +1,24 @@
     # 进入用户模式前初始化
+    .extern user_test
+
+    .global  userspace_init
     .type userspace_init, @function
     .text
 userspace_init:
-    movw  $0x23, %gs # 用户数据段
-    movw  $0x23, %fs
-    movw  $0x23, %es
-    movw  $0x23, %ds
+    cli
+    movw  $0x23, %ax
+    movw  %ax,   %gs # 用户数据段
+    movw  %ax,   %fs
+    movw  %ax,   %es
+    movw  %ax,   %ds
 
+    movl   %esp, %eax
 
-    pushf %esp
-    pushf
-    pushl $0x1b   # 用户代码段
-    pushl user_test
+    pushl  $0x23
+    pushl  %eax
+    pushfl
+    pushl  $0x1b      # 用户代码段
+    pushl  $user_test
     iret
 
 

@@ -2,8 +2,8 @@
 // Created by pjs on 2021/2/1.
 //
 
-#ifndef QUARKOS_MM_PMM_H
-#define QUARKOS_MM_PMM_H
+#ifndef QUARKOS_MM_PAGE_ALLOC_H
+#define QUARKOS_MM_PAGE_ALLOC_H
 
 #include <types.h>
 #include <lib/list.h>
@@ -41,4 +41,4 @@ void test_alloc();
 
 #endif //TEST
 
-#endif //QUARKOS_MM_PMM_H
+#endif //QUARKOS_MM_PAGE_ALLOC_H

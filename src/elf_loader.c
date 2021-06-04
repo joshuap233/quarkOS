@@ -3,3 +3,11 @@
 //
 #include <elf_loader.h>
 #include <elf.h>
+
+void check_elf() {
+
+}
+
+void load_elf() {
+
+}

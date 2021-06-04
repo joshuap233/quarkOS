@@ -2,8 +2,8 @@
 // Created by pjs on 2021/2/1.
 //
 // 页表使用递归映射
-#ifndef QUARKOS_MM_VMM_H
-#define QUARKOS_MM_VMM_H
+#ifndef QUARKOS_MM_KVM_H
+#define QUARKOS_MM_KVM_H
 
 #include <types.h>
 #include <mm/mm.h>
@@ -27,10 +27,10 @@
 #define VM_D_MASK           (0b1<<6) //脏位掩码
 #define VM_PRES             0b1    // 在物理内存中
 #define VM_NPRES            0b0    // 不在物理内存中
-#define VM_KR               0b100  // 特权可读页
-#define VM_KW               0b110  // 特权可读写页
-#define VM_UR               0b000  // 用户可读页
-#define VM_UW               0b010
+#define VM_KR               0b000  // 特权可读页
+#define VM_KW               0b010  // 特权可读写页
+#define VM_UR               0b100  // 用户可读页
+#define VM_UW               0b110
 
 
 typedef uint32_t cr3_t;
@@ -46,4 +46,4 @@ ptr_t kvm_vm2pm(ptr_t va);
 
 struct page *va_get_page(ptr_t addr);
 
-#endif //QUARKOS_MM_VMM_H
+#endif //QUARKOS_MM_KVM_H
