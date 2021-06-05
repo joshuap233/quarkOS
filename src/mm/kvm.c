@@ -2,11 +2,13 @@
 // Created by pjs on 2021/2/1.
 //
 // 内核空间虚拟内存管理
+
 #include <mm/kvm.h>
 #include <mm/page_alloc.h>
 #include <lib/qstring.h>
 #include <lib/qlib.h>
 #include <mm/block_alloc.h>
+#include <mm/kmalloc.h>
 
 static pde_t _Alignas(PAGE_SIZE) pageDir[N_PTE] = {
         [0 ...N_PTE - 1]=VM_NPRES
@@ -33,19 +35,19 @@ void kvm_init() {
 
     pde_t *pdr = &pageDir[PDE_INDEX(HIGH_MEM)];
     for (u32_t i = 0; i < N_PTE / 4; ++i) {
-        pdr[i] = ((ptr_t) &kPageTables[i] - HIGH_MEM) | VM_UW | VM_PRES;
+        pdr[i] = ((ptr_t) &kPageTables[i] - HIGH_MEM) | VM_KW | VM_PRES;
     }
 
     cr3_t cr3 = CR3_CTRL | (((ptr_t) &pageDir) - HIGH_MEM);
 
     // 低于 1M 的内存区域
-    kvm_page_init(HIGH_MEM, startKernel - HIGH_MEM, VM_UW);
+    kvm_page_init(HIGH_MEM, startKernel - HIGH_MEM, VM_KW);
 
     // text 段 与 rodada 段
-    kvm_page_init(startKernel, dataStart - startKernel, VM_UR);
+    kvm_page_init(startKernel, dataStart - startKernel, VM_KR);
 
     // data 段, bss 段 与初始化内核分配的内存
-    kvm_page_init(dataStart, g_mem_start - (dataStart - HIGH_MEM), VM_UW);
+    kvm_page_init(dataStart, g_mem_start - (dataStart - HIGH_MEM), VM_KW);
 
     lcr3(cr3);
 }
@@ -105,6 +107,16 @@ ptr_t kvm_vm2pm(ptr_t va) {
     return PAGE_ADDR(*pte);
 }
 
+ptr_t kvm_pm2vm(ptr_t pa) {
+    struct page *page = get_page(pa);
+    return (ptr_t) page->data;
+}
+
+struct page *kvm_vm2page(ptr_t va) {
+    pte_t *pte = getPageTableEntry(va);
+    return get_page(PAGE_ADDR(*pte));
+}
+
 // size 为需要释放的内存大小
 void kvm_unmap(struct page *page) {
     void *va = page->data;
@@ -119,6 +131,23 @@ void kvm_unmap(struct page *page) {
         *pte = VM_NPRES;
         tlb_flush((ptr_t) va);
         pte++;
+    }
+}
+
+void kvm_copy(pde_t *pgdir) {
+    // 复制内核页表
+    void *va;
+    pgdir += N_PDE / 4 * 3;
+    for (u32_t i = 0; i < N_PDE / 4; ++i) {
+        if (pageDir[i] & VM_PRES) {
+            if (!(pgdir[i] & VM_PRES)) {
+                va = kcalloc(PAGE_SIZE);
+                pgdir[i] = kvm_vm2pm((ptr_t) va) | (pageDir[i] & PAGE_MASK);
+            } else {
+                va = (void *) kvm_pm2vm(PAGE_ADDR(pgdir[i]));
+            }
+            q_memcpy(va, kPageTables[i], PAGE_SIZE);
+        }
     }
 }
 

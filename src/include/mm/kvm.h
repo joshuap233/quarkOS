@@ -32,6 +32,7 @@
 #define VM_UR               0b100  // 用户可读页
 #define VM_UW               0b110
 
+#define VM_RW_BIT           1
 
 typedef uint32_t cr3_t;
 typedef uint32_t pde_t;
@@ -43,6 +44,12 @@ void kvm_unmap(struct page *page);
 void kvm_map(struct page *page, uint32_t flags);
 
 ptr_t kvm_vm2pm(ptr_t va);
+
+ptr_t kvm_pm2vm(ptr_t pa);
+
+void kvm_copy(pde_t *pgdir);
+
+struct page *kvm_vm2page(ptr_t va);
 
 struct page *va_get_page(ptr_t addr);
 

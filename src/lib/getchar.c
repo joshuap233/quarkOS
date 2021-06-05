@@ -1,15 +1,14 @@
 //
-// Created by pjs on 2021/4/8.
+// Created by pjs on 2021/6/5.
 //
 
-#include "types.h"
-#include "drivers/keyboard.h"
-#include "lib/qlib.h"
-#include "sched/timer.h"
+#include <drivers/keyboard.h>
+#include <lib/qlib.h>
+#include <sched/timer.h>
+#include <lib/getchar.h>
 
-// sched_init 调用后才能使用
 char kb_getchar() {
-    uint8_t c;
+    char c;
     q_clear(&kb_buf);
     do {
         c = q_pop(&kb_buf);

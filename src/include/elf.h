@@ -14,13 +14,13 @@ typedef int32_t  Elf32_Sword;    // Signed int
 
 # define ELF_NIDENT    16
 typedef struct elf32_header {
-    u8_t e_ident[ELF_NIDENT];
-    Elf32_Half e_type;
-    Elf32_Half e_machine;
-    Elf32_Word e_version;
-    Elf32_Addr e_entry;
-    Elf32_Off e_phoff;
-    Elf32_Off e_shoff;
+    u8_t e_ident[ELF_NIDENT];    // magic,
+    Elf32_Half e_type;           // 版本
+    Elf32_Half e_machine;        // 大端小端,机器架构
+    Elf32_Word e_version;        //
+    Elf32_Addr e_entry;          // 入口地址
+    Elf32_Off e_phoff;           // 段投标起始地址
+    Elf32_Off e_shoff;           //
     Elf32_Word e_flags;
     Elf32_Half e_ehsize;
     Elf32_Half e_phentsize;
@@ -29,6 +29,38 @@ typedef struct elf32_header {
     Elf32_Half e_shnum;
     Elf32_Half e_shstrndx;
 } elf32_header_t;
+
+// e_ident
+enum elf_ident {
+    EI_MAG0		    = 0, // 0x7F
+    EI_MAG1		    = 1, // 'E'
+    EI_MAG2		    = 2, // 'L'
+    EI_MAG3		    = 3, // 'F'
+    EI_CLASS	    = 4, // Architecture (32/64)
+    EI_DATA		    = 5, // Byte Order
+    EI_VERSION	    = 6, // ELF Version
+    EI_OSABI	    = 7, // OS Specific
+    EI_ABIVERSION	= 8, // OS Specific
+    EI_PAD		    = 9  // Padding
+};
+# define ELF_MAG0	    0x7F // e_ident[EI_MAG0]
+# define ELF_MAG1	    'E'  // e_ident[EI_MAG1]
+# define ELF_MAG2	    'L'  // e_ident[EI_MAG2]
+# define ELF_MAG3   	'F'  // e_ident[EI_MAG3]
+
+# define ELF_DATA2LSB	(1)  // Little Endian
+# define ELF_CLASS32	(1)  // 32-bit Architecture
+
+enum elf_type {
+    ET_NONE		= 0, // Unkown Type
+    ET_REL		= 1, // Relocatable File
+    ET_EXEC		= 2  // Executable File
+};
+
+# define EM_386		 3  // x86 Machine Type
+# define EV_CURRENT	 1  // ELF Current Version
+
+
 
 // sh -> section header
 typedef enum sh_types {
@@ -41,25 +73,27 @@ typedef enum sh_types {
     SHT_REL = 9,        // Relocation (no addend)
 } sh_types_t;
 
+
+
+// section header tabble
+typedef struct elf32_sh {
+    Elf32_Word sh_name;      // 名称在 string table 中的偏移
+    Elf32_Word sh_type;
+    Elf32_Word sh_flags;     // 节访问属性
+    Elf32_Addr sh_addr;      // 该节第一个字节地址,不存在则为0
+    Elf32_Off sh_offset;     // 该节首字节到文件首字节偏移
+    Elf32_Word sh_size;
+    Elf32_Word sh_link;
+    Elf32_Word sh_info;
+    Elf32_Word sh_addralign; // 节对齐要求
+    Elf32_Word sh_entsize;   // 节中表项的长度,0表示无固定长度
+} elf32_sh_t;
+
 // elf32_sh_t.flags 标志位
 typedef enum sh_attr {
     SHF_WRITE = 0x01, // Writable section
     SHF_ALLOC = 0x02  // Exists in memory
 } sh_attr_t;
-
-typedef struct elf32_sh {
-    Elf32_Word sh_name;      //名称在 string table 中的偏移
-    Elf32_Word sh_type;
-    Elf32_Word sh_flags;     //节访问属性
-    Elf32_Addr sh_addr;      //该节第一个字节地址,不存在则为0
-    Elf32_Off sh_offset;     //该节首字节到文件首字节偏移
-    Elf32_Word sh_size;
-    Elf32_Word sh_link;
-    Elf32_Word sh_info;
-    Elf32_Word sh_addralign; //节对齐要求
-    Elf32_Word sh_entsize;   //节中表项的长度,0表示无固定长度
-} elf32_sh_t;
-
 
 typedef struct elf32_symbol {
     Elf32_Word st_name;
@@ -71,7 +105,7 @@ typedef struct elf32_symbol {
 } elf32_symbol_t;
 
 
-enum StT_Bindings {
+enum stt_bindings {
 # define ELF32_ST_BIND(INFO)    ((INFO) >> 4)
     STB_LOCAL = 0,       // Local scope
     STB_GLOBAL = 1,      // Global scope
@@ -79,8 +113,8 @@ enum StT_Bindings {
 };
 
 
-enum StT_Types {
-# define ELF32_ST_TYPE(INFO)    ((INFO) & MASK_U8(4))
+enum stt_types {
+#define ELF32_ST_TYPE(INFO)    ((INFO) & MASK_U8(4))
     STT_NOTYPE = 0,     // No type
     STT_OBJECT = 1,     // Variables, arrays, etc.
     STT_FUNC   = 2      // Methods or functions

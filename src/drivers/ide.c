@@ -5,9 +5,8 @@
 // 驱动只处理一根线连接一个设备的情况
 // 使用 lba28 编址, 磁盘大小 <= 128G
 
-#include "drivers/ide.h"
-#include "sched/kthread.h"
-#include "lib/list.h"
+#include <drivers/ide.h>
+#include <lib/list.h>
 
 
 //primary bus port

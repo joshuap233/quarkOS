@@ -25,7 +25,7 @@ set(INCLUDE ${PROJECT_SOURCE_DIR}/src/include)
 include_directories(${INCLUDE})
 
 set(S_SOURCE src/boot.s)
-set(C_SOURCE src/kernel.c src/multiboot2.c src/console.c src/elf_loader.c)
+set(C_SOURCE src/kernel.c src/multiboot2.c src/elf_loader.c)
 
 add_executable(${KERNEL_BIN} ${C_SOURCE} ${S_SOURCE} ${mylib} ${drivers})
 set_target_properties(${KERNEL_BIN} PROPERTIES LINK_FLAGS "-T ${CMAKE_SOURCE_DIR}/linker.ld -ffreestanding -O0 -nostdlib -g")
@@ -75,6 +75,13 @@ target_include_directories(
         "${PROJECT_SOURCE_DIR}/src/fs"
 )
 
+
+add_subdirectory(${PROJECT_SOURCE_DIR}/src/syscall)
+target_link_libraries(${KERNEL_BIN} PUBLIC syscall)
+target_include_directories(
+        ${KERNEL_BIN} PUBLIC
+        "${PROJECT_SOURCE_DIR}/src/syscall"
+)
 
 ## 生成 iso
 add_custom_target(

@@ -8,7 +8,6 @@
 #include "lib/qlib.h"
 #include "drivers/dma.h"
 #include "lib/list.h"
-#include "sched/kthread.h"
 #include "drivers/ide.h"
 #include "mm/kvm.h"
 

@@ -64,7 +64,7 @@ static tss_t tss = {0};
 
 static void tss_desc_set() {
     ptr_t base = (ptr_t) &tss;
-    ptr_t limit = base + sizeof(tss_t);
+    ptr_t limit = sizeof(tss_t);
 
     gdt_set(SEL_TSS, base, limit, TSS_FLAG, TSS_NBUSY | TSS_KERNEL | TSS_PRES);
 

@@ -2,9 +2,9 @@
 // Created by pjs on 2021/4/8.
 //
 
-#include "sched/thread_mutex.h"
-#include "sched/kthread.h"
-
+#include <sched/thread_mutex.h>
+#include <sched/fork.h>
+#include <lib/qlib.h>
 
 void thread_mutex_init(thread_mutex_t *lock) {
     spinlock_init(&lock->lock);
@@ -14,7 +14,7 @@ void thread_mutex_init(thread_mutex_t *lock) {
 void thread_mutex_lock(thread_mutex_t *lock) {
     spinlock_lock(&lock->lock);
     while (lock->locked) {
-        block_thread(&lock->sleep, &lock->lock);
+        task_sleep(&lock->sleep, &lock->lock);
     }
     lock->locked = true;
     spinlock_unlock(&lock->lock);
@@ -25,7 +25,7 @@ void thread_mutex_unlock(thread_mutex_t *lock) {
     assertk(lock->locked);
     lock->locked = false;
     if (!list_empty(&lock->sleep)) {
-        unblock_thread(&lock->sleep);
+        task_wakeup(&lock->sleep);
     }
     spinlock_unlock(&lock->lock);
 }

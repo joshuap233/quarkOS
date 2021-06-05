@@ -63,22 +63,24 @@ struct gate_desc {
 typedef struct gate_desc interrupt_gate_t;
 typedef struct gate_desc trap_gate_t;
 
+#define IDT_SIZE   sizeof(union idt)
+#define IDT_COUNT  256
+#define IDT_TYPE   0b10001110   // 中断门,32 位,特权级为 0
+#define IDT_UTYPE  0b11101110   // 用户级中断门
+#define IDT_SC     0x08         // 代码段选择子
+
 typedef union idt {
     interrupt_gate_t interrupt_gate;
     trap_gate_t trap_gate;
-#define IDT_SIZE sizeof(union idt)
-#define IDT_COUNT 256
-#define IDT_TYPE 0b10001110 //interrupt_gate type 32 位,特权级为 0
-#define IDT_INT_USR_TYPE32 0b11101110
-#define IDT_SC  0x08     //代码段选择子
 }PACKED idt_t;
 
 extern void idtr_set(uint32_t idtr);
 static idt_t _Alignas(8) idt[IDT_COUNT] = {0};
+extern void syscall_entry();
 
 // 设置 interrupt gate
-void idt_set_ig(idt_t *_idt, uint32_t offset, uint16_t selector, uint8_t type) {
-    interrupt_gate_t *ig = &(_idt->interrupt_gate);
+void idt_set_ig(idt_t *entry, uint32_t offset, uint16_t selector, uint8_t type) {
+    interrupt_gate_t *ig = &(entry->interrupt_gate);
     ig->zero = 0;
     ig->type = type;
     ig->selector = selector;
@@ -114,6 +116,8 @@ void idt_init() {
     reg_isr(19, ISR(19));
     reg_isr(20, ISR(20));
 
+    // 系统调用中断
+    idt_set_ig(&idt[0x80], (ptr_t) syscall_entry, IDT_SC, IDT_UTYPE);
     idtr_set((ptr_t) &idtr);
 }
 

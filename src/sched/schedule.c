@@ -3,11 +3,13 @@
 //
 // 多级反馈队列
 // 线程运行次数用于 debug
-#include "sched/schedule.h"
-#include "lib/irlock.h"
-#include "sched/kthread.h"
-#include "sched/timer.h"
-#include "drivers/pit.h"
+#include <sched/schedule.h>
+#include <sched/fork.h>
+#include <sched/timer.h>
+#include <drivers/pit.h>
+#include <lib/qlib.h>
+#include <lib/irlock.h>
+
 
 extern void switch_to(context_t *cur_context, context_t *next_context);
 
@@ -20,11 +22,11 @@ static void reset_priority();
 #define RESET_PRIORITY_INTERVAL 2  // 2 秒重置一次线程优先级
 
 static struct scheduler {
-    queue_t queue[MAX_PRIORITY + 1];
+    queue_t queue[TASK_MAX_PRIORITY + 1];
 } scheduler;
 
 void scheduler_init() {
-    for (int i = 0; i <= MAX_PRIORITY; ++i) {
+    for (int i = 0; i <= TASK_MAX_PRIORITY; ++i) {
         queue_init(&scheduler.queue[i]);
     }
     update_priority_time = G_TIME_SINCE_BOOT + RESET_PRIORITY_INTERVAL * 1000;
@@ -66,7 +68,7 @@ void schedule() {
 
 static list_head_t *chose_next_task() {
     // 会从队列删除需要运行的任务
-    for (int i = MAX_PRIORITY; i >= 0; i--) {
+    for (int i = TASK_MAX_PRIORITY; i >= 0; i--) {
         queue_t *queue = &scheduler.queue[i];
         if (!queue_empty(queue)) {
             return queue_get(queue);
@@ -78,10 +80,10 @@ static list_head_t *chose_next_task() {
 // 将所有任务优先级提升到最高优先级
 static void reset_priority() {
     list_head_t *hdr1 = NULL, *tail1 = NULL;
-    list_head_t *hdr = &scheduler.queue[MAX_PRIORITY];
+    list_head_t *hdr = &scheduler.queue[TASK_MAX_PRIORITY];
     list_head_t *tail = hdr->prev;
     // 插入 top 时,高优先级在低优先级前
-    for (int i = MAX_PRIORITY - 1; i >= 0; i--) {
+    for (int i = TASK_MAX_PRIORITY - 1; i >= 0; i--) {
         queue_t *queue = &scheduler.queue[i];
         if (!list_empty(queue->next)) {
             hdr1 = queue->next;
@@ -99,10 +101,10 @@ static void reset_priority() {
         hdr->prev = tail1;
     }
 
-    list_for_each_rev(hdr, &scheduler.queue[MAX_PRIORITY]) {
-        if (tcb_entry(hdr)->priority == MAX_PRIORITY)
+    list_for_each_rev(hdr, &scheduler.queue[TASK_MAX_PRIORITY]) {
+        if (tcb_entry(hdr)->priority == TASK_MAX_PRIORITY)
             break;
-        tcb_entry(hdr)->priority = MAX_PRIORITY;
+        tcb_entry(hdr)->priority = TASK_MAX_PRIORITY;
     }
 }
 

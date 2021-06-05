@@ -7,7 +7,7 @@
 
 #include "types.h"
 
-void thread_init();
+void task_init();
 void scheduler_init();
 
 #ifdef TEST

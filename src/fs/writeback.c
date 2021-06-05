@@ -6,7 +6,7 @@
 #include <drivers/ide.h>
 #include <lib/qstring.h>
 #include <lib/list.h>
-#include <sched/kthread.h>
+#include <sched/fork.h>
 #include <lib/qlib.h>
 #include <mm/kmalloc.h>
 #include <drivers/cmos.h>
@@ -17,6 +17,7 @@
 #include <mm/page.h>
 #include <mm/page_alloc.h>
 #include <mm/kvm.h>
+#include <fs/vfs.h>
 
 static void create_flush_thread();
 
@@ -49,9 +50,9 @@ static void page_rw(struct page *buf);
 
 static void page_flush(struct page *buf);
 
-INLINE void _sleeplock_lock(rwlock_t *lk);
+INLINE void __sleeplock_lock(rwlock_t *lk);
 
-INLINE void _sleeplock_unlock(rwlock_t *lk);
+INLINE void __sleeplock_unlock(rwlock_t *lk);
 
 void page_cache_init() {
 
@@ -135,9 +136,9 @@ void page_read(struct page *buf) {
     rwlock_rUnlock(&buf->rwlock);
 
     // disk_isr 会修改 buf, 因此需要用写锁
-    _sleeplock_lock(&buf->rwlock);
+    __sleeplock_lock(&buf->rwlock);
     page_rw(buf);
-    _sleeplock_unlock(&buf->rwlock);
+    __sleeplock_unlock(&buf->rwlock);
 }
 
 
@@ -157,22 +158,22 @@ void mark_page_dirty(struct page *buf) {
 // 立即刷新内存
 void page_sync(struct page *buf) {
     assertk(buf);
-    _sleeplock_lock(&buf->rwlock);
+    __sleeplock_lock(&buf->rwlock);
 
     buf->flag |= PG_DIRTY | PG_VALID;
     page_rw(buf);
 
-    _sleeplock_unlock(&buf->rwlock);
+    __sleeplock_unlock(&buf->rwlock);
 }
 
 // 不使用缓冲区数据,强制重新读取磁盘
 void page_read_sync(struct page *buf) {
     assertk(buf);
-    _sleeplock_lock(&buf->rwlock);
+    __sleeplock_lock(&buf->rwlock);
 
     page_rw(buf);
 
-    _sleeplock_unlock(&buf->rwlock);
+    __sleeplock_unlock(&buf->rwlock);
 }
 
 static void page_rw(struct page *buf) {
@@ -184,7 +185,7 @@ static void page_rw(struct page *buf) {
     ir_lock(&irLock);
     // 如果 thread 为 NULL 则 isr 在 ir_lock 前已经执行完成
     if (cacheAllocator.thread)
-        block_thread(NULL, NULL);
+        task_sleep(NULL, NULL);
     ir_unlock(&irLock);
 
     rwlock_wLock(&cacheAllocator.list.rwlock);
@@ -208,7 +209,7 @@ INT disk_isr(UNUSED interrupt_frame_t *frame) {
         cacheAllocator.page_writing = NULL;
 
         assertk(cacheAllocator.thread);
-        unblock_thread(cacheAllocator.thread);
+        task_wakeup(cacheAllocator.thread);
         cacheAllocator.thread = NULL;
     }
     pic2_eoi(32 + 14);
@@ -219,11 +220,11 @@ static void page_flush(struct page *buf) {
     assertk(buf->flag & PG_DIRTY);
     rwlock_rUnlock(&buf->rwlock);
 
-    _sleeplock_lock(&buf->rwlock);
+    __sleeplock_lock(&buf->rwlock);
 
     page_rw(buf);
 
-    _sleeplock_unlock(&buf->rwlock);
+    __sleeplock_unlock(&buf->rwlock);
 }
 
 static void flush_pages() {
@@ -268,8 +269,8 @@ _Noreturn static void *page_flush_worker() {
 static void create_flush_thread() {
     kthread_t tid;
     kthread_create(&tid, page_flush_worker, NULL);
-    kthread_set_name(tid, "page_flash");
-    flush_worker = kthread_get_run_list(tid);
+    task_set_name(tid, "page_flash");
+    flush_worker = task_get_run_list(tid);
 }
 
 static void recycle(struct page *buf) {
@@ -299,12 +300,12 @@ void page_recycle(u32_t size) {
     rwlock_wUnlock(&cacheAllocator.list.rwlock);
 }
 
-INLINE void _sleeplock_lock(rwlock_t *lk) {
+INLINE void __sleeplock_lock(rwlock_t *lk) {
     thread_mutex_lock(&cacheAllocator.wait_rw);
     rwlock_wLock(lk);
 }
 
-INLINE void _sleeplock_unlock(rwlock_t *lk) {
+INLINE void __sleeplock_unlock(rwlock_t *lk) {
     rwlock_wUnlock(lk);
     thread_mutex_unlock(&cacheAllocator.wait_rw);
 }

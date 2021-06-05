@@ -3,7 +3,7 @@
 //
 // TODO: 所有需要操作的父目录与文件添加引用计数,防止被回收
 #include <fs/vfs.h>
-#include <sched/tcb.h>
+#include <sched/task.h>
 #include <lib/qstring.h>
 #include <mm/kmalloc.h>
 #include <fs/writeback.h>

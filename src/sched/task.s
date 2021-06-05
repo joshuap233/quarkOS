@@ -1,11 +1,11 @@
+
     # 进入用户模式前初始化
     .extern user_test
-
     .global  userspace_init
     .type userspace_init, @function
     .text
 userspace_init:
-    cli
+    # cli
     movw  $0x23, %ax
     movw  %ax,   %gs # 用户数据段
     movw  %ax,   %fs
@@ -22,12 +22,15 @@ userspace_init:
     iret
 
 
-    .type   trap_ret, @function
+    .extern task_exit
+    .global thread_entry
+    .type   thread_entry, @function
     .text
-trap_ret:
-    popw %gs
-    popw %fs
-    popw %es
-    popw %ds
-
-    iret
+thread_entry:
+    xorl  %ebp, %ebp
+    movl  4(%esp), %eax
+    pushl 8(%esp)
+    sti
+    call  *%eax
+    call  task_exit
+    ret

@@ -3,13 +3,15 @@
 #include <mm/init.h>
 #include <mm/mm.h>
 #include <mm/kvm.h>
-#include <sched/kthread.h>
 #include <sched/init.h>
+#include <sched/fork.h>
 #include <drivers/init.h>
 #include <lib/qlib.h>
 #include <fs/init.h>
 #include <isr.h>
-
+#include <syscall/syscall.h>
+#include <lib/getchar.h>
+#include <sched/timer.h>
 
 #ifdef __linux__
 #error "你没有使用跨平台编译器进行编译"
@@ -71,27 +73,27 @@ void kernel_main() {
     // dma_init();
 
     scheduler_init();
-    thread_init();
+    task_init();
     cmos_init();
 
     page_cache_init();
+    vfs_init();
 
     enable_interrupt();
 
     // 需要在中断开启之后
-    vfs_init();
     ext2_init();
 
 #ifdef TEST
 //    test_ide_rw();
 //    test_dma_rw();
 //    test_vfs();
-    goto_usermode();
+//    goto_usermode();
 
     test_thread();
 #endif // TEST
 
-    block_thread(NULL, NULL);
+    task_sleep(NULL, NULL);
 }
 
 
