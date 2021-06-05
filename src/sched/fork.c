@@ -15,7 +15,7 @@
 
 //用于管理空闲 tid
 // TODO: 建立 tid 哈希表
-static u32_t task_map[TASK_NUM];
+static tcb_t *task_map[TASK_NUM];
 
 static LIST_HEAD(finish_list);            // 已执行完成等待销毁的线程
 static LIST_HEAD(block_list);             // 全局阻塞列表
@@ -138,7 +138,7 @@ int kthread_create(kthread_t *tid, void *(worker)(void *), void *args) {
 static pid_t alloc_pid(tcb_t *tcb) {
     for (int i = 0; i < TASK_NUM; ++i) {
         if (task_map[i] == 0) {
-            task_map[i] = (ptr_t) tcb;
+            task_map[i] = tcb;
             return i;
         }
     }
@@ -146,18 +146,21 @@ static pid_t alloc_pid(tcb_t *tcb) {
     return 0;
 }
 
+
+static void free_pid(pid_t pid) {
+    assertk(pid != 0);
+    task_map[pid] = NULL;
+}
+
 static void *init_worker() {
-    while (1) {
-        halt();
-    }
-//    idle();
+    idle();
 }
 
 void task_set_name(pid_t pid, const char *name) {
     tcb_t *tcb;
     u8_t cnt;
     assertk(pid < TASK_NUM);
-    tcb = (tcb_t *) task_map[pid];
+    tcb = task_map[pid];
     assertk(tcb->pid == pid);
     cnt = q_strlen(name);
 
@@ -171,7 +174,7 @@ void task_set_name(pid_t pid, const char *name) {
 list_head_t *task_get_run_list(pid_t pid) {
     tcb_t *tcb;
     assertk(pid < TASK_NUM);
-    tcb = (tcb_t *) task_map[pid];
+    tcb = task_map[pid];
     assertk(tcb->pid == pid);
 
 #ifdef DEBUG
@@ -183,7 +186,7 @@ list_head_t *task_get_run_list(pid_t pid) {
 void task_set_time_slice(pid_t pid, u16_t time_slice) {
     tcb_t *tcb;
     assertk(pid < TASK_NUM);
-    tcb = (tcb_t *) task_map[pid];
+    tcb = task_map[pid];
     assertk(tcb->pid == pid);
 
 #ifdef DEBUG
@@ -209,10 +212,6 @@ static void cleaner_task_init() {
     task_set_name(tid, "cleaner");
 }
 
-static void free_pid(pid_t pid) {
-    assertk(pid != 0);
-    task_map[pid] = 0;
-}
 
 
 _Noreturn static void *cleaner_worker() {

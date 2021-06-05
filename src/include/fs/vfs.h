@@ -13,11 +13,12 @@
 
 typedef struct super_block super_block_t;
 typedef struct inode inode_t;
-typedef inode_t fd_t;
+typedef int fd_t;
 typedef struct directory directory_t;
 
-#define FILE_NAME_LEN 128
-#define FILE_DNAME_LEN 40
+#define FILE_NAME_LEN    128
+#define FILE_DNAME_LEN   40
+#define FILE_TABLE_SIZE  1024
 
 enum SEEK_WHENCE {
     SEEK_SET = 0,  // 参数 offset 即为新的读写位置.
@@ -58,15 +59,15 @@ struct fs_ops {
 
 // vfs 支持的操作
 struct vfs_ops {
-    inode_t *(*open)(const char *path);
+    fd_t (*open)(const char *path);
 
-    int32_t (*close)(inode_t *node);
+    int32_t (*close)(fd_t fd);
 
-    u32_t (*read)(inode_t *node, uint32_t size, char *buf);
+    u32_t (*read)(fd_t fd, uint32_t size, char *buf);
 
-    u32_t (*write)(inode_t *node, uint32_t size, char *buf);
+    u32_t (*write)(fd_t fd, uint32_t size, char *buf);
 
-    int32_t (*lseek)(inode_t *node, int32_t offset, enum SEEK_WHENCE whence);
+    int32_t (*lseek)(fd_t fd, int32_t offset, enum SEEK_WHENCE whence);
 
     int32_t (*mkdir)(const char *path);
 

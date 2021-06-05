@@ -33,6 +33,7 @@
 #define VM_UW               0b110
 
 #define VM_RW_BIT           1
+#define VM_SOFT_BIT
 
 typedef uint32_t cr3_t;
 typedef uint32_t pde_t;
