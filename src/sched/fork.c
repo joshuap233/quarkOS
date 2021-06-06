@@ -19,7 +19,7 @@ static tcb_t *task_map[TASK_NUM];
 
 static LIST_HEAD(finish_list);            // 已执行完成等待销毁的线程
 static LIST_HEAD(block_list);             // 全局阻塞列表
-list_head_t *init_task = NULL;            // 空闲线程,始终在可运行列表
+list_head_t *idle_task = NULL;            // 空闲线程,始终在可运行列表
 static list_head_t *cleaner_task = NULL;  // 清理线程,用于清理其他线程
 
 static void cleaner_task_init();
@@ -30,14 +30,10 @@ static pid_t alloc_pid(tcb_t *tcb);
 
 _Noreturn static void *cleaner_worker();
 
-static void init_task_init();
+static void idle_task_init();
 
 static void free_pid(pid_t pid);
 
-
-#define COPY_KERNEL_STACK      0b1
-#define COPY_CONTEXT          0b10
-#define COPY_MM              0b100
 
 typedef struct thread_bottom {
     void *entry;
@@ -46,19 +42,13 @@ typedef struct thread_bottom {
     void *args;    // entry 参数
 } thread_bottom;
 
-//TODO:
-// 切换用户线程需要修改 cr3,
-// pgdir 存储虚拟地址, 使用物理地址时使用函数转换(cr3)
-// 如果由用户线程切换到内核线程,需要调用 ltr 加载 ss,gs,cs.....
-// task_info 放 userspace_init 哪些寄存器..
-// userspace->init -> entry
 
 void task_init() {
 #ifdef DEBUG
     cur_tcb()->magic = TASK_MAGIC;
 #endif //DEBUG
     thread_timer_init();
-    init_task_init();
+    idle_task_init();
 
     CUR_TCB->priority = TASK_MAX_PRIORITY;
     // 任务初始化后,还有内核模块需要初始化,因此设置一个很大的时间片
@@ -67,7 +57,7 @@ void task_init() {
     assertk(CUR_TCB->pid != 0);
     CUR_TCB->state = TASK_RUNNING;
     CUR_TCB->stack = CUR_TCB;
-    task_set_name(CUR_TCB->pid, "main");
+    task_set_name(CUR_TCB->pid, "init");
 
     asm volatile("movl %%esp, %0":"=rm"(CUR_TCB->context.esp));
     cleaner_task_init();
@@ -91,18 +81,18 @@ struct task_struct *kernel_clone(struct task_struct *cur, u32_t flag) {
     task->name[0] = '\0';
 
     task->stack = task;
-    if (flag & COPY_KERNEL_STACK)
+    if (flag & CLONE_KERNEL_STACK)
         q_memcpy(task->stack + sizeof(tcb_t),
                  cur->stack + sizeof(tcb_t),
                  PAGE_SIZE - sizeof(tcb_t));
 
     task->mm = NULL;
-    if (flag & COPY_MM && cur->mm)
+    if (flag & CLONE_MM && cur->mm)
         task->mm = vm_struct_copy(cur->mm);
 
     task->cwd = cur->cwd;
 
-    if (flag & COPY_CONTEXT)
+    if (flag & CLONE_CONTEXT)
         q_memcpy(&task->context,
                  &cur->context, sizeof(context_t));
 
@@ -114,7 +104,30 @@ struct task_struct *kernel_clone(struct task_struct *cur, u32_t flag) {
 }
 
 void user_task_init() {
-    //
+    extern void goto_usermode(u32_t stack_bottom);
+    extern char user_text_start[], user_rodata_start[],
+            user_data_start[], user_bss_end[];
+    ptr_t text = (ptr_t) user_text_start;
+    ptr_t rodata = (ptr_t) user_rodata_start;
+    ptr_t data = (ptr_t) user_data_start;
+    ptr_t bssEnd = (ptr_t) user_bss_end;
+
+    struct mm_struct *mm = mm_struct_init(
+            text, data - text,
+            rodata, data - rodata,
+            data, bssEnd - data
+    );
+
+    kvm_copy(mm->pgdir);
+    CUR_TCB->mm = mm;
+    switch_uvm(mm->pgdir);
+    goto_usermode(mm->stack.addr + PAGE_SIZE);
+}
+
+pid_t fork() {
+    struct task_struct *thread = kernel_clone(CUR_TCB, CLONE_MM | CLONE_CONTEXT | CLONE_KERNEL_STACK);
+    sched_task_add(&thread->run_list);
+    return 0;
 }
 
 extern void thread_entry(void *(worker)(void *), void *args, tcb_t *tcb);
@@ -142,7 +155,7 @@ static pid_t alloc_pid(tcb_t *tcb) {
             return i;
         }
     }
-    // 0 始终被 init 线程占用
+    // 0 始终被 idle 线程占用
     return 0;
 }
 
@@ -152,30 +165,37 @@ static void free_pid(pid_t pid) {
     task_map[pid] = NULL;
 }
 
-static void *init_worker() {
+static void *idle_worker() {
     idle();
 }
 
 void task_set_name(pid_t pid, const char *name) {
+    assertk(pid < TASK_NUM);
+
+    ir_lock_t lock;
     tcb_t *tcb;
     u8_t cnt;
-    assertk(pid < TASK_NUM);
-    tcb = task_map[pid];
-    assertk(tcb->pid == pid);
-    cnt = q_strlen(name);
 
-    assertk(cnt <= TASK_NAME_LEN);
+    ir_lock(&lock);
+    tcb = task_map[pid];
+    if (tcb) {
+        cnt = q_strlen(name);
+
+        assertk(cnt <= TASK_NAME_LEN);
 #ifdef DEBUG
-    assertk(tcb->magic == TASK_MAGIC);
+        assertk(tcb->magic == TASK_MAGIC);
 #endif //DEBUG
-    q_memcpy(tcb->name, name, cnt);
+        q_memcpy(tcb->name, name, cnt);
+    }
+
+    ir_unlock(&lock);
 }
 
 list_head_t *task_get_run_list(pid_t pid) {
-    tcb_t *tcb;
     assertk(pid < TASK_NUM);
+
+    tcb_t *tcb;
     tcb = task_map[pid];
-    assertk(tcb->pid == pid);
 
 #ifdef DEBUG
     assertk(tcb->magic == TASK_MAGIC);
@@ -195,12 +215,12 @@ void task_set_time_slice(pid_t pid, u16_t time_slice) {
     tcb->timer_slice = time_slice;
 }
 
-static void init_task_init() {
+static void idle_task_init() {
     kthread_t tid;
-    kthread_create(&tid, init_worker, NULL);
+    kthread_create(&tid, idle_worker, NULL);
     assertk(tid == 0);
-    init_task = task_get_run_list(tid);
-    task_set_name(tid, "init");
+    idle_task = task_get_run_list(tid);
+    task_set_name(tid, "idle");
     task_set_time_slice(tid, 0);
 }
 
@@ -211,7 +231,6 @@ static void cleaner_task_init() {
     cleaner_task = task_get_run_list(tid);
     task_set_name(tid, "cleaner");
 }
-
 
 
 _Noreturn static void *cleaner_worker() {
@@ -226,6 +245,10 @@ _Noreturn static void *cleaner_worker() {
             next = hdr->next;
             free_pid(entry->pid);
             kfree(entry->stack);
+            //TODO: 回收打开的文件
+            if (entry->mm) {
+                vm_struct_destroy(entry->mm);
+            }
         }
         list_header_init(&finish_list);
         task_sleep(NULL, NULL);
@@ -308,10 +331,9 @@ void test_thread() {
     spinlock_init(&lock);
     kthread_t tid[10];
     const char *name[] = {"1", "2", "3", "4", "5", "6", "7", "8", "9"};
-    for (int i = 0; i < 10; ++i) {
+    for (int i = 0; i < 9; ++i) {
         kthread_create(&tid[i], workerA, &foo[i]);
-        // TODO: 线程运行完,再运行kthread_set_name会有bug
-//        kthread_set_name(tid[i], name[i]);
+        task_set_name(tid[i], name[i]);
     }
     test_pass;
 }

@@ -85,7 +85,7 @@ INT clock_isr(UNUSED interrupt_frame_t *frame) {
     if (task->timer_slice == 0) {
         schedule();
     } else {
-        assertk(&task->run_list != init_task);
+        assertk(&task->run_list != idle_task);
         task->timer_slice -= 10;
     }
 }

@@ -9,6 +9,11 @@
 #include <isr.h>
 #include <fs/vfs.h>
 
+
+// 忽略 -Wunused-parameter
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-parameter"
+
 // 传递系统调用参数
 struct sys_reg {
     u32_t eax;  // 系统调用编号
@@ -22,44 +27,68 @@ struct sys_reg {
 
 int sys_exec(u32_t *args) {
 
-}
-
-int sys_getchar(u32_t *args) {
-
-}
-
-int sys_putchar(u32_t *args) {
-
-}
-
-int sys_mkdir(u32_t *args) {
-
-}
-
-int sys_open(u32_t *args) {
-
-}
-
-int sys_close(u32_t *args) {
-
-}
-
-int sys_mkfile(u32_t *args) {
-
-}
-
-int sys_rmdir(u32_t *args) {
-
-}
-
-int sys_unlink(u32_t *args) {
-
+    return 0;
 }
 
 int sys_fork(u32_t *args) {
 
+    return 0;
 }
 
+int sys_getchar(u32_t *args) {
+
+    return 0;
+}
+
+int sys_putchar(u32_t *args) {
+    return 0;
+
+}
+
+int sys_mkdir(u32_t *args) {
+    return 0;
+
+}
+
+int sys_open(u32_t *args) {
+    return 0;
+
+}
+
+int sys_close(u32_t *args) {
+    return 0;
+
+}
+
+int sys_mkfile(u32_t *args) {
+    return 0;
+
+}
+
+int sys_rmdir(u32_t *args) {
+    return 0;
+
+}
+
+int sys_unlink(u32_t *args) {
+    return 0;
+
+}
+
+
+int sys_read(u32_t *args) {
+    return 0;
+
+}
+
+int sys_write(u32_t *args) {
+    return 0;
+
+}
+
+int sys_sleep(u32_t *args) {
+    return 0;
+}
 
 static int (*syscall[])(u32_t *args) = {
         [0] = sys_exec,
@@ -71,7 +100,10 @@ static int (*syscall[])(u32_t *args) = {
         [6] = sys_unlink,
         [7] = sys_open,
         [8] = sys_close,
-        [9] = sys_fork
+        [9] = sys_fork,
+        [10] = sys_read,
+        [11] = sys_write,
+        [12] = sys_sleep
 };
 
 
@@ -89,3 +121,5 @@ int syscall_isr(struct sys_reg *reg) {
     }
     return -1;
 }
+
+#pragma GCC diagnostic pop

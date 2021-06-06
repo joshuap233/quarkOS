@@ -7,6 +7,7 @@ SECTIONS
 	/* .text 从内存 1M 开始*/
 	. = 1M;
 
+    /* 初始代码 */
     .init.text ALIGN(4K) :
     {
         init_text_start = .;
@@ -20,6 +21,34 @@ SECTIONS
         *(.init.data)
     }
 
+    /* 用户空间代码 */
+    .user.text ALIGN(4K) :
+    {
+        user_text_start = .;
+        *(.user.text)
+    }
+
+    .user.rodata ALIGN(4K) :
+    {
+        user_rodata_start = .;
+        *(.user.rodata)
+    }
+
+    .user.data ALIGN(4K) :
+    {
+        user_data_start = .;
+        *(.user.data)
+    }
+
+    .user.bss ALIGN(4K) :
+    {
+        user_bss_start = .;
+        *(.user.bss)
+    }
+    user_bss_end = .;
+
+
+    /* 内核代码 */
     . += 0xC0000000;
 
 	/* 读,执行代码 */

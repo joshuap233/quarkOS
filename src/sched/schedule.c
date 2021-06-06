@@ -9,7 +9,7 @@
 #include <drivers/pit.h>
 #include <lib/qlib.h>
 #include <lib/irlock.h>
-
+#include <mm/kvm.h>
 
 extern void switch_to(context_t *cur_context, context_t *next_context);
 
@@ -32,6 +32,9 @@ void scheduler_init() {
     update_priority_time = G_TIME_SINCE_BOOT + RESET_PRIORITY_INTERVAL * 1000;
 }
 
+// 用户空间任务创建后,内核线程与用户任务都使用相同的 gs,ds,es,fs
+// 特权级切换时,中断会修改保存 cs,ss
+// 使用用户线程的页表
 void schedule() {
     ir_lock_t lock;
     ir_lock(&lock);
@@ -43,12 +46,12 @@ void schedule() {
     tcb_t *cur_task = CUR_TCB;
     list_head_t *next = chose_next_task();
     list_head_t *cur = &cur_task->run_list;
-    if (next == init_task && &CUR_HEAD == init_task) {
-        assertk(tcb_entry(init_task)->timer_slice == 0);
+    if (next == idle_task && &CUR_HEAD == idle_task) {
+        assertk(tcb_entry(idle_task)->timer_slice == 0);
         return;
     }
     // init task 时间片始终为 0,且不在反馈队列中
-    if (cur != init_task) {
+    if (cur != idle_task) {
         if (cur_task->priority != 0) {
             if (cur_task->timer_slice == 0) {
                 cur_task->timer_slice = TIME_SLICE_LENGTH;
@@ -74,7 +77,7 @@ static list_head_t *chose_next_task() {
             return queue_get(queue);
         }
     }
-    return init_task;
+    return idle_task;
 }
 
 // 将所有任务优先级提升到最高优先级

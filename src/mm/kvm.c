@@ -18,6 +18,7 @@ static pde_t _Alignas(PAGE_SIZE) pageDir[N_PTE] = {
 _Alignas(PAGE_SIZE) static pte_t kPageTables[N_PTE / 4][N_PTE] = {
         [0 ...N_PTE / 4 - 1] = {[0 ...N_PTE - 1]=VM_NPRES}
 };
+static cr3_t kCr3;
 
 static void kvm_page_init(ptr_t va, size_t size, u32_t flags);
 
@@ -38,7 +39,7 @@ void kvm_init() {
         pdr[i] = ((ptr_t) &kPageTables[i] - HIGH_MEM) | VM_KW | VM_PRES;
     }
 
-    cr3_t cr3 = CR3_CTRL | (((ptr_t) &pageDir) - HIGH_MEM);
+    kCr3 = CR3_CTRL | (((ptr_t) &pageDir) - HIGH_MEM);
 
     // 低于 1M 的内存区域
     kvm_page_init(HIGH_MEM, startKernel - HIGH_MEM, VM_KW);
@@ -49,7 +50,7 @@ void kvm_init() {
     // data 段, bss 段 与初始化内核分配的内存
     kvm_page_init(dataStart, g_mem_start - (dataStart - HIGH_MEM), VM_KW);
 
-    lcr3(cr3);
+    lcr3(kCr3);
 }
 
 INLINE pte_t *getPageTableEntry(ptr_t va) {
@@ -136,19 +137,22 @@ void kvm_unmap(struct page *page) {
 
 void kvm_copy(pde_t *pgdir) {
     // 复制内核页表
-    void *va;
-    pgdir += N_PDE / 4 * 3;
+    u32_t step = N_PDE / 4 * 3;
+    pgdir += step;
+    pde_t *kPageDir = pageDir + step;
     for (u32_t i = 0; i < N_PDE / 4; ++i) {
-        if (pageDir[i] & VM_PRES) {
-            if (!(pgdir[i] & VM_PRES)) {
-                va = kcalloc(PAGE_SIZE);
-                pgdir[i] = kvm_vm2pm((ptr_t) va) | (pageDir[i] & PAGE_MASK);
-            } else {
-                va = (void *) kvm_pm2vm(PAGE_ADDR(pgdir[i]));
-            }
-            q_memcpy(va, kPageTables[i], PAGE_SIZE);
+        if (kPageDir[i] & VM_PRES) {
+            pgdir[i] = kPageDir[i];
         }
     }
+}
+
+void switch_kvm() {
+    lcr3(kCr3);
+}
+
+void switch_uvm(pde_t *pgdir) {
+    lcr3(kvm_vm2pm((ptr_t) pgdir));
 }
 
 void kvm_recycle() {

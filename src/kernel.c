@@ -42,7 +42,6 @@ void hello() {
 static multiboot_info_t *mba;
 static uint32_t magic;
 
-extern void goto_usermode();
 //mba 为 multiboot info struct 首地址
 void kernel_main() {
     vga_init();
@@ -88,11 +87,11 @@ void kernel_main() {
 //    test_ide_rw();
 //    test_dma_rw();
 //    test_vfs();
-//    goto_usermode();
 
     test_thread();
 #endif // TEST
 
+    user_task_init();
     task_sleep(NULL, NULL);
 }
 

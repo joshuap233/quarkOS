@@ -9,6 +9,7 @@
 #include <lib/list.h>
 #include <fs/vfs.h>
 #include <mm/mm.h>
+#include <mm/vmalloc.h>
 
 #define TASK_NAME_LEN           16
 #define TASK_NUM                1024
@@ -42,6 +43,7 @@ typedef enum task_state {
 
 
 typedef struct task_struct {
+    //TODO: 记录打开的文件用于回收
     list_head_t run_list;     //运行队列
 
     struct task_struct *parent; //父进程

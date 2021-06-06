@@ -83,6 +83,13 @@ target_include_directories(
         "${PROJECT_SOURCE_DIR}/src/syscall"
 )
 
+
+add_subdirectory(${PROJECT_SOURCE_DIR}/src/userspace)
+target_link_libraries(${KERNEL_BIN} PUBLIC userspace)
+target_include_directories(
+        ${KERNEL_BIN} PUBLIC
+        "${PROJECT_SOURCE_DIR}/src/userspace"
+)
 ## 生成 iso
 add_custom_target(
         ${KERNEL_ISO}

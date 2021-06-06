@@ -33,7 +33,10 @@
 #define VM_UW               0b110
 
 #define VM_RW_BIT           1
-#define VM_SOFT_BIT
+// 9-11 为被 cpu 忽略
+#define VM_IGNORE_BIT1         0x200
+#define VM_IGNORE_BIT2         0x400
+#define VM_IGNORE_BIT3         0x800
 
 typedef uint32_t cr3_t;
 typedef uint32_t pde_t;
@@ -53,5 +56,9 @@ void kvm_copy(pde_t *pgdir);
 struct page *kvm_vm2page(ptr_t va);
 
 struct page *va_get_page(ptr_t addr);
+
+void switch_kvm();
+
+void switch_uvm(pde_t *pgdir);
 
 #endif //QUARKOS_MM_KVM_H
