@@ -3,6 +3,8 @@
 一个玩具操作系统
 
 
+[参考资料](./doc)
+
 ## 构建
 1.  [构建 i686-elf-gcc](https://wiki.osdev.org/GCC_Cross-Compiler)
 2. `mkdir build && cmake .. && make`
