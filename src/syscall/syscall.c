@@ -8,7 +8,7 @@
 #include <syscall/syscall.h>
 #include <isr.h>
 #include <fs/vfs.h>
-#include <sched/fork.h>
+#include <task/fork.h>
 
 
 // 忽略 -Wunused-parameter
@@ -23,6 +23,8 @@ struct sys_reg {
     u32_t edx;
     u32_t esi;
     u32_t edi;
+    u32_t ebp;
+    u32_t esp;  // 记录系统调用栈地址
 };
 
 
@@ -90,7 +92,9 @@ int sys_sleep(u32_t *args) {
     return 0;
 }
 
-int sys_exit(u32_t *args){
+int sys_exit(u32_t *args) {
+    // int 指令会关闭中断,而调用 task_exit 后,线程会循环 idle
+    enable_interrupt();
     task_exit();
     return 0;
 }
@@ -115,14 +119,16 @@ static int (*syscall[])(u32_t *args) = {
 
 int syscall_isr(struct sys_reg reg) {
     // 系统调用
+    CUR_TCB->sysContext = (void *) reg.esp;
     u32_t no = reg.eax;
-    u32_t args[5];
-    if (no <= 9) {
+    u32_t args[6];
+    if (no <= SYS_EXIT) {
         args[0] = reg.ebx;
         args[1] = reg.ecx;
         args[2] = reg.edx;
         args[3] = reg.esi;
         args[4] = reg.edi;
+        args[5] = reg.ebp;
         return syscall[no](args);
     }
     return -1;

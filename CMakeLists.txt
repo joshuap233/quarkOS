@@ -54,11 +54,11 @@ target_include_directories(
         "${PROJECT_SOURCE_DIR}/src/mm"
 )
 
-add_subdirectory(${PROJECT_SOURCE_DIR}/src/sched)
+add_subdirectory(${PROJECT_SOURCE_DIR}/src/task)
 target_link_libraries(${KERNEL_BIN} PUBLIC sched)
 target_include_directories(
         ${KERNEL_BIN} PUBLIC
-        "${PROJECT_SOURCE_DIR}/src/sched"
+        "${PROJECT_SOURCE_DIR}/src/task"
 )
 
 add_subdirectory(${PROJECT_SOURCE_DIR}/src/x86)

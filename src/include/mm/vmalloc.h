@@ -35,6 +35,8 @@ void vm_unmap(struct vm_area *area, pte_t *pgdir);
 
 struct mm_struct *vm_struct_copy(struct mm_struct *src);
 
+int vm_remap_page(ptr_t va, pte_t *pgdir);
+
 struct mm_struct *mm_struct_init(
         ptr_t txt, ptr_t size1,
         ptr_t rodata, ptr_t size2,

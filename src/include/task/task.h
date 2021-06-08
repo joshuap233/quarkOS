@@ -2,8 +2,8 @@
 // Created by pjs on 2021/6/5.
 //
 
-#ifndef QUARKOS_SCHED_TASK_H
-#define QUARKOS_SCHED_TASK_H
+#ifndef QUARKOS_TASK_TASK_H
+#define QUARKOS_TASK_TASK_H
 
 #include <types.h>
 #include <lib/list.h>
@@ -14,6 +14,7 @@
 #define TASK_NAME_LEN           16
 #define TASK_NUM                1024
 #define TASK_MAX_PRIORITY       3
+#define TASK_MAGIC       0x18ee7305
 
 /*
  * 线程切换时需要保存的上下文
@@ -32,6 +33,18 @@ typedef struct context {
     u32_t eip;
 } context_t;
 
+// 系统调用上下文
+typedef struct sys_context {
+    u32_t ds;
+    u32_t es;
+    u32_t fs;
+    u32_t gs;
+    u32_t eip;
+    u32_t cs;
+    u32_t eflags;
+    u32_t esp;
+    u32_t ss;
+} sys_context_t;
 
 typedef int32_t pid_t;
 typedef int32_t kthread_t;
@@ -66,22 +79,10 @@ typedef struct task_struct {
 
     context_t *context;        // 上下文信息
 
-#ifdef DEBUG
-#define TASK_MAGIC       0x18ee7305
+    sys_context_t *sysContext;
+
     u32_t magic;
-#endif // DEBUG
 } tcb_t;
-
-struct task_info {
-    u32_t eip1;
-    u32_t cs;
-    u32_t eflags;
-    u32_t esp;
-    u32_t ss;
-
-    u32_t args;      // fn 参数
-    u32_t worker;    // fn
-}PACKED;
 
 struct thread_info {
     struct task_struct *task;
@@ -121,4 +122,4 @@ INLINE tcb_t *tcb_entry(list_head_t *ptr) {
 #define CUR_HEAD (CUR_TCB->run_list)
 
 
-#endif //QUARKOS_SCHED_TASK_H
+#endif //QUARKOS_TASK_TASK_H

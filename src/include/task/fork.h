@@ -2,15 +2,14 @@
 // Created by pjs on 2021/6/3.
 //
 
-#ifndef QUARKOS_SCHED_FORK_H
-#define QUARKOS_SCHED_FORK_H
+#ifndef QUARKOS_TASK_FORK_H
+#define QUARKOS_TASK_FORK_H
 
-#include <sched/task.h>
+#include <task/task.h>
 
 
 #define CLONE_KERNEL_STACK      0b1
-#define CLONE_CONTEXT          0b10
-#define CLONE_MM              0b100
+#define CLONE_MM               0b10
 
 void task_set_name(pid_t pid, const char *name);
 
@@ -39,4 +38,4 @@ _Noreturn INLINE void idle() {
 }
 
 
-#endif //QUARKOS_SCHED_FORK_H
+#endif //QUARKOS_TASK_FORK_H

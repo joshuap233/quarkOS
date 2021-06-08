@@ -133,6 +133,30 @@ INLINE pte_t *vm_page_iter(ptr_t addr, pde_t *pgdir, bool new) {
     return &pte[PTE_INDEX(addr)];
 }
 
+int vm_remap_page(ptr_t va, pte_t *pgdir) {
+    // 重新映射 va 所在的页,并复制原页内容
+    struct page *new, *old;
+    pte_t *pte = vm_page_iter(va, pgdir, true);
+
+    if (!(*pte & VM_PRES)) return -1;
+
+    old = get_page(PAGE_ADDR(*pte));
+
+    // 分配新页,临时映射到内核用于复制页内容
+    new = __alloc_page(PAGE_SIZE);
+    kvm_map(new, VM_PRES | VM_KW);
+    q_memcpy(new->data, (void *) va, PAGE_SIZE);
+
+    // 取消临映射
+    kvm_unmap(new);
+
+    //映射到用户空间
+    *pte = (*pte & PAGE_MASK) | page_addr(new);
+
+    __free_page(old);
+    return 0;
+}
+
 void vm_map(struct vm_area *area, ptr_t pa, pte_t *pgdir) {
     ptr_t size = area->size;
     ptr_t va = area->addr;

@@ -2,8 +2,8 @@
 // Created by pjs on 2021/2/23.
 //
 
-#ifndef QUARKOS_SCHED_TIMER_H
-#define QUARKOS_SCHED_TIMER_H
+#ifndef QUARKOS_TASK_TIMER_H
+#define QUARKOS_TASK_TIMER_H
 
 #include "types.h"
 #include "lib/list.h"
@@ -22,4 +22,4 @@ bool ms_sleep_until(uint64_t msc);
 
 void thread_timer_init();
 
-#endif //QUARKOS_SCHED_TIMER_H
+#endif //QUARKOS_TASK_TIMER_H

@@ -3,15 +3,15 @@
 #include <mm/init.h>
 #include <mm/mm.h>
 #include <mm/kvm.h>
-#include <sched/init.h>
-#include <sched/fork.h>
+#include <task/init.h>
+#include <task/fork.h>
 #include <drivers/init.h>
 #include <lib/qlib.h>
 #include <fs/init.h>
 #include <isr.h>
 #include <syscall/syscall.h>
 #include <lib/getchar.h>
-#include <sched/timer.h>
+#include <task/timer.h>
 
 #ifdef __linux__
 #error "你没有使用跨平台编译器进行编译"
@@ -88,12 +88,12 @@ void kernel_main() {
 //    test_dma_rw();
 //    test_vfs();
 
-    test_thread();
+//    test_thread();
 #endif // TEST
 
     // 初始化用户任务后,当前的栈将被第一个用户任务用作内核栈,
     // 栈内容将被中断数据覆盖,user_task_init 后的函数可用
-//    user_task_init();
+    user_task_init();
     task_sleep(NULL, NULL);
 }
 

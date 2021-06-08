@@ -46,6 +46,6 @@ void kfree(void *addr) {
 
     if (is_slab(page))
         return slab_free(addr);
-    __free_page(page);
     kvm_unmap(page);
+    __free_page(page);
 }

@@ -4,7 +4,7 @@
 
 #include <drivers/keyboard.h>
 #include <lib/qlib.h>
-#include <sched/timer.h>
+#include <task/timer.h>
 #include <lib/getchar.h>
 
 char kb_getchar() {

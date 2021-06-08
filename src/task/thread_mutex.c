@@ -2,8 +2,8 @@
 // Created by pjs on 2021/4/8.
 //
 
-#include <sched/thread_mutex.h>
-#include <sched/fork.h>
+#include <task/thread_mutex.h>
+#include <task/fork.h>
 #include <lib/qlib.h>
 
 void thread_mutex_init(thread_mutex_t *lock) {

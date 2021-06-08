@@ -6,16 +6,16 @@
 
 //页错误错误码
 typedef struct pf_error_code {
-    uint16_t p: 1;   //置 0 则异常由页不存在引起,否则由特权级保护引起
-    uint16_t w: 1;   //置 0 则访问是读取
-    uint16_t u: 1;   //置 0 则特权模式下发生的异常
+    uint16_t p: 1;   // 置 0 : 异常由页不存在引起,否则由特权级保护引起
+    uint16_t w: 1;   // 置 0 : 访问是读取
+    uint16_t u: 1;   // 置 0 : 则特权模式下发生的异常
     uint16_t r: 1;
     uint16_t i: 1;
     uint16_t pk: 1;
     uint16_t zero: 10;
     uint16_t sgx: 1;
     uint16_t zero1: 15;
-}PACKED pf_error_code_t;
+}PACKED pf_errno_t;
 
 
 // 带 '#' 符号为相应的中断向量的速记, 括号内为引发的指令
@@ -75,7 +75,9 @@ typedef union idt {
 }PACKED idt_t;
 
 extern void idtr_set(uint32_t idtr);
+
 static idt_t _Alignas(8) idt[IDT_COUNT] = {0};
+
 extern void syscall_entry();
 
 // 设置 interrupt gate
@@ -107,7 +109,7 @@ void idt_init() {
     reg_isr(9, ISR(9));
     reg_isr(10, ISR(10));
     reg_isr(11, ISR(11));
-    reg_isr(12,ISR(12));
+    reg_isr(12, ISR(12));
     reg_isr(13, ISR(13));
     reg_isr(14, ISR(14));
     reg_isr(16, ISR(16));
@@ -121,7 +123,7 @@ void idt_init() {
     idtr_set((ptr_t) &idtr);
 }
 
-void reg_isr(uint8_t n,void *isr){
+void reg_isr(uint8_t n, void *isr) {
     idt_set_ig(&idt[n], (ptr_t) isr, IDT_SC, IDT_TYPE);
 }
 
@@ -192,9 +194,16 @@ INT ISR(13)(interrupt_frame_t *frame, uint32_t error_code) {
 
 INT ISR(14)(interrupt_frame_t *frame, uint32_t error_code) {
 //页错误
-    pf_error_code_t *ec = (pf_error_code_t *) &error_code;
+    extern int task_cow(ptr_t pf_addr);
+
+    pf_errno_t *ec = (pf_errno_t *) &error_code;
+    ptr_t pf_adr = pf_addr();
     assertk(ec->zero == 0);
     assertk(ec->zero1 == 0);
+
+    if (ec->w && !task_cow(pf_adr))
+        return;
+
     printfk("page fault, error code: %x\n", error_code);
     printfk("page fault addr: %x\n", pf_addr());
     panic();

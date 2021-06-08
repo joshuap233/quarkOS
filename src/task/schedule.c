@@ -3,9 +3,9 @@
 //
 // 多级反馈队列
 // 线程运行次数用于 debug
-#include <sched/schedule.h>
-#include <sched/fork.h>
-#include <sched/timer.h>
+#include <task/schedule.h>
+#include <task/fork.h>
+#include <task/timer.h>
 #include <drivers/pit.h>
 #include <lib/qlib.h>
 #include <lib/irlock.h>
@@ -52,7 +52,7 @@ void schedule() {
         assertk(tcb_entry(idle_task)->timer_slice == 0);
         return;
     }
-    // init task 时间片始终为 0,且不在反馈队列中
+    // idle task 时间片始终为 0,且不在反馈队列中
     if (cur != idle_task) {
         if (cur_task->priority != 0) {
             if (cur_task->timer_slice == 0) {

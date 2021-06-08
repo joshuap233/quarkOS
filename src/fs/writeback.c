@@ -6,13 +6,13 @@
 #include <drivers/ide.h>
 #include <lib/qstring.h>
 #include <lib/list.h>
-#include <sched/fork.h>
+#include <task/fork.h>
 #include <lib/qlib.h>
 #include <mm/kmalloc.h>
 #include <drivers/cmos.h>
-#include <sched/timer.h>
+#include <task/timer.h>
 #include <lib/rwlock.h>
-#include <sched/thread_mutex.h>
+#include <task/thread_mutex.h>
 #include <lib/irlock.h>
 #include <mm/page.h>
 #include <mm/page_alloc.h>

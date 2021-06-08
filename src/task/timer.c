@@ -7,9 +7,9 @@
 #include <isr.h>
 #include <lib/qlib.h>
 #include <lib/list.h>
-#include <sched/schedule.h>
-#include <sched/fork.h>
-#include <sched/timer.h>
+#include <task/schedule.h>
+#include <task/fork.h>
+#include <task/timer.h>
 
 
 #define timer_entry(ptr) list_entry(ptr, timer_t, head)

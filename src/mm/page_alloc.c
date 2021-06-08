@@ -133,11 +133,13 @@ INLINE struct mem_zone *get_zone(struct page *page) {
            : &allocator.zone[0];
 }
 
+// 获取页的物理地址
 ptr_t page_addr(struct page *page) {
     ptr_t start = allocator.zone[0].addr;
     return start + ((ptr_t) (page - allocator.pages) << 12);
 }
 
+// 使用物理地址找到页
 struct page *get_page(ptr_t addr) {
     assertk((addr & PAGE_MASK) == 0);
     ptr_t start = allocator.zone[0].addr;
@@ -209,11 +211,11 @@ static struct page *__alloc_pages(struct mem_zone *zone, u32_t size) {
     return page;
 }
 
+// 分配 0 -3G 内存
 struct page *__alloc_page(u32_t size) {
     return __alloc_pages(&allocator.zone[0], size);
 }
 
-// 分配 0 -3G 内存
 ptr_t alloc_page(u32_t size) {
     struct page *page = __alloc_page(size);
     return page_addr(page);

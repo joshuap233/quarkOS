@@ -2,8 +2,7 @@
 // Created by pjs on 2021/6/5.
 //
 //
-#include <sched/user.h>
-#include <sched/task.h>
+#include <task/task.h>
 #include <userspace/console.h>
 #include <types.h>
 #include <userspace/lib.h>

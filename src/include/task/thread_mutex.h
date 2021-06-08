@@ -2,8 +2,8 @@
 // Created by pjs on 2021/4/8.
 //
 
-#ifndef QUARKOS_SCHED_SLEEPLOCK_H
-#define QUARKOS_SCHED_SLEEPLOCK_H
+#ifndef QUARKOS_TASK_SLEEPLOCK_H
+#define QUARKOS_TASK_SLEEPLOCK_H
 
 #include "types.h"
 #include "lib/list.h"
@@ -19,4 +19,4 @@ void thread_mutex_init(thread_mutex_t *lock);
 void thread_mutex_lock(thread_mutex_t *lock);
 void thread_mutex_unlock(thread_mutex_t *lock);
 
-#endif //QUARKOS_SCHED_SLEEPLOCK_H
+#endif //QUARKOS_TASK_SLEEPLOCK_H

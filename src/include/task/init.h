@@ -2,8 +2,8 @@
 // Created by pjs on 2021/4/6.
 //
 
-#ifndef QUARKOS_SCHED_INIT_H
-#define QUARKOS_SCHED_INIT_H
+#ifndef QUARKOS_TASK_INIT_H
+#define QUARKOS_TASK_INIT_H
 
 #include "types.h"
 
@@ -14,4 +14,4 @@ void scheduler_init();
 void test_thread();
 #endif //TEST
 
-#endif //QUARKOS_SCHED_INIT_H
+#endif //QUARKOS_TASK_INIT_H

@@ -8,10 +8,10 @@
 #include <mm/kvm.h>
 #include <mm/kmalloc.h>
 #include <mm/vmalloc.h>
-#include <sched/task.h>
-#include <sched/schedule.h>
-#include <sched/fork.h>
-#include <sched/timer.h>
+#include <task/task.h>
+#include <task/schedule.h>
+#include <task/fork.h>
+#include <task/timer.h>
 
 //用于管理空闲 tid
 // TODO: 建立 tid 哈希表
@@ -48,10 +48,12 @@ void task_init() {
     assertk(CUR_TCB->pid != 0);
     CUR_TCB->state = TASK_RUNNING;
     CUR_TCB->stack = CUR_TCB;
+
+    CUR_TCB->sysContext = NULL;
+    CUR_TCB->context = NULL;
     task_set_name(CUR_TCB->pid, "init");
 
     init_task = &CUR_HEAD;
-    // asm volatile("movl %%esp, %0":"=rm"(CUR_TCB->context.esp));
     cleaner_task_init();
 }
 
@@ -80,6 +82,7 @@ void user_task_init() {
 }
 
 struct task_struct *kernel_clone(struct task_struct *cur, u32_t flag) {
+    extern void syscall_ret();
     ir_lock_t lock;
     ir_lock(&lock);
     tcb_t *task = kmalloc(PAGE_SIZE);
@@ -98,28 +101,26 @@ struct task_struct *kernel_clone(struct task_struct *cur, u32_t flag) {
     task->mm = NULL;
     task->cwd = cur->cwd;
     task->stack = task;
+    task->context = NULL;
+    task->sysContext = NULL;
 
-    if (flag & CLONE_MM && cur->mm)
+    if (flag & CLONE_MM) {
+        assertk(cur->mm)
         task->mm = vm_struct_copy(cur->mm);
-
-    if (flag & CLONE_CONTEXT)
-        q_memcpy(&task->context,
-                 &cur->context, sizeof(context_t));
+    }
 
     if (flag & CLONE_KERNEL_STACK) {
-        register int esp asm("esp");
-        // TODO: 复制栈底
-        // TODO: 无法直接 push eip
-        // TODO: context 添加 eip ?
-        u32_t offset = PAGE_SIZE - (esp & PAGE_MASK);
+        // fork 的线程将会直接从 syscall_ret 开始执行
+        ptr_t sysContext = (ptr_t) cur->sysContext;
+        u32_t offset = sysContext & PAGE_MASK;
+
         q_memcpy(task->stack + offset,
                  cur->stack + offset,
-                 PAGE_SIZE - sizeof(tcb_t));
-//        asm volatile(
-//        "push %%eip\n\t"
-//        "mov %%esp, %0"
-//        :"=r"(task->context.esp)
-//        );
+                 STACK_SIZE - offset);
+        task->context = task->stack + offset - sizeof(context_t);
+        task->context->eip = (ptr_t) syscall_ret;
+        task->context->eflags = 0x200; // 开启中断
+        task->context->ebx = 0;        // 返回值(syscall_ret 还原到 eax)
     }
 
     return task;
@@ -127,12 +128,9 @@ struct task_struct *kernel_clone(struct task_struct *cur, u32_t flag) {
 
 
 pid_t kernel_fork() {
-    struct task_struct *thread = kernel_clone(CUR_TCB, CLONE_MM | CLONE_CONTEXT | CLONE_KERNEL_STACK);
-    if (thread != CUR_TCB) {
-        sched_task_add(&thread->run_list);
-        return 0;
-    }
-    return thread->pid;
+    struct task_struct *task = kernel_clone(CUR_TCB, CLONE_MM | CLONE_KERNEL_STACK);
+    sched_task_add(&task->run_list);
+    return task->pid;
 }
 
 extern void thread_entry(void *(worker)(void *), void *args, tcb_t *tcb);
@@ -143,8 +141,8 @@ int kthread_create(kthread_t *tid, void *(worker)(void *), void *args) {
     struct context *context;
     context = (void *) thread + STACK_SIZE - sizeof(struct context);
     context->eflags = 0;
-    context->ebx = (ptr_t)worker;
-    context->ebp = (ptr_t)args;
+    context->ebx = (ptr_t) worker;
+    context->ebp = (ptr_t) args;
     context->eip = (ptr_t) thread_entry;
 
     thread->context = context;
@@ -309,15 +307,20 @@ void task_exit() {
         tcb_t *ct = tcb_entry(cleaner_task);
         if (ct->state != TASK_RUNNING)
             task_wakeup(cleaner_task);
-
-        CUR_TCB->state = TASK_ZOMBIE;
-        schedule();
-        ir_unlock(&lock);
     }
-
+    CUR_TCB->state = TASK_ZOMBIE;
+    schedule();
+    ir_unlock(&lock);
     idle();
 }
 
+int task_cow(ptr_t addr) {
+    // 复制错误页面
+    addr = PAGE_ADDR(addr);
+    struct task_struct *task = CUR_TCB;
+    if (!task->mm) return -1;
+    return vm_remap_page(addr, task->mm->pgdir);
+}
 
 // ================线程测试
 #ifdef TEST
