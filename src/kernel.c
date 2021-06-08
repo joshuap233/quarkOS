@@ -91,7 +91,9 @@ void kernel_main() {
     test_thread();
 #endif // TEST
 
-    user_task_init();
+    // 初始化用户任务后,当前的栈将被第一个用户任务用作内核栈,
+    // 栈内容将被中断数据覆盖,user_task_init 后的函数可用
+//    user_task_init();
     task_sleep(NULL, NULL);
 }
 

@@ -111,4 +111,6 @@ typedef struct tss {
 #define SEL_UDATA  4
 #define SEL_TSS    5
 
+void set_tss_esp(void *stack);
+
 #endif //QUARKOS_GDT_H

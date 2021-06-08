@@ -30,7 +30,7 @@ void task_exit();
 
 void user_task_init();
 
-pid_t fork();
+pid_t kernel_fork();
 
 _Noreturn INLINE void idle() {
     while (1) {

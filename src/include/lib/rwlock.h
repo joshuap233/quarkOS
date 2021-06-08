@@ -2,7 +2,6 @@
 // Created by pjs on 2021/5/10.
 //
 // 读写锁
-// TODO: 下面的读写锁容易饿死写者
 #ifndef QUARKOS_LIB_RWLOCK_H
 #define QUARKOS_LIB_RWLOCK_H
 

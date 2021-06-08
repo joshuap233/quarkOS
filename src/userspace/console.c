@@ -6,16 +6,19 @@
 #include <sched/task.h>
 #include <userspace/console.h>
 #include <types.h>
+#include <userspace/lib.h>
 
 
 SECTION(".user.text")
-int user_init() {
-    int i = 1 + 2;
-//    asm volatile(
-//    "mov %0, %%eax\n\t"
-//    "int $0x80"
-//    ::"r"(i)
-//    );
+void user_init() {
+    pid_t pid;
+    pid = fork();
+    int i;
+    if (pid == 0) {
+        i = 2;
+    } else {
+        i = 3;
+    }
 
-    return i;
+    exit(i);
 }

@@ -36,23 +36,23 @@ static void vm_map_init(struct mm_struct *mm);
 
 
 // 按照 addr 大小递增插入
-int32_t vm_area_insert(mm_struct_t *mm, struct vm_area *area) {
-    list_head_t *hdr;
-    struct vm_area *entry;
-    list_for_each(hdr, &mm->area) {
-        entry = area_entry(hdr);
-        if (area->addr < entry->addr) break;
-    }
-    if (hdr != &mm->area) {
-        entry = area_entry(hdr);
-        if (entry->addr < area->addr + area->size) {
-            assertk(0);
-            return -1;
-        }
-    }
-    list_add_prev(&area->head, hdr);
-    return 0;
-}
+//int32_t vm_area_insert(mm_struct_t *mm, struct vm_area *area) {
+//    list_head_t *hdr;
+//    struct vm_area *entry;
+//    list_for_each(hdr, &mm->area) {
+//        entry = area_entry(hdr);
+//        if (area->addr < entry->addr) break;
+//    }
+//    if (hdr != &mm->area) {
+//        entry = area_entry(hdr);
+//        if (entry->addr < area->addr + area->size) {
+//            assertk(0);
+//            return -1;
+//        }
+//    }
+//    list_add_prev(&area->head, hdr);
+//    return 0;
+//}
 
 // 用于初始化第一个用户任务
 // 传入的 txt ,rodata ,dataBss 为物理地址,
@@ -67,6 +67,7 @@ struct mm_struct *mm_struct_init(
     assertk(size1 > 0);
 
     struct mm_struct *mm = kmalloc(sizeof(struct mm_struct));
+    vm_map_init(mm);
 
     // 初始化五个区域
     size1 = PAGE_ALIGN(size1);
@@ -74,48 +75,40 @@ struct mm_struct *mm_struct_init(
     size3 = PAGE_ALIGN(size3);
 
     mm->size = size1 + size2 + size3;
-    list_header_init(&mm->area);
 
     mm->text.addr = text;
     mm->text.size = size1;
     mm->text.flag = VM_PRES | VM_UR;
-    assertk(vm_area_insert(mm, &mm->text) == 0);
+    vm_map(&mm->text, mm->text.addr, mm->pgdir);
 
     mm->rodata.size = size2;
     if (size2 > 0) {
         mm->rodata.addr = rodata;
         mm->rodata.flag = VM_PRES | VM_UR;
-        assertk(vm_area_insert(mm, &mm->rodata) == 0);
+        vm_map(&mm->rodata, mm->rodata.addr, mm->pgdir);
     }
 
     mm->dataBss.size = size3;
     if (size3 > 0) {
         mm->dataBss.addr = dataBss;
         mm->dataBss.flag = VM_PRES | VM_UW;
-        assertk(vm_area_insert(mm, &mm->dataBss) == 0);
+        vm_map(&mm->dataBss, mm->dataBss.addr, mm->pgdir);
     }
 
     mm->brk.addr = dataBss + PAGE_SIZE;
     mm->brk.size = 0;
     mm->brk.flag = VM_PRES | VM_UW;
-    assertk(vm_area_insert(mm, &mm->brk) == 0);
+
 
     // stack 可以改为随机地址
     mm->stack.addr = HIGH_MEM - 2 * PAGE_SIZE;
     mm->stack.size = PAGE_SIZE;
     mm->stack.flag = VM_PRES | VM_UW;
-    assertk(vm_area_insert(mm, &mm->stack) == 0);
 
-    // 初始化页表
-    vm_map_init(mm);
-
-    // 映射固定段
-    list_head_t *hdr;
-    struct vm_area *area;
-    list_for_each(hdr, &mm->area) {
-        area = area_entry(hdr);
-        vm_map(area, area->addr, mm->pgdir);
-    }
+    // 设置页面的虚拟地址(对应用户页表)
+    struct page *page = __alloc_page(PAGE_SIZE);
+    page->data = (void *) mm->stack.addr;
+    vm_map(&mm->stack, page_addr(page), mm->pgdir);
 
     return mm;
 }
@@ -173,12 +166,11 @@ ptr_t vm_vm2pm(void *addr, pte_t *pgdir) {
 }
 
 void vm_struct_destroy(struct mm_struct *mm) {
-    struct vm_area *area;
-    list_head_t *hdr;
-    list_for_each(hdr, &mm->area) {
-        area = area_entry(hdr);
-        vm_unmap(area, mm->pgdir);
-    }
+    vm_unmap(&mm->text, mm->pgdir);
+    vm_unmap(&mm->dataBss, mm->pgdir);
+    vm_unmap(&mm->rodata, mm->pgdir);
+    vm_unmap(&mm->brk, mm->pgdir);
+    vm_unmap(&mm->stack, mm->pgdir);
 
     // 回收页表
     for (u32_t i = 0; i < N_PDE / 4 * 3; ++i) {
@@ -201,14 +193,16 @@ static void vm_area_copy(
     while (size > 0) {
         pte_t *pte = vm_page_iter(addr, sPgdir, false);
         pte_t *new = vm_page_iter(addr, dPgdir, true);
-        if (*pte & VM_UW) {
+        if ((*pte & VM_UW) == VM_UW) {
             // 标记当前页的原本读写属性
             *pte &= VM_IGNORE_BIT1;
+            CLEAR_BIT(*pte, VM_RW_BIT);
         }
-        CLEAR_BIT(*pte, VM_RW_BIT);
         *new = *pte;
-        page = kvm_vm2page(PAGE_ADDR(*pte));
-        page->ref_cnt++;
+
+        page = get_page2(PAGE_ADDR(*pte));
+        if (page != NULL)
+            page->ref_cnt++;
 
         addr += PAGE_SIZE;
         size -= PAGE_SIZE;
@@ -224,12 +218,13 @@ static void vm_area_copy_stack(
     void *stack;
 
     // 复制栈顶部 4K 数据,其余区域设置为只读
+    // TODO: 不复制整个 4K 栈
     pde = vm_page_iter(kStart, sPgdir, false);
     new = vm_page_iter(kStart, dPgdir, true);
     assertk(*pde && !(*new));
     stack = kmalloc(PAGE_SIZE);
-    *pde = (ptr_t) stack | VM_PRES | VM_UW;
-    q_memcpy(stack, (void *) PAGE_ADDR(*pde), PAGE_SIZE);
+    *new = kvm_vm2pm((ptr_t) stack) | VM_PRES | VM_UW;
+    q_memcpy(stack, (void *) kvm_pm2vm(PAGE_ADDR(*pde)), PAGE_SIZE);
 
 
     size -= PAGE_SIZE;
@@ -244,12 +239,6 @@ struct mm_struct *vm_struct_copy(struct mm_struct *src) {
     struct mm_struct *new = kmalloc(sizeof(struct mm_struct));
     q_memcpy(new, src, sizeof(struct mm_struct));
     vm_map_init(new);
-
-    assertk(vm_area_insert(new, &new->text) == 0);
-    assertk(vm_area_insert(new, &new->rodata) == 0);
-    assertk(vm_area_insert(new, &new->dataBss) == 0);
-    assertk(vm_area_insert(new, &new->brk) == 0);
-    assertk(vm_area_insert(new, &new->stack) == 0);
 
     vm_area_copy(src->text.addr, src->text.size, src->pgdir, new->pgdir);
     vm_area_copy(src->rodata.addr, src->rodata.size, src->pgdir, new->pgdir);

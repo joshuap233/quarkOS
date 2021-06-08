@@ -9,9 +9,9 @@
 #include <drivers/pit.h>
 #include <lib/qlib.h>
 #include <lib/irlock.h>
-#include <mm/kvm.h>
 
-extern void switch_to(context_t *cur_context, context_t *next_context);
+
+extern void switch_to(context_t **cur_context, context_t *next_context);
 
 static uint64_t update_priority_time; // 单位为 10 毫秒
 
@@ -36,6 +36,8 @@ void scheduler_init() {
 // 特权级切换时,中断会修改保存 cs,ss
 // 使用用户线程的页表
 void schedule() {
+    extern void set_tss_esp(void *stack);
+
     ir_lock_t lock;
     ir_lock(&lock);
     if (G_TIME_SINCE_BOOT >= update_priority_time) {
@@ -43,7 +45,7 @@ void schedule() {
         update_priority_time = G_TIME_SINCE_BOOT + RESET_PRIORITY_INTERVAL * 1000;
     }
 
-    tcb_t *cur_task = CUR_TCB;
+    tcb_t *cur_task = CUR_TCB, *next_task;
     list_head_t *next = chose_next_task();
     list_head_t *cur = &cur_task->run_list;
     if (next == idle_task && &CUR_HEAD == idle_task) {
@@ -64,7 +66,12 @@ void schedule() {
             sched_task_add(cur);
         }
     }
-    switch_to(&cur_task->context, &tcb_entry(next)->context);
+    next_task = tcb_entry(next);
+    if (next_task->mm){
+        // 设置用户任务内核栈
+        set_tss_esp(next_task->stack + PAGE_SIZE);
+    }
+    switch_to(&cur_task->context, next_task->context);
     ir_unlock(&lock);
 }
 

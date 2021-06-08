@@ -8,6 +8,7 @@
 #include <syscall/syscall.h>
 #include <isr.h>
 #include <fs/vfs.h>
+#include <sched/fork.h>
 
 
 // 忽略 -Wunused-parameter
@@ -31,8 +32,7 @@ int sys_exec(u32_t *args) {
 }
 
 int sys_fork(u32_t *args) {
-
-    return 0;
+    return kernel_fork();
 }
 
 int sys_getchar(u32_t *args) {
@@ -90,33 +90,39 @@ int sys_sleep(u32_t *args) {
     return 0;
 }
 
+int sys_exit(u32_t *args){
+    task_exit();
+    return 0;
+}
+
 static int (*syscall[])(u32_t *args) = {
-        [0] = sys_exec,
-        [1] = sys_getchar,
-        [2] = sys_putchar,
-        [3] = sys_mkdir,
-        [4] = sys_mkfile,
-        [5] = sys_rmdir,
-        [6] = sys_unlink,
-        [7] = sys_open,
-        [8] = sys_close,
-        [9] = sys_fork,
-        [10] = sys_read,
-        [11] = sys_write,
-        [12] = sys_sleep
+        [SYS_EXEC] = sys_exec,
+        [SYS_GETCHAR] = sys_getchar,
+        [SYS_PUTCHAR] = sys_putchar,
+        [SYS_MKDIR] = sys_mkdir,
+        [SYS_MKFILE] = sys_mkfile,
+        [SYS_RMDIR] = sys_rmdir,
+        [SYS_UNLINK] = sys_unlink,
+        [SYS_OPEN] = sys_open,
+        [SYS_CLOSE] = sys_close,
+        [SYS_FORK] = sys_fork,
+        [SYS_READ] = sys_read,
+        [SYS_WRITE] = sys_write,
+        [SYS_SLEEP] = sys_sleep,
+        [SYS_EXIT] = sys_exit
 };
 
 
-int syscall_isr(struct sys_reg *reg) {
+int syscall_isr(struct sys_reg reg) {
     // 系统调用
-    u32_t no = reg->eax;
+    u32_t no = reg.eax;
     u32_t args[5];
     if (no <= 9) {
-        args[0] = reg->ebx;
-        args[1] = reg->ecx;
-        args[2] = reg->edx;
-        args[3] = reg->esi;
-        args[4] = reg->edi;
+        args[0] = reg.ebx;
+        args[1] = reg.ecx;
+        args[2] = reg.edx;
+        args[3] = reg.esi;
+        args[4] = reg.edi;
         return syscall[no](args);
     }
     return -1;

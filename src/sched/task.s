@@ -6,7 +6,9 @@
     .text
 goto_usermode:
     # cli
+
     movl 4(%esp),%ecx
+    xor  %ebp, %ebp
 
     movw  $0x23, %ax
     movw  %ax,   %gs # 用户数据段
@@ -27,10 +29,9 @@ goto_usermode:
     .type   thread_entry, @function
     .text
 thread_entry:
+    push  %ebp
     xorl  %ebp, %ebp
-    movl  4(%esp), %eax
-    pushl 8(%esp)
     sti
-    call  *%eax
+    call  *%ebx
     call  task_exit
     ret

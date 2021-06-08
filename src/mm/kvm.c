@@ -8,7 +8,6 @@
 #include <lib/qstring.h>
 #include <lib/qlib.h>
 #include <mm/block_alloc.h>
-#include <mm/kmalloc.h>
 
 static pde_t _Alignas(PAGE_SIZE) pageDir[N_PTE] = {
         [0 ...N_PTE - 1]=VM_NPRES

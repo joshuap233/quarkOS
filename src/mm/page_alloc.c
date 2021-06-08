@@ -17,20 +17,9 @@
  * 内存不足 4G 则没有 zone 1,内核使用 zone 0 区域
  * root[0] - root[10] 为 0 - 4M 内存块
  */
-#define MAX_ORDER 10
 #define ORDER_SIZE(order) ((ptr_t)1<<(order)<<12)
 #define ORDER_CNT(order)  (1<<(order))
-static struct {
-    struct mem_zone {
-        list_head_t root[MAX_ORDER + 1];
-        struct page *first;
-        ptr_t addr;
-        ptr_t size;
-        ptr_t freeSize;
-    } zone[2];
-    struct page *pages;
-    u32_t pageCnt;
-} allocator;
+static struct buddyAllocator allocator;
 
 
 //返回已经使用的页面数量
@@ -155,8 +144,25 @@ struct page *get_page(ptr_t addr) {
     assertk(addr >= start);
     struct page *page = &allocator.pages[(addr - start) >> 12];
 #ifdef DEBUG
-    assertk(page->magic = PAGE_MAGIC);
+    assertk(page->magic == PAGE_MAGIC);
 #endif //DEBUG
+    return page;
+}
+
+
+struct page *get_page2(ptr_t addr) {
+    // 暂时懒得处理 get_page 的 assert,就分两个函数吧...
+    if ((addr & PAGE_MASK) != 0)
+        return NULL;
+    ptr_t start = allocator.zone[0].addr;
+
+    if (addr < start)
+        return NULL;
+
+    struct page *page = &allocator.pages[(addr - start) >> 12];
+
+    if (page->magic != PAGE_MAGIC)
+        return NULL;
     return page;
 }
 
@@ -243,6 +249,7 @@ void __free_page(struct page *page) {
 
     struct mem_zone *zone = get_zone(page);
     u32_t order = log2(page->size >> 12);
+    page->data = NULL;
     page->flag |= PG_Page | PG_Head; // 清除其他 flag
     for (; page->ref_cnt == 0 && order <= MAX_ORDER; ++order) {
         struct page *buddy = get_buddy(page);

@@ -20,20 +20,21 @@
  * 根据x86 systemV ABI eax, ecx, edx 是临时寄存器,使用(schedule)函数手动切换时无需保存,
  * 使用中断切换时, __attribute__((interrupt)) 会保存 eax ecx, edx
  * 段选择子固定, 不使用 ldt, 都无需保存
- * 内核线程不需要保存 cr3, call 指令保存 eip
+ *  eip 不需要手动保存, call 与 ret 会自动保存与还原
+ *  esp 地址即为 context 地址
  */
 typedef struct context {
-    u32_t esp;
     u32_t eflags;
     u32_t ebx;
     u32_t ebp;
     u32_t esi;
     u32_t edi;
+    u32_t eip;
 } context_t;
 
 
-typedef u32_t pid_t;
-typedef u32_t kthread_t;
+typedef int32_t pid_t;
+typedef int32_t kthread_t;
 
 typedef enum task_state {
     TASK_RUNNING = 0,     // 线程可运行(或正在运行)
@@ -57,13 +58,13 @@ typedef struct task_struct {
 
     char name[TASK_NAME_LEN];
 
-    void *stack;              // 内核栈地址
+    void *stack;              // 内核栈底(低地址)
 
     struct mm_struct *mm;     // 分配的虚拟内存,内核线程共用一个
 
     inode_t *cwd;
 
-    context_t context;        // 上下文信息
+    context_t *context;        // 上下文信息
 
 #ifdef DEBUG
 #define TASK_MAGIC       0x18ee7305

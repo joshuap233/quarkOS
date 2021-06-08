@@ -17,7 +17,7 @@ typedef struct mm_struct {
         u32_t size;
         u32_t flag;
     } text, rodata, dataBss, brk, stack;
-    list_head_t area;
+//    list_head_t area;
     ptr_t size;           // 已经使用的虚拟内存大小
     pde_t *pgdir;         // 页目录物理地址
 } mm_struct_t;

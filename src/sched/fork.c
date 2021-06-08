@@ -20,11 +20,10 @@ static tcb_t *task_map[TASK_NUM];
 static LIST_HEAD(finish_list);            // 已执行完成等待销毁的线程
 static LIST_HEAD(block_list);             // 全局阻塞列表
 list_head_t *idle_task = NULL;            // 空闲线程,始终在可运行列表
+list_head_t *init_task = NULL;
 static list_head_t *cleaner_task = NULL;  // 清理线程,用于清理其他线程
 
 static void cleaner_task_init();
-
-extern void task_entry();
 
 static pid_t alloc_pid(tcb_t *tcb);
 
@@ -33,14 +32,6 @@ _Noreturn static void *cleaner_worker();
 static void idle_task_init();
 
 static void free_pid(pid_t pid);
-
-
-typedef struct thread_bottom {
-    void *entry;
-    void *ret;     // entry 的返回地址
-    void *worker;  // entry 参数
-    void *args;    // entry 参数
-} thread_bottom;
 
 
 void task_init() {
@@ -59,51 +50,13 @@ void task_init() {
     CUR_TCB->stack = CUR_TCB;
     task_set_name(CUR_TCB->pid, "init");
 
-    asm volatile("movl %%esp, %0":"=rm"(CUR_TCB->context.esp));
+    init_task = &CUR_HEAD;
+    // asm volatile("movl %%esp, %0":"=rm"(CUR_TCB->context.esp));
     cleaner_task_init();
 }
 
-
-struct task_struct *kernel_clone(struct task_struct *cur, u32_t flag) {
-    ir_lock_t lock;
-    ir_lock(&lock);
-    tcb_t *task = kmalloc(PAGE_SIZE);
-    ir_unlock(&lock);
-    assertk(task != NULL);
-
-#ifdef DEBUG
-    task->magic = TASK_MAGIC;
-#endif //DEBUG
-
-    task->state = TASK_RUNNING;
-    task->priority = cur->priority;
-    task->timer_slice = TIME_SLICE_LENGTH;
-    task->name[0] = '\0';
-
-    task->stack = task;
-    if (flag & CLONE_KERNEL_STACK)
-        q_memcpy(task->stack + sizeof(tcb_t),
-                 cur->stack + sizeof(tcb_t),
-                 PAGE_SIZE - sizeof(tcb_t));
-
-    task->mm = NULL;
-    if (flag & CLONE_MM && cur->mm)
-        task->mm = vm_struct_copy(cur->mm);
-
-    task->cwd = cur->cwd;
-
-    if (flag & CLONE_CONTEXT)
-        q_memcpy(&task->context,
-                 &cur->context, sizeof(context_t));
-
-    ir_lock(&lock);
-    task->pid = alloc_pid(task);
-//    sched_task_add(&task->run_list);
-    ir_unlock(&lock);
-    return task;
-}
-
 void user_task_init() {
+    extern void set_tss_esp(void *stack);
     extern void goto_usermode(u32_t stack_bottom);
     extern char user_text_start[], user_rodata_start[],
             user_data_start[], user_bss_end[];
@@ -121,13 +74,65 @@ void user_task_init() {
     kvm_copy(mm->pgdir);
     CUR_TCB->mm = mm;
     switch_uvm(mm->pgdir);
+    set_tss_esp(CUR_TCB->stack + PAGE_SIZE);
+    CUR_TCB->timer_slice = TIME_SLICE_LENGTH;
     goto_usermode(mm->stack.addr + PAGE_SIZE);
 }
 
-pid_t fork() {
+struct task_struct *kernel_clone(struct task_struct *cur, u32_t flag) {
+    ir_lock_t lock;
+    ir_lock(&lock);
+    tcb_t *task = kmalloc(PAGE_SIZE);
+    assertk(task != NULL);
+    task->pid = alloc_pid(task);
+    ir_unlock(&lock);
+
+#ifdef DEBUG
+    task->magic = TASK_MAGIC;
+#endif //DEBUG
+
+    task->state = TASK_RUNNING;
+    task->priority = cur->priority;
+    task->timer_slice = TIME_SLICE_LENGTH;
+    task->name[0] = '\0';
+    task->mm = NULL;
+    task->cwd = cur->cwd;
+    task->stack = task;
+
+    if (flag & CLONE_MM && cur->mm)
+        task->mm = vm_struct_copy(cur->mm);
+
+    if (flag & CLONE_CONTEXT)
+        q_memcpy(&task->context,
+                 &cur->context, sizeof(context_t));
+
+    if (flag & CLONE_KERNEL_STACK) {
+        register int esp asm("esp");
+        // TODO: 复制栈底
+        // TODO: 无法直接 push eip
+        // TODO: context 添加 eip ?
+        u32_t offset = PAGE_SIZE - (esp & PAGE_MASK);
+        q_memcpy(task->stack + offset,
+                 cur->stack + offset,
+                 PAGE_SIZE - sizeof(tcb_t));
+//        asm volatile(
+//        "push %%eip\n\t"
+//        "mov %%esp, %0"
+//        :"=r"(task->context.esp)
+//        );
+    }
+
+    return task;
+}
+
+
+pid_t kernel_fork() {
     struct task_struct *thread = kernel_clone(CUR_TCB, CLONE_MM | CLONE_CONTEXT | CLONE_KERNEL_STACK);
-    sched_task_add(&thread->run_list);
-    return 0;
+    if (thread != CUR_TCB) {
+        sched_task_add(&thread->run_list);
+        return 0;
+    }
+    return thread->pid;
 }
 
 extern void thread_entry(void *(worker)(void *), void *args, tcb_t *tcb);
@@ -135,14 +140,14 @@ extern void thread_entry(void *(worker)(void *), void *args, tcb_t *tcb);
 // 成功返回 0,否则返回错误码(<0)
 int kthread_create(kthread_t *tid, void *(worker)(void *), void *args) {
     struct task_struct *thread = kernel_clone(CUR_TCB, 0);
-    thread_bottom *bottom = ((void *) thread + STACK_SIZE - sizeof(thread_bottom));
-    bottom->args = args;
-    bottom->worker = worker;
-    bottom->ret = NULL;
-    bottom->entry = thread_entry;
+    struct context *context;
+    context = (void *) thread + STACK_SIZE - sizeof(struct context);
+    context->eflags = 0;
+    context->ebx = (ptr_t)worker;
+    context->ebp = (ptr_t)args;
+    context->eip = (ptr_t) thread_entry;
 
-    thread->context.eflags = 0;
-    thread->context.esp = (ptr_t) bottom;
+    thread->context = context;
     *tid = thread->pid;
     sched_task_add(&thread->run_list);
     return 0;
@@ -242,13 +247,12 @@ _Noreturn static void *cleaner_worker() {
         list_for_each_del(hdr, next, &finish_list) {
             tcb_t *entry = tcb_entry(hdr);
             assertk(entry->state == TASK_ZOMBIE);
-            next = hdr->next;
             free_pid(entry->pid);
-            kfree(entry->stack);
             //TODO: 回收打开的文件
             if (entry->mm) {
                 vm_struct_destroy(entry->mm);
             }
+            kfree(entry->stack);
         }
         list_header_init(&finish_list);
         task_sleep(NULL, NULL);
@@ -300,15 +304,17 @@ void task_exit() {
     ir_lock_t lock;
     ir_lock(&lock);
 
-    list_add_next(&CUR_HEAD, &finish_list);
-    tcb_t *ct = tcb_entry(cleaner_task);
-    if (ct->state != TASK_RUNNING)
-        task_wakeup(cleaner_task);
+    if (&CUR_HEAD != init_task) {
+        list_add_next(&CUR_HEAD, &finish_list);
+        tcb_t *ct = tcb_entry(cleaner_task);
+        if (ct->state != TASK_RUNNING)
+            task_wakeup(cleaner_task);
 
-    CUR_TCB->state = TASK_ZOMBIE;
-    schedule();
+        CUR_TCB->state = TASK_ZOMBIE;
+        schedule();
+        ir_unlock(&lock);
+    }
 
-    ir_unlock(&lock);
     idle();
 }
 

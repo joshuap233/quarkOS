@@ -22,8 +22,9 @@ syscall_entry:
 
     call syscall_isr
 
-    sub  $20, %esp
+    add  $20, %esp
 
+    pop  %ebp
     pop  %ds
     pop  %es
     pop  %fs

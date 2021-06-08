@@ -68,7 +68,6 @@ static void tss_desc_set() {
 
     gdt_set(SEL_TSS, base, limit, TSS_FLAG, TSS_NBUSY | TSS_KERNEL | TSS_PRES);
 
-    //TODO:
     register uint32_t esp0 asm("esp");
     tss.esp0 = esp0;
     tss.ss0 = 0x10;         // 内核数据段选择子
@@ -79,4 +78,9 @@ static void tss_desc_set() {
     tss.es = SEL_UDATA << 3;
     tss.fs = SEL_UDATA << 3;
     tss.gs = SEL_UDATA << 3;
+}
+
+
+void set_tss_esp(void *stack){
+    tss.esp0 = (ptr_t)stack;
 }
