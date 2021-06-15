@@ -8,6 +8,7 @@ typedef elf32_header_t elf_header_t;
 
 
 bool elf_check_header(elf_header_t *elf_head) {
+    //TODO:错误处理
     if (elf_head->e_ident[EI_MAG0] != ELF_MAG0)
         return false;
     if (elf_head->e_ident[EI_MAG1] != ELF_MAG1)

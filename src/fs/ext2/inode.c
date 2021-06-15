@@ -22,15 +22,15 @@ void ext2_inode_init() {
     cache_alloc_create(&inoCache, sizeof(ext2_inode_info_t));
 }
 
-static ext2_inode_t *get_raw_inode(struct page**_buf, super_block_t *_sb, u32_t ino) {
+static ext2_inode_t *get_raw_inode(struct page **buf, super_block_t *_sb, u32_t ino) {
     ext2_sb_info_t *sb = ext2_s(_sb);
-    u32_t bIno = ((ino) - 1) % sb->inodePerGroup;;// inode 块内编号
+    u32_t bIno = (ino - 1) % sb->inodePerGroup;;// inode 块内编号
     u32_t inodePerBlock = _sb->blockSize / _sb->inodeSize;
     u32_t base = sb->desc[EXT2_INODE2GROUP(ino, sb)].inodeTableAddr;
-    u32_t blk_no = (base) + bIno / inodePerBlock;
-    struct page*buf = ext2_block_read(blk_no, _sb);
-    if (_buf)*_buf = buf;
-    return (void *) buf->data + bIno * sb->sb.inodeSize;
+    u32_t blk_no = base + bIno / inodePerBlock;
+    struct page *page = ext2_block_read(blk_no, _sb);
+    if (buf)*buf = page;
+    return page->data + bIno * sb->sb.inodeSize;
 }
 
 static ext2_inode_info_t *inode_get() {
@@ -88,7 +88,7 @@ inode_t *inode_alloc(inode_t *parent, u16_t mode, const char *name) {
     // 初始化新分配的 inode
     u32_t linkCnt, groupNo;
     ext2_gd_t *desc;
-    struct page*buf;
+    struct page *buf;
     bool isDir = false;
 
     super_block_t *sb = parent->sb;
@@ -155,7 +155,7 @@ static void clear_inode_bitmap(inode_t *inode) {
     u32_t ino = inode->dir->ino;
     ext2_sb_info_t *sb = ext2_s(inode->sb);
     u32_t groupNo = EXT2_INODE2GROUP(ino, sb);
-    struct page*buf;
+    struct page *buf;
 
 
     buf = ext2_block_read(sb->desc[groupNo].inodeBitmapAddr, inode->sb);
@@ -204,7 +204,7 @@ static u32_t set_inode_bitmap(inode_t *parent) {
     u32_t groupNo;
     int32_t bit;
     u8_t *map;
-    struct page*buf;
+    struct page *buf;
 
     groupNo = find_group(parent);
 
@@ -220,7 +220,7 @@ static u32_t set_inode_bitmap(inode_t *parent) {
 
 void inode_delete(inode_t *inode) {
     u32_t groupNo;
-    struct page*buf;
+    struct page *buf;
     u32_t time = cur_timestamp();
     u32_t isDir = ext2_is_dir(inode);
     ext2_gd_t *desc;
@@ -246,7 +246,7 @@ void inode_delete(inode_t *inode) {
 }
 
 void ext2_write_back(inode_t *inode) {
-    struct page*buf;
+    struct page *buf;
     ext2_inode_t *ino = get_raw_inode(&buf, inode->sb, inode->dir->ino);
 
     if (inode->state == I_TIME || inode->state == I_NEW) {

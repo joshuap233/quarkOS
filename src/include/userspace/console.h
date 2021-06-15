@@ -1,8 +1,0 @@
-//
-// Created by pjs on 2021/6/6.
-//
-
-#ifndef QUARKOS_USERSPACE_CONSOLE_H
-#define QUARKOS_USERSPACE_CONSOLE_H
-
-#endif //QUARKOS_USERSPACE_CONSOLE_H

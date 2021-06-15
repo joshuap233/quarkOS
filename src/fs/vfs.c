@@ -84,7 +84,7 @@ int32_t vfs_close(fd_t fd) {
 }
 
 
-u32_t vfs_read(fd_t fd, uint32_t size, char *buf) {
+u32_t vfs_read(fd_t fd, void *buf, size_t size) {
     inode_t *node = get_inode(fd);
     if (!node) return 0;
 
@@ -100,7 +100,7 @@ u32_t vfs_read(fd_t fd, uint32_t size, char *buf) {
     return size - remain;
 }
 
-u32_t vfs_write(fd_t fd, uint32_t size, char *buf) {
+u32_t vfs_write(fd_t fd, void *buf, size_t size) {
     inode_t *node = get_inode(fd);
     if (!node) return 0;
 
@@ -440,13 +440,13 @@ UNUSED void test_vfs() {
     // 测试写
     fd_t txt = vfs_ops.open("/foo/txt");
     assertk(txt >= 0);
-    vfs_ops.write(txt, 4098, charBuf);
+    vfs_ops.write(txt, charBuf, 4098);
     assertk(vfs_ops.close(txt) == 0);
 
     // 测试读,需要预先创建文件
     fd_t reader = vfs_ops.open("/txt");
     assertk(reader >= 0);
-    vfs_ops.read(reader, 4098, charBuf);
+    vfs_ops.read(reader, charBuf, 4098);
     assertk(vfs_ops.close(reader) == 0);
 
     assertk(vfs_ops.link("/foo/txt", "/foo2/hh") == 0);

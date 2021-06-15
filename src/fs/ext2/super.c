@@ -19,14 +19,14 @@
 
 static void check_superBlock(ext2_sb_t *sb);
 
-ext2_sb_t *get_raw_sb(struct page**buf, super_block_t *sb) {
-    struct page*tmp = ext2_block_read(EXT2_SB_BNO, sb);
+ext2_sb_t *get_raw_sb(struct page **buf, super_block_t *sb) {
+    struct page *tmp = ext2_block_read(EXT2_SB_BNO, sb);
     if (buf) *buf = tmp;
     return tmp->data + SECTOR_SIZE * SUPER_BLOCK_NO;
 }
 
-ext2_gd_t *get_raw_gd(struct page**buf, u32_t gno, super_block_t *sb) {
-    struct page*tmp = ext2_block_read(DESCRIPTOR_BID(gno, sb), sb);
+ext2_gd_t *get_raw_gd(struct page **buf, u32_t gno, super_block_t *sb) {
+    struct page *tmp = ext2_block_read(DESCRIPTOR_BID(gno, sb), sb);
     if (buf) *buf = tmp;
     return tmp->data + DESCRIPTOR_OFFSET(gno, sb);
 }
@@ -57,11 +57,12 @@ ext2_sb_info_t *superBlock_init() {
     sb->groupCnt = blk->blockCnt / blk->blockPerGroup;
 
     // 初始化 info_descriptor
+    desc = get_raw_gd(NULL, 0, &sb->sb);
     for (u64_t i = 0; i < groupCount; ++i) {
-        desc = get_raw_gd(NULL, i, &sb->sb);
-        sb->desc[i].inodeTableAddr = desc[i].inodeTableAddr;
-        sb->desc[i].blockBitmapAddr = desc[i].blockBitmapAddr;
-        sb->desc[i].inodeBitmapAddr = desc[i].inodeBitmapAddr;
+        sb->desc[i].inodeTableAddr = desc->inodeTableAddr;
+        sb->desc[i].blockBitmapAddr = desc->blockBitmapAddr;
+        sb->desc[i].inodeBitmapAddr = desc->inodeBitmapAddr;
+        desc++;
     }
 
     return sb;
@@ -90,9 +91,9 @@ u32_t get_free_block_cnt(u32_t groupCnt, super_block_t *sb) {
 
 void ext2_write_super_block(super_block_t *_sb) {
     ext2_sb_info_t *sb = ext2_s(_sb);
-    struct page*sbBuf;
+    struct page *sbBuf;
     u64_t freeInodeCnt = get_free_inode_cnt(sb->groupCnt, &sb->sb);
-    u64_t freeBlockCnt = get_free_block_cnt(sb->groupCnt,&sb->sb);
+    u64_t freeBlockCnt = get_free_block_cnt(sb->groupCnt, &sb->sb);
     ext2_sb_t *blk = get_raw_sb(&sbBuf, &sb->sb);
     assertk(blk->magic == EXT2_SIGNATURE);
 
