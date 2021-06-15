@@ -5,6 +5,8 @@
 #ifndef QUARKOS_SYSCALL_H
 #define QUARKOS_SYSCALL_H
 
+#define SYS_CALL_NO  0x80
+
 #define SYS_EXEC     0
 #define SYS_GETCHAR  1
 #define SYS_PUTCHAR  2

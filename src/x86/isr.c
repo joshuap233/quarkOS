@@ -1,8 +1,10 @@
 //
 // Created by pjs on 2021/1/25.
 //
-#include "lib/qlib.h"
-#include "isr.h"
+#include <lib/qlib.h>
+#include <isr.h>
+#include <syscall/syscall.h>
+
 
 //页错误错误码
 typedef struct pf_error_code {
@@ -119,7 +121,7 @@ void idt_init() {
     reg_isr(20, ISR(20));
 
     // 系统调用中断
-    idt_set_ig(&idt[0x80], (ptr_t) syscall_entry, IDT_SC, IDT_UTYPE);
+    idt_set_ig(&idt[SYS_CALL_NO], (ptr_t) syscall_entry, IDT_SC, IDT_UTYPE);
     idtr_set((ptr_t) &idtr);
 }
 

@@ -116,3 +116,4 @@ uint8_t ps2_device_cmd(uint8_t cmd, device_status_t ds) {
     while ((res = ps2_prd()) == ds.resend);
     return res;
 }
+

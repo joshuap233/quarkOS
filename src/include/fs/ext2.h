@@ -267,7 +267,7 @@ INLINE ext2_sb_info_t *ext2_s(super_block_t *sb) {
 
 #define EXT2_BLOCK2LBA(block_no, sb)     ((sb)->blockSize / SECTOR_SIZE * (block_no))
 
-#define EXT2_INODE2GROUP(ino, sb)    (((ino)-1) / (sb)->inodePerGroup)
+#define EXT2_INODE2GROUP(ino, sb)        (((ino)-1) / (sb)->inodePerGroup)
 
 #define ext2_block_read(blk_no, sb)      page_read_no(EXT2_BLOCK2LBA(blk_no,sb))
 #define ext2_block_get(blk_no, sb)       page_get(EXT2_BLOCK2LBA(blk_no,sb))

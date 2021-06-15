@@ -1,15 +1,14 @@
 #include <syscall/syscall.h>
     .global fork
     .type fork, @function
-    .section .user.text
 fork:
     mov $SYS_FORK, %eax
     int $SYS_CALL_NO
     ret
 
+
     .global exit
     .type exit, @function
-    .section .user.text
 exit:
     mov 4(%esp), %ebx
     mov $SYS_EXIT, %eax
@@ -19,7 +18,6 @@ exit:
 
     .global gets
     .type gets, @function
-    .section .user.text
 gets:
     mov 4(%esp), %ebx
     mov 8(%esp), %ecx
@@ -29,7 +27,6 @@ gets:
 
     .global puts
     .type puts, @function
-    .section .user.text
 puts:
     mov 4(%esp), %ebx
     mov 8(%esp), %ecx
@@ -39,7 +36,6 @@ puts:
 
     .global exec
     .type exec, @function
-    .section .user.text
 exec:
     mov 4(%esp), %ebx
     mov $SYS_EXEC, %eax

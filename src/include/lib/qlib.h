@@ -5,34 +5,10 @@
 #ifndef QUARKOS_LIB_QLIB_H
 #define QUARKOS_LIB_QLIB_H
 
-#include <stdarg.h>
-#include "types.h"
-#include "drivers/vga.h"
-#include "x86.h"
+#include <types.h>
+#include <terminal.h>
 
 u8_t log2(uint16_t val);
-
-#ifdef __i386__
-
-#define assertk(condition) {\
-    if (!(condition)) {     \
-        printfk("\nassert error: %s: %s: %u\n",__FILE__,__FUNCTION__,__LINE__); \
-        panic();                        \
-    }\
-}
-
-void printfk(char *__restrict str, ...);
-
-#else
-
-#include <assert.h>
-#include <stdio.h>
-
-#define assertk(condition) assert(condition);
-#define printfk printf
-
-#endif //__i386__
-
 
 // 生成掩码
 #define BIT_MASK(__type__, n) ((sizeof(__type__)*8==(n))? \
@@ -64,7 +40,6 @@ INLINE u32_t fixSize(u32_t size) {
     return size + 1;
 }
 
-
 // bit 为 0-7
 INLINE void set_bit(uint8_t *value, uint8_t bit) {
     *value |= (0b1 << bit);
@@ -87,20 +62,7 @@ void stack_trace();
 
 void panic();
 
-void prints(char *str, size_t size);
-
-#define error(string) {\
-    printfk("\n%s: %s: %s: %u\n",string,__FILE__,__FUNCTION__,__LINE__); \
-    panic();                        \
-}
-
 #define container_of(ptr, type, member) \
     ((type *)((void *)(ptr) - offsetof(type,member)))
-
-
-#ifdef TEST
-#define test_start   printfk("test start: %s\n",__FUNCTION__);
-#define test_pass    printfk("test pass : %s: %s: %u\n",__FILE__,__FUNCTION__,__LINE__);
-#endif // TEST
 
 #endif //QUARKOS_LIB_QLIB_H

@@ -9,7 +9,8 @@ ENABLE_LANGUAGE(ASM)
 
 set(TOOLS $ENV{HOME}/OS/tool)
 set(CMAKE_C_COMPILER ${TOOLS}/bin/i686-elf-gcc)
-set(CMAKE_ASM_COMPILER ${TOOLS}/bin/i686-elf-as)
+set(CMAKE_ASM_COMPILER ${TOOLS}/bin/i686-elf-gcc)
+#set(CMAKE_ASM_COMPILER ${TOOLS}/bin/i686-elf-as)
 set(CMAKE_AR ${TOOLS}/bin/i686-elf-ar)
 set(CMAKE_OBJCOPY ${TOOLS}/i686-elf-objcopy)
 set(CMAKE_OBJDUMP ${TOOLS}/i686-elf-objdump)
@@ -25,7 +26,7 @@ set(INCLUDE ${PROJECT_SOURCE_DIR}/src/include)
 include_directories(${INCLUDE})
 
 set(S_SOURCE src/boot.s)
-set(C_SOURCE src/kernel.c src/multiboot2.c src/elf_loader.c)
+set(C_SOURCE src/kernel.c src/multiboot2.c src/loader.c src/terminal.c)
 
 add_executable(${KERNEL_BIN} ${C_SOURCE} ${S_SOURCE} ${mylib} ${drivers})
 set_target_properties(${KERNEL_BIN} PROPERTIES LINK_FLAGS "-T ${CMAKE_SOURCE_DIR}/linker.ld -ffreestanding -O0 -nostdlib -g")
@@ -83,13 +84,13 @@ target_include_directories(
         "${PROJECT_SOURCE_DIR}/src/syscall"
 )
 
-
 add_subdirectory(${PROJECT_SOURCE_DIR}/src/userspace)
 target_link_libraries(${KERNEL_BIN} PUBLIC userspace)
 target_include_directories(
         ${KERNEL_BIN} PUBLIC
         "${PROJECT_SOURCE_DIR}/src/userspace"
 )
+
 ## 生成 iso
 add_custom_target(
         ${KERNEL_ISO}
@@ -100,3 +101,4 @@ add_custom_target(
 )
 
 add_custom_target(run ALL DEPENDS ${KERNEL_BIN} ${KERNEL_ISO})
+

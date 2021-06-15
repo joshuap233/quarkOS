@@ -1,7 +1,13 @@
 #ifndef QUARKOS_DRIVERS_VGA_H
 #define QUARKOS_DRIVERS_VGA_H
+#include <types.h>
+#define NEWLINE      '\n'
 
-#include "types.h"
+//光标位置,即 即将读写的行列
+typedef struct vga_cursor {
+    uint8_t row;
+    uint8_t col;
+} cursor_t;
 
 enum vga_color {
     VGA_COLOR_BLACK = 0,
@@ -22,19 +28,15 @@ enum vga_color {
     VGA_COLOR_WHITE = 15,
 };
 
-
 void vga_set_color(uint8_t color);
 
 void vga_put_char(char c);
-
-
-void vga_put_string(const char *data);
 
 void vga_delete();
 void vga_cursor_left();
 void vga_cursor_right();
 void vga_cursor_up();
 void vga_cursor_down();
-void vga_put_string_s(const char *data, size_t size);
+void vga_sync_cursor();
 
 #endif //QUARKOS_DRIVERS_VGA_H

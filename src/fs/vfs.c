@@ -243,7 +243,6 @@ void vfs_ls(const char *_path) {
 }
 
 static directory_t *find_dir(char *path) {
-    int i = 0;
 
     inode_t *parent = cwd(path);
     directory_t *dir = parent->dir;
@@ -252,6 +251,7 @@ static directory_t *find_dir(char *path) {
         path++;
 
     while (path[0]) {
+        int i = 0;
         for (; path[i] && path[i] != SEPARATOR; ++i);
         if (!path[i]) {
             dir = parent->ops->find(dir, path);

@@ -63,9 +63,9 @@ struct vfs_ops {
 
     int32_t (*close)(fd_t fd);
 
-    u32_t (*read)(fd_t fd, uint32_t size, char *buf);
+    u32_t (*read)(fd_t fd, void *buf, size_t size);
 
-    u32_t (*write)(fd_t fd, uint32_t size, char *buf);
+    u32_t (*write)(fd_t fd, void *buf, size_t size);
 
     int32_t (*lseek)(fd_t fd, int32_t offset, enum SEEK_WHENCE whence);
 

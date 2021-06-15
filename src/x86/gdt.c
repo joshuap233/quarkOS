@@ -4,7 +4,6 @@
 #include <gdt.h>
 #include <lib/qstring.h>
 
-
 static gdt_entry_t _Alignas(8) gdt[GDT_COUNT] = {0};
 
 extern void tr_set(uint32_t tss_desc_index);

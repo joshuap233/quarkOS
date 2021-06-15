@@ -1,4 +1,3 @@
-    # 进入用户模式前初始化
     .extern  syscall_isr
 
     .global  syscall_entry
@@ -10,12 +9,12 @@ syscall_entry:
     push %fs
     push %es
     push %ds
+    push %ebp
 
     # esp 压栈记录 sys_context 位置
     push %esp
 
     # 用于传递参数, eax 传递需要调用的函数编号
-    push %ebp
     push %edi
     push %esi
     push %edx
@@ -25,7 +24,7 @@ syscall_entry:
 
     call syscall_isr
 
-    add  $32, %esp
+    add  $28, %esp
     jmp 1f
 
     .global  syscall_ret
@@ -34,6 +33,7 @@ syscall_entry:
 syscall_ret:
     movl %ebx,%eax
 1:
+    pop  %ebp
     pop  %ds
     pop  %es
     pop  %fs

@@ -292,7 +292,9 @@ void page_recycle(u32_t size) {
         if (size <= 0) return;
         buf = PAGE_ENTRY(hdr);
         hdr = hdr->prev;
-        if (!(buf->flag & PG_DIRTY) && cur - buf->pageCache.timestamp >= CACHE_EXPIRES * 1000) {
+        if (buf->ref_cnt == 0 &&
+            !(buf->flag & PG_DIRTY) &&
+            cur - buf->pageCache.timestamp >= CACHE_EXPIRES * 1000) {
             recycle(buf);
             size -= PAGE_SIZE;
         }

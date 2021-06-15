@@ -7,12 +7,15 @@
 
 ## 构建
 1.  [构建 i686-elf-gcc](https://wiki.osdev.org/GCC_Cross-Compiler)
-2. `mkdir build && cmake .. && make`
+2. `./build.sh`
 
 
 ## 运行
 
 `./run.sh`
+
+由于没有实现安装器,第一次运行时会将生成的 disk.img 挂载到 /tmp/disk,并将用户空间代码复制到 disk.img的 /bin 目录,
+因此需要 root 权限 (见 generate-disk.sh)
 
 ## 调试
 
@@ -21,7 +24,7 @@
 
 ## 设计
 
-![1.png](./design/1.png)
+![1.png](doc/1.png)
 
 
 ## TIPS:

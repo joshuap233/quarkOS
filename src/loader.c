@@ -3,6 +3,9 @@
 //
 #include <elf.h>
 #include <fs/vfs.h>
+#include <loader.h>
+#include <mm/kmalloc.h>
+#include <task/task.h>
 
 typedef elf32_header_t elf_header_t;
 
@@ -32,6 +35,20 @@ bool elf_check_header(elf_header_t *elf_head) {
 }
 
 
-void do_elf_load(char *path) {
+void do_elf_load(const char *path) {
+    fd_t file = vfs_ops.open(path);
+    assertk(file >= 0);
 
+    struct elf32_header *hdr = kmalloc(sizeof(elf32_header_t));
+    vfs_ops.read(file, hdr, sizeof(elf32_header_t));
+    assertk(elf_check_header(hdr));
+    // 暂时只处理可执行文件
+    assertk(hdr->e_type == ET_EXEC);
 }
+
+void exec(const char *path) {
+    //TODO: 验证 elf 头后,将文件映射到用户空间
+    assertk(CUR_TCB->mm);
+    do_elf_load(path);
+}
+

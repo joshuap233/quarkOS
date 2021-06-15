@@ -13,7 +13,6 @@
 #define VGA_WIDTH    80
 #define VGA_HEIGHT   25
 #define BUF_INDEX(col, row) ((row)*VGA_WIDTH+(col))
-#define NEWLINE      '\n'
 #define VGA_INDEX   0x3d4  //索引寄存器端口
 #define VGA_DAT     0x3d5  //vga 数据端口
 #define CI_H        0x0e   //光标位置索引:高 8 位
@@ -23,13 +22,6 @@
 #define E_CURSOR_Y  0x0B   //光标结束像素
 
 
-//光标位置,即 即将读写的行列
-typedef struct cursor {
-    uint8_t row;
-    uint8_t col;
-} cursor_t;
-
-void vga_sync_cursor(cursor_t cur);
 void vga_enable_cursor();
 
 
@@ -125,7 +117,7 @@ void vga_init() {
     terminal_buffer = (uint16_t *) VGA_TEXT_MODE_MEM;
     vga_clean();
     vga_enable_cursor();
-    vga_sync_cursor(cursor);
+    vga_sync_cursor();
 }
 
 
@@ -133,7 +125,7 @@ void vga_set_color(uint8_t color) {
     terminal_color = color;
 }
 
-static void put_char(char c) {
+void vga_put_char(char c) {
     // newline 与 tab 交给 console 处理?
     if (c == NEWLINE) {
         inc_row();
@@ -157,9 +149,9 @@ void vga_enable_cursor() {
     outb(VGA_DAT, 0x0F);
 }
 
-void vga_sync_cursor(cursor_t cur) {
+void vga_sync_cursor() {
     //同步指针到 vga 设备
-    uint16_t pos = BUF_INDEX(cur.col, cur.row);
+    uint16_t pos = BUF_INDEX(cursor.col, cursor.row);
     outb(VGA_INDEX, CI_L);
     outb(VGA_DAT, pos & BIT_MASK(uint8_t, 8));
     outb(VGA_INDEX, CI_H);
@@ -167,52 +159,34 @@ void vga_sync_cursor(cursor_t cur) {
 }
 
 
-void vga_put_char(char c) {
-    put_char(c);
-    vga_sync_cursor(cursor);
-}
-
 void vga_delete() {
     //前移指针并删除一个字符
     dec_col();
     vga_cleanc(cursor);
-    vga_sync_cursor(cursor);
+    vga_sync_cursor();
 }
 
 //指针左移
 void vga_cursor_left() {
     dec_col();
-    vga_sync_cursor(cursor);
+    vga_sync_cursor();
 }
 
 //指针右移
 void vga_cursor_right() {
     inc_col();
-    vga_sync_cursor(cursor);
+    vga_sync_cursor();
 }
 
 //指针上移
 void vga_cursor_up() {
     cursor_up();
-    vga_sync_cursor(cursor);
+    vga_sync_cursor();
 
 }
 
 //指针下移
 void vga_cursor_down() {
     cursor_down();
-    vga_sync_cursor(cursor);
-}
-
-void vga_put_string(const char *data) {
-    size_t size = q_strlen(data);
-    for (size_t i = 0; i < size; i++)
-        put_char(data[i]);
-    vga_sync_cursor(cursor);
-}
-
-void vga_put_string_s(const char *data, size_t size) {
-    for (size_t i = 0; i < size; i++)
-        put_char(data[i]);
-    vga_sync_cursor(cursor);
+    vga_sync_cursor();
 }

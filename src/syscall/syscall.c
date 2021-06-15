@@ -2,14 +2,13 @@
 // Created by pjs on 2021/6/4.
 //
 // TODO:使用 SYSENTER/SYSEXIT?
-// 系统调用使用 ax 寄存器存取处理函数编号
 
 #include <types.h>
 #include <syscall/syscall.h>
 #include <isr.h>
 #include <fs/vfs.h>
 #include <task/fork.h>
-
+#include <loader.h>
 
 // 忽略 -Wunused-parameter
 #pragma GCC diagnostic push
@@ -23,13 +22,13 @@ struct sys_reg {
     u32_t edx;
     u32_t esi;
     u32_t edi;
-    u32_t ebp;
+//    u32_t ebp;
     u32_t esp;  // 记录系统调用栈地址
 };
 
 
 int sys_exec(u32_t *args) {
-
+    exec((char *) args[0]);
     return 0;
 }
 
@@ -38,13 +37,17 @@ int sys_fork(u32_t *args) {
 }
 
 int sys_getchar(u32_t *args) {
-
+    char *buf = (char *) args[0];
+    int32_t len = (int32_t) args[1];
+    k_gets(buf, len);
     return 0;
 }
 
 int sys_putchar(u32_t *args) {
+    char *buf = (char *) args[0];
+    int32_t len = (int32_t) args[1];
+    k_puts(buf, len);
     return 0;
-
 }
 
 int sys_mkdir(u32_t *args) {
@@ -92,12 +95,14 @@ int sys_sleep(u32_t *args) {
     return 0;
 }
 
+
 int sys_exit(u32_t *args) {
     // int 指令会关闭中断,而调用 task_exit 后,线程会循环 idle
     enable_interrupt();
     task_exit();
     return 0;
 }
+
 
 static int (*syscall[])(u32_t *args) = {
         [SYS_EXEC] = sys_exec,
@@ -128,7 +133,7 @@ int syscall_isr(struct sys_reg reg) {
         args[2] = reg.edx;
         args[3] = reg.esi;
         args[4] = reg.edi;
-        args[5] = reg.ebp;
+//        args[5] = reg.ebp;
         return syscall[no](args);
     }
     return -1;

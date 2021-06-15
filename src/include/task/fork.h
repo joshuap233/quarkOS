@@ -7,7 +7,6 @@
 
 #include <task/task.h>
 
-
 #define CLONE_KERNEL_STACK      0b1
 #define CLONE_MM               0b10
 

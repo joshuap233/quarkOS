@@ -35,6 +35,7 @@ typedef struct context {
 
 // 系统调用上下文
 typedef struct sys_context {
+    u32_t ebp;
     u32_t ds;
     u32_t es;
     u32_t fs;

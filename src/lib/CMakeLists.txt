@@ -1,1 +1,1 @@
-add_library(mylib OBJECT qlib.c qstring.c time.c queue.c klock.s hash.c getchar.c)
+add_library(mylib OBJECT qlib.c qstring.c time.c queue.c klock.s hash.c)

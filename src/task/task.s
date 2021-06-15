@@ -1,4 +1,3 @@
-
     # 进入用户模式前初始化
     .extern user_init
     .global goto_usermode
@@ -16,11 +15,12 @@ goto_usermode:
     movw  %ax,   %es
     movw  %ax,   %ds
 
-    pushl  $0x23
-    pushl  %ecx
-    pushfl
-    pushl  $0x1b      # 用户代码段
-    pushl  $user_init
+    # 构建中断返回栈
+    pushl  $0x23      # ss
+    pushl  %ecx       # esp
+    pushfl            # eflags
+    pushl  $0x1b      # cs
+    pushl  $user_init # eip
     iret
 
 

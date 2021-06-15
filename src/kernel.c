@@ -10,8 +10,8 @@
 #include <fs/init.h>
 #include <isr.h>
 #include <syscall/syscall.h>
-#include <lib/getchar.h>
 #include <task/timer.h>
+#include <terminal.h>
 
 #ifdef __linux__
 #error "你没有使用跨平台编译器进行编译"
@@ -66,6 +66,7 @@ void kernel_main() {
     // ps2 设备初始化
     ps2_init();
     kb_init();
+    terminal_init();
 
     // 磁盘驱动初始化
     ide_init();
