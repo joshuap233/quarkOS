@@ -37,12 +37,11 @@ ptr_t alloc_page(u32_t size);
 
 void __free_page(struct page *page);
 
-void free_page(ptr_t addr);
+int32_t free_page(ptr_t addr);
 
 ptr_t page_addr(struct page *page);
 
 struct page *get_page(ptr_t addr);
-struct page *get_page2(ptr_t addr);
 
 void pmm_init_mm();
 

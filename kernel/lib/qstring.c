@@ -107,6 +107,8 @@ void reverse(char *const s, uint32_t li) {
 }
 
 void q_utoa(uint64_t value, char *str) {
+    assertk(str);
+
     uint8_t i = 0;
     do {
         str[i++] = value % 10 + '0';
@@ -119,6 +121,8 @@ void q_utoa(uint64_t value, char *str) {
 
 // 10 进制转 16 进制
 void hex(uint64_t n, char *str) {
+    assertk(str);
+
     static const char base[] = "0123456789abcdef";
     uint8_t rem, i = 0;
 
@@ -133,6 +137,8 @@ void hex(uint64_t n, char *str) {
 }
 
 char *q_strdup(const char *string) {
+    assertk(string);
+
     u32_t len = q_strlen(string) + 1;
     char *new = kmalloc(len);
     q_memcpy(new, string, len + 1);

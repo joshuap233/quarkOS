@@ -97,7 +97,8 @@ struct page *va_get_page(ptr_t addr) {
     addr = kvm_vm2pm(addr);
     assertk(addr != 0);
     struct page *page = get_page(addr);
-    assertk(page_head(page));
+    if (!page || !page_head(page))
+        return NULL;
     return page;
 }
 
@@ -109,6 +110,7 @@ ptr_t kvm_vm2pm(ptr_t va) {
 
 ptr_t kvm_pm2vm(ptr_t pa) {
     struct page *page = get_page(pa);
+    assertk(page);
     return (ptr_t) page->data;
 }
 
@@ -133,6 +135,11 @@ void kvm_unmap(struct page *page) {
         pte++;
     }
 }
+
+void kvm_unmap2(ptr_t addr){
+    kvm_unmap(kvm_vm2page((ptr_t) addr));
+}
+
 
 void kvm_copy(pde_t *pgdir) {
     // 复制内核页表

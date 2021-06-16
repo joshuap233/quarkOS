@@ -2,8 +2,6 @@ ENTRY(main)
 
 SECTIONS
 {
-	. = 1M;
-
 	.text BLOCK(4K) : ALIGN(4K)
 	{
 		*(.text)
@@ -11,7 +9,7 @@ SECTIONS
 
 	.rodata BLOCK(4K) : ALIGN(4K)
 	{
-	    _rodataStart = .;
+		*(.rodata)
 	}
 
 	.data BLOCK(4K) : ALIGN(4K)

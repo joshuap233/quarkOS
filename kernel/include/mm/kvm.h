@@ -44,6 +44,7 @@ typedef uint32_t pte_t;
 
 
 void kvm_unmap(struct page *page);
+void kvm_unmap2(ptr_t addr);
 
 void kvm_map(struct page *page, uint32_t flags);
 

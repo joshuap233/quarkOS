@@ -31,6 +31,8 @@ void *krealloc(void *_addr, size_t _size) {
     assertk(addr);
 
     struct page *page = va_get_page(PAGE_ADDR((ptr_t) _addr));
+    assertk(page);
+
     u32_t size = page->size;
     assertk(page->size < _size);
 
@@ -41,8 +43,10 @@ void *krealloc(void *_addr, size_t _size) {
     return addr;
 }
 
+// addr 为虚拟地址
 void kfree(void *addr) {
     struct page *page = va_get_page(PAGE_ADDR((ptr_t) addr));
+    assertk(page);
 
     if (is_slab(page))
         return slab_free(addr);

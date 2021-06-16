@@ -100,6 +100,11 @@ u32_t vfs_read(fd_t fd, void *buf, size_t size) {
     return size - remain;
 }
 
+struct page *vfs_read_page(fd_t fd, size_t offset) {
+    inode_t *node = get_inode(fd);
+    return node->ops->read_page(node,offset);
+}
+
 u32_t vfs_write(fd_t fd, void *buf, size_t size) {
     inode_t *node = get_inode(fd);
     if (!node) return 0;
@@ -143,6 +148,13 @@ int32_t vfs_lseek(fd_t fd, int32_t offset, enum SEEK_WHENCE whence) {
     }
     return node->offset;
 }
+
+int64_t vfs_ftell(fd_t fd){
+    inode_t *node = get_inode(fd);
+    if (!node) return -2;
+    return node->offset;
+}
+
 
 int32_t vfs_mkdir(const char *_path) {
     inode_t *parent;
@@ -377,6 +389,8 @@ void vfs_init() {
     vfs_ops.open = vfs_open;
     vfs_ops.close = vfs_close;
     vfs_ops.read = vfs_read;
+    vfs_ops.read_page = vfs_read_page;
+    vfs_ops.ftell = vfs_ftell;
     vfs_ops.write = vfs_write;
     vfs_ops.lseek = vfs_lseek;
     vfs_ops.mkdir = vfs_mkdir;

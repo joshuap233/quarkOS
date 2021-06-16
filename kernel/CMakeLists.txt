@@ -78,13 +78,12 @@ target_include_directories(
 )
 
 ## 生成 iso
-add_custom_target(
-        ${KERNEL_ISO}
-        DEPENDS ${KERNEL_BIN}
+add_custom_command(
+        OUTPUT ${KERNEL_ISO}
         COMMAND ${CMAKE_SOURCE_DIR}/generate-iso.sh ${CMAKE_CURRENT_BINARY_DIR}/${KERNEL_BIN}
         COMMENT "正在构建 iso 文件..."
-        BYPRODUCTS ${KERNEL_ISO}
+        DEPENDS ${KERNEL_BIN}
 )
 
-add_custom_target(run ALL DEPENDS ${KERNEL_BIN} ${KERNEL_ISO})
+add_custom_target(kernel ALL DEPENDS ${KERNEL_BIN} ${KERNEL_ISO})
 

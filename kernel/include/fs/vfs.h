@@ -35,6 +35,8 @@ struct fs_ops {
 
     int32_t (*close)(inode_t *inode);
 
+    struct page *(*read_page)(inode_t *file, size_t offset);
+
     u32_t (*read)(inode_t *file, uint32_t offset, uint32_t size, char *buf);
 
     u32_t (*write)(inode_t *file, uint32_t offset, uint32_t size, char *buf);
@@ -63,11 +65,16 @@ struct vfs_ops {
 
     int32_t (*close)(fd_t fd);
 
+    struct page *(*read_page)(fd_t fd, size_t offset);
+
     u32_t (*read)(fd_t fd, void *buf, size_t size);
 
     u32_t (*write)(fd_t fd, void *buf, size_t size);
 
     int32_t (*lseek)(fd_t fd, int32_t offset, enum SEEK_WHENCE whence);
+
+    // 返回文件当前位置
+    int64_t (*ftell)(fd_t fd);
 
     int32_t (*mkdir)(const char *path);
 
@@ -84,6 +91,7 @@ struct vfs_ops {
     void (*umount)();
 
     void (*mount)(char *path, inode_t *inode);
+
 };
 
 extern struct vfs_ops vfs_ops;

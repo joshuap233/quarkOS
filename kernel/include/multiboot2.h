@@ -369,12 +369,18 @@ typedef struct multiboot_tag_elf_sections boot_tag_elf_sections_t;
     for ((entry) = bInfo.mmap->entries; (ptr_t) (entry) < (ptr_t) bInfo.mmap + bInfo.mmap->size; (entry)++)
 
 
+typedef struct string_table {
+    char *addr;
+    size_t size;
+} string_table_t;
+
+
 struct bootInfo {
     boot_tag_elf_sections_t *elf_symbols;
     boot_tag_mmap_t *mmap;
     boot_tag_apm_t *apm;
-    elf_string_table_t shstrtab, strtab;
-    elf_symbol_table_t symtab;
+    string_table_t shstrtab, strtab;
+    elf32_symbol_table_t symtab;
 };
 
 extern struct bootInfo bInfo;

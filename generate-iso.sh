@@ -9,7 +9,5 @@ then
     exit 1
 fi
 
-pwd
-
 cp $1 ../../isodir/boot
 grub-mkrescue -o quarkOS.iso ../../isodir

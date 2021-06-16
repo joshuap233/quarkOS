@@ -23,10 +23,6 @@ typedef struct mm_struct {
 } mm_struct_t;
 
 
-void vm_area_init();
-
-void vm_map(struct vm_area *area, ptr_t pa, pte_t *pgdir);
-
 void vm_struct_destroy(struct mm_struct *mm);
 
 ptr_t vm_vm2pm(void *addr, pte_t *pgdir);
@@ -36,6 +32,10 @@ void vm_unmap(struct vm_area *area, pte_t *pgdir);
 struct mm_struct *vm_struct_copy(struct mm_struct *src);
 
 int vm_remap_page(ptr_t va, pte_t *pgdir);
+
+void vm_struct_unmaps(struct mm_struct *mm, bool empty);
+
+void vm_map_page(pde_t *pgdir, ptr_t va, ptr_t pa,u32_t flag);
 
 struct mm_struct *mm_struct_init(
         ptr_t txt, ptr_t size1,

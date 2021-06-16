@@ -140,20 +140,8 @@ ptr_t page_addr(struct page *page) {
 }
 
 // 使用物理地址找到页
+
 struct page *get_page(ptr_t addr) {
-    assertk((addr & PAGE_MASK) == 0);
-    ptr_t start = allocator.zone[0].addr;
-    assertk(addr >= start);
-    struct page *page = &allocator.pages[(addr - start) >> 12];
-#ifdef DEBUG
-    assertk(page->magic == PAGE_MAGIC);
-#endif //DEBUG
-    return page;
-}
-
-
-struct page *get_page2(ptr_t addr) {
-    // 暂时懒得处理 get_page 的 assert,就分两个函数吧...
     if ((addr & PAGE_MASK) != 0)
         return NULL;
     ptr_t start = allocator.zone[0].addr;
@@ -163,8 +151,7 @@ struct page *get_page2(ptr_t addr) {
 
     struct page *page = &allocator.pages[(addr - start) >> 12];
 
-    if (page->magic != PAGE_MAGIC)
-        return NULL;
+    assertk(page->magic == PAGE_MAGIC);
     return page;
 }
 
@@ -274,13 +261,16 @@ void __free_page(struct page *page) {
     }
 }
 
-void free_page(ptr_t addr) {
+// addr 为物理地址
+int32_t free_page(ptr_t addr) {
     assertk((addr & PAGE_MASK) == 0);
     struct page *page = get_page(addr);
+    if (!page) return -1;
 
     assertk(page->flag & PG_Head);
 
     __free_page(page);
+    return 0;
 }
 
 
@@ -325,6 +315,7 @@ void test_alloc() {
     struct page *page;
     for (int i = 0; i < 10; ++i) {
         page = get_page(start + (i << 12));
+        assertk(page);
         assertk((start + (i << 12)) == page_addr(page));
     }
 

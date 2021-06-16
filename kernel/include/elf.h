@@ -56,15 +56,15 @@ typedef struct elf32_header {
     Elf32_Half e_machine;        // required architecture
     Elf32_Word e_version;        // object file version
     Elf32_Addr e_entry;          // virtual address to which the system first transfers control
-    Elf32_Off e_phoff;           // program header table's file offset in bytes.
-    Elf32_Off e_shoff;           // section header table's file offset in bytes.
+    Elf32_Off e_phoff;           // 程序头表在文件中偏移
+    Elf32_Off e_shoff;           // 节头表在文件中偏移(字节)
     Elf32_Word e_flags;
     Elf32_Half e_ehsize;         // ELF header's size in bytes
-    Elf32_Half e_phentsize;      // the size in bytes of one entry in the file's program header table
-    Elf32_Half e_phnum;          // the number of entries in the program header table.
-    Elf32_Half e_shentsize;      // a section header's size in bytes. A section header is one entry in the section header table;
-    Elf32_Half e_shnum;          // the number of entries in the section header table.
-    Elf32_Half e_shstrndx;       // strtab 索引
+    Elf32_Half e_phentsize;      // 程序头表项大小
+    Elf32_Half e_phnum;          // 程序头表项数
+    Elf32_Half e_shentsize;      // 节头大小,节头为节头表项
+    Elf32_Half e_shnum;          // 节头表项数量
+    Elf32_Half e_shstrndx;       // strtab 在节头表中的索引
 } elf32_header_t;
 
 /*------------ section header table -------------*/
@@ -112,11 +112,11 @@ typedef struct elf32_symbol {
 } elf32_symbol_t;
 
 //the first entry in each symbol table is a NULL entry
-typedef struct elf_symbol_table {
+typedef struct elf32_symbol_table {
     elf32_symbol_t *header;
     size_t size;
     size_t entry_size;
-} elf_symbol_table_t;
+} elf32_symbol_table_t;
 
 #define ELF32_ST_BIND(INFO)    ((INFO) >> 4)
 #define ELF32_ST_TYPE(INFO)    ((INFO) & MASK_U8(4))
@@ -136,12 +136,10 @@ enum symbol_types {
 
 
 /*----- string table ------*/
-// header[0] == '\0'
-typedef struct elf_string_table {
-    char *addr;
-    size_t size;
-} elf_string_table_t;
-
+/*
+ * string table  为一连串字符串,以 '\0' 分隔
+ * 且 string table 第一个字节为 '\0'
+ */
 
 /*----- program header------*/
 

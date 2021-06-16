@@ -13,10 +13,24 @@ set(CMAKE_ASM_FLAGS "-g")
 
 set(INCLUDE ${CMAKE_SOURCE_DIR}/kernel/include)
 
+
 include_directories(${INCLUDE})
 
-set(SH_BIN sh.bin)
+set(DISK disk.img)
+
+set(SH_BIN sh)
+
 
 add_executable(${SH_BIN} lib.S lib.c sh.c)
 set_target_properties(${SH_BIN} PROPERTIES LINK_FLAGS "-T ${PROJECT_SOURCE_DIR}/linker.ld -ffreestanding -O0 -nostdlib -g")
 target_link_libraries(${SH_BIN} PRIVATE gcc)
+
+# 生成 disk.img
+add_custom_command(
+        OUTPUT ${DISK}
+        COMMAND ${CMAKE_SOURCE_DIR}/generate-disk.sh
+        COMMENT "正在构建 disk.img ..."
+        DEPENDS ${SH_BIN}
+)
+
+add_custom_target(user ALL DEPENDS ${SH_BIN} ${DISK})

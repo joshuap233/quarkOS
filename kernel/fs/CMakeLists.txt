@@ -1,4 +1,4 @@
-add_library(fs OBJECT fs.c writeback.c vfs.c)
+add_library(fs OBJECT writeback.c vfs.c)
 
 add_subdirectory(${PROJECT_SOURCE_DIR}/fs/ext2)
 target_link_libraries(${KERNEL_BIN} PUBLIC ext2)

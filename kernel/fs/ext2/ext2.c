@@ -88,7 +88,7 @@ static directory_t *ext2_find(directory_t *parent, const char *name) {
 
 // 读写的数据不会越过 4K (BLOCK_SIZE)边界
 static u32_t ext2_read(inode_t *file, uint32_t offset, uint32_t size, char *buf) {
-    struct page*page;
+    struct page *page;
     u32_t blockSize = file->sb->blockSize;
     u32_t blkOffset = offset % blockSize;
     u32_t bno = offset / blockSize;
@@ -106,13 +106,22 @@ static u32_t ext2_read(inode_t *file, uint32_t offset, uint32_t size, char *buf)
     return size;
 }
 
+struct page *ext2_read_page(inode_t *file, size_t offset) {
+    struct page *page;
+    u32_t blockSize = file->sb->blockSize;
+    u32_t bno = offset / blockSize;
+    u32_t bid = get_bid(file, bno);
+    page = ext2_block_read(bid, file->sb);
+    return page;
+}
+
 static u32_t ext2_write(inode_t *file, uint32_t offset, uint32_t size, char *buf) {
     if (!(file->type & EXT2_IFREG)) goto filetype_error;
 
     u32_t blockSize = file->sb->blockSize;
     u32_t blkOffset = offset % blockSize;
     u32_t bno = offset / blockSize;
-    struct page*page;
+    struct page *page;
     u32_t bid;
 
 
@@ -167,7 +176,7 @@ static int32_t ext2_mkfile(inode_t *parent, const char *name) {
 
     new = inode_alloc(parent, EXT2_ALL_RWX | EXT2_IFREG, name);
     append_to_parent(parent, new);
-    mark_inode_dirty(new,I_NEW);
+    mark_inode_dirty(new, I_NEW);
     return 0;
 }
 
@@ -268,6 +277,7 @@ static void ops_init() {
     ext2_ops.open = ext2_open;
     ext2_ops.close = ext2_close;
     ext2_ops.read = ext2_read;
+    ext2_ops.read_page = ext2_read_page;
     ext2_ops.write = ext2_write;
     ext2_ops.mkdir = ext2_mkdir;
     ext2_ops.mkfile = ext2_mkfile;
