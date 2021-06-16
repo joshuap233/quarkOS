@@ -36,6 +36,8 @@ int32_t k_gets(char *buf, int32_t len);
 
 void k_puts(char *buf, int32_t len);
 
+void terminal_clear();
+
 #ifdef TEST
 #define test_start   printfk("test start: %s\n",__FUNCTION__);
 #define test_pass    printfk("test pass : %s: %s: %u\n",__FILE__,__FUNCTION__,__LINE__);

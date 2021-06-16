@@ -469,14 +469,6 @@ typedef struct kb_status {
     status_t scrollLk; //SCROLL_LOCK
 } kb_status_t;
 
-typedef struct kb_queue {
-#define KB_BUFFER_SIZE  256 //键盘缓冲区大小
-#define KB_NULL         '\0'
-    uint8_t buffer[KB_BUFFER_SIZE];
-    size_t header;
-    size_t tail;
-} kb_queue_t;
-
 typedef enum KEY_TYPE {
     CHAR = 0,
     F = 1, //F1-F12
@@ -486,23 +478,7 @@ typedef enum KEY_TYPE {
     ACPI = 5, //电源键
 } key_type_t;
 
-
-INLINE void kb_append(kb_queue_t *q, uint8_t c) {
-    q->buffer[q->tail] = c;
-    q->tail = (q->tail + 1) % KB_BUFFER_SIZE;
-}
-
-INLINE char kb_pop(kb_queue_t *q) {
-    if (q->header == q->tail) return KB_NULL;
-    char res = q->buffer[q->header];
-    q->header = (q->header + 1) % KB_BUFFER_SIZE;
-    return res;
-}
-
-
-INLINE void kb_clear(kb_queue_t *q) {
-    q->tail = q->header;
-}
+#define KB_NULL         '\0'
 
 
 #endif //QUARKOS_DRIVERS_KEYBOARD_H

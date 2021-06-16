@@ -25,20 +25,6 @@
 #error "你没有使用 ffreestanding 模式"
 #endif //__STDC_HOSTED__
 
-
-void hello() {
-    char space[] = "                ";
-    printfk("\n");
-    printfk("%s************************************************\n", space);
-    printfk("%s*                                              *\n", space);
-    printfk("%s*                                              *\n", space);
-    printfk("%s*              Welcome to Quark OS             *\n", space);
-    printfk("%s*                                              *\n", space);
-    printfk("%s*                                              *\n", space);
-    printfk("%s************************************************\n", space);
-    printfk("\n");
-}
-
 static multiboot_info_t *mba;
 static uint32_t magic;
 
@@ -49,8 +35,6 @@ void kernel_main() {
     assertk(mba->zero == 0);
     multiboot_init(mba);
     memBlock_init();
-
-    hello();
     gdt_init();
 
     // 中断初始化

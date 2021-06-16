@@ -22,4 +22,6 @@
 #define SYS_SLEEP    12
 #define SYS_EXIT     13
 
+#define SYS_CLS      14
+
 #endif //QUARKOS_SYSCALL_H

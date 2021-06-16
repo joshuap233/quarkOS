@@ -28,7 +28,7 @@ struct sys_reg {
 
 
 int sys_exec(u32_t *args) {
-    exec((char *) args[0]);
+    load_elf_exec((char *) args[0]);
     return 0;
 }
 
@@ -103,6 +103,12 @@ int sys_exit(u32_t *args) {
     return 0;
 }
 
+int sys_cls(u32_t *args){
+    // 清屏
+    terminal_clear();
+    return 0;
+}
+
 
 static int (*syscall[])(u32_t *args) = {
         [SYS_EXEC] = sys_exec,
@@ -118,7 +124,8 @@ static int (*syscall[])(u32_t *args) = {
         [SYS_READ] = sys_read,
         [SYS_WRITE] = sys_write,
         [SYS_SLEEP] = sys_sleep,
-        [SYS_EXIT] = sys_exit
+        [SYS_EXIT] = sys_exit,
+        [SYS_CLS] = sys_cls
 };
 
 
@@ -127,7 +134,7 @@ int syscall_isr(struct sys_reg reg) {
     CUR_TCB->sysContext = (void *) reg.esp;
     u32_t no = reg.eax;
     u32_t args[6];
-    if (no <= SYS_EXIT) {
+    if (no <= SYS_CLS) {
         args[0] = reg.ebx;
         args[1] = reg.ecx;
         args[2] = reg.edx;

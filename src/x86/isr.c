@@ -207,7 +207,7 @@ INT ISR(14)(interrupt_frame_t *frame, uint32_t error_code) {
         return;
 
     printfk("page fault, error code: %x\n", error_code);
-    printfk("page fault addr: %x\n", pf_addr());
+    printfk("page fault addr: %x\n", pf_adr);
     panic();
 }
 

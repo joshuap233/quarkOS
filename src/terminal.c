@@ -14,8 +14,14 @@
 
 
 INT kb_isr(interrupt_frame_t *frame);
+#define U64LEN 20           // uint64 十进制数长度
+#define KB_BUFFER_SIZE  256 //键盘缓冲区大小
 
-#define U64LEN 20  // uint64 十进制数长度
+typedef struct kb_queue {
+    uint8_t buffer[KB_BUFFER_SIZE];
+    size_t header;
+    size_t tail;
+} kb_queue_t;
 
 void terminal_init() {
     reg_isr(33, kb_isr);
@@ -43,6 +49,10 @@ kb_queue_t kb_buf = {
         .tail = 0
 };
 
+
+void kb_clear(kb_queue_t *q) {
+    q->tail = q->header;
+}
 
 void q_append(kb_queue_t *q, uint8_t c) {
     q->buffer[q->tail] = c;
@@ -252,7 +262,6 @@ void put_char(char c) {
     vga_sync_cursor();
 }
 
-
 __attribute__ ((format (printf, 1, 2))) void printfk(char *__restrict str, ...) {
     size_t str_len = q_strlen(str);
     va_list ap;
@@ -264,7 +273,7 @@ __attribute__ ((format (printf, 1, 2))) void printfk(char *__restrict str, ...) 
                     print_d(va_arg(ap, int32_t));
                     break;
                 case 'u':
-                    print_u(va_arg(ap, uint32_t));
+                    print_u(va_arg(ap, u32_t));
                     break;
                 case 's':
                     put_string(va_arg(ap, char*));
@@ -276,7 +285,7 @@ __attribute__ ((format (printf, 1, 2))) void printfk(char *__restrict str, ...) 
                     print_pointer(va_arg(ap, void*));
                     break;
                 case 'x':
-                    print_hex(va_arg(ap, uint32_t));
+                    print_hex(va_arg(ap, u32_t));
                     break;
                 case 'l':
                     switch (str[++i]) {
@@ -284,10 +293,10 @@ __attribute__ ((format (printf, 1, 2))) void printfk(char *__restrict str, ...) 
                             print_d(va_arg(ap, int64_t));
                             break;
                         case 'u':
-                            print_u(va_arg(ap, uint64_t));
+                            print_u(va_arg(ap, u64_t));
                             break;
                         case 'x':
-                            print_hex(va_arg(ap, uint64_t));
+                            print_hex(va_arg(ap, u64_t));
                             break;
                         default:
                             i--;
@@ -308,7 +317,7 @@ __attribute__ ((format (printf, 1, 2))) void printfk(char *__restrict str, ...) 
 char getchar() {
     char c;
     kb_clear(&kb_buf);
-    while ((c = kb_pop(&kb_buf)) == KB_NULL) {
+    while ((c = q_pop(&kb_buf)) == KB_NULL) {
         assertk(ms_sleep(10));
     }
     return c;
@@ -318,6 +327,7 @@ int32_t k_gets(char *buf, int32_t len) {
     int32_t i;
     for (i = 0; i < len; ++i) {
         buf[i] = getchar();
+        put_char(buf[i]);
         if (buf[i] == NEWLINE)
             break;
     }
@@ -329,4 +339,8 @@ void k_puts(char *buf, int32_t len) {
         put_string(buf);
     else
         put_strings(buf, len);
+}
+
+void terminal_clear() {
+    vga_clean();
 }

@@ -1,8 +1,8 @@
-#include "types.h"
-#include "drivers/vga.h"
-#include "x86.h"
-#include "lib/qstring.h"
-#include "lib/qlib.h"
+#include <types.h>
+#include <drivers/vga.h>
+#include <x86.h>
+#include <lib/qstring.h>
+#include <lib/qlib.h>
 #include <highmem.h>
 
 
@@ -29,6 +29,7 @@ void vga_enable_cursor();
 static cursor_t cursor;
 static uint8_t terminal_color;
 static uint16_t *terminal_buffer;
+#define VGA_SPACE vga_entry(' ', terminal_color)
 
 
 // fg，bg 为前景色与背景色
@@ -41,7 +42,6 @@ INLINE uint16_t vga_entry(unsigned char uc, uint8_t color) {
     return (uint16_t) uc | (uint16_t) color << 8;
 }
 
-#define VGA_SPACE vga_entry(' ', terminal_color)
 
 INLINE void vga_set_buf(char c, uint8_t color, cursor_t cur) {
     // 根据行列设置buffer
@@ -56,17 +56,6 @@ INLINE void vga_clean_line(uint8_t row) {
 INLINE void vga_scroll_up() {
     q_memcpy(terminal_buffer, &terminal_buffer[BUF_INDEX(0, 1)], (VGA_HEIGHT - 1) * VGA_WIDTH * 2);
     vga_clean_line(VGA_HEIGHT - 1);
-}
-
-
-INLINE void vga_clean() {
-    // 清屏为空格
-    q_memset16(terminal_buffer, VGA_SPACE, VGA_WIDTH * VGA_HEIGHT);
-}
-
-INLINE void vga_cleanc(cursor_t c) {
-    //清除一个字符
-    q_memset16(&terminal_buffer[BUF_INDEX(c.col, c.row)], VGA_SPACE, 1);
 }
 
 
@@ -111,11 +100,29 @@ INLINE void dec_col() {
     cursor.col == 0 ? dec_row() : cursor.col--;
 }
 
+
+void __vga_clean() {
+    // 清屏为空格
+    q_memset16(terminal_buffer, VGA_SPACE, VGA_WIDTH * VGA_HEIGHT);
+}
+
+void __vga_cleanc(cursor_t c) {
+    //清除一个字符
+    q_memset16(&terminal_buffer[BUF_INDEX(c.col, c.row)], VGA_SPACE, 1);
+}
+
+
+void vga_clean() {
+    set_cursor(0, 0);
+    __vga_clean();
+    vga_sync_cursor();
+}
+
 void vga_init() {
     set_cursor(0, 0);
     terminal_color = vga_entry_color(VGA_COLOR_LIGHT_GREY, VGA_COLOR_BLACK);
     terminal_buffer = (uint16_t *) VGA_TEXT_MODE_MEM;
-    vga_clean();
+    __vga_clean();
     vga_enable_cursor();
     vga_sync_cursor();
 }
@@ -162,7 +169,7 @@ void vga_sync_cursor() {
 void vga_delete() {
     //前移指针并删除一个字符
     dec_col();
-    vga_cleanc(cursor);
+    __vga_cleanc(cursor);
     vga_sync_cursor();
 }
 

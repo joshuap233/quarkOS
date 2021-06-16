@@ -150,7 +150,7 @@ typedef struct elf_string_table {
  * each describing a segment or other information the system needs to
  * prepare the program for execution
  */
-struct elf_program_header {
+typedef struct elf_program_header {
     Elf32_Word p_type;
     Elf32_Off p_offset;   // 段的第一个字节到文件头的偏移
     Elf32_Addr p_vaddr;

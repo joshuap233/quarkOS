@@ -38,5 +38,5 @@ void vga_cursor_right();
 void vga_cursor_up();
 void vga_cursor_down();
 void vga_sync_cursor();
-
+void vga_clean();
 #endif //QUARKOS_DRIVERS_VGA_H

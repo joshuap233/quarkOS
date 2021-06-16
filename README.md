@@ -14,8 +14,6 @@
 
 `./run.sh`
 
-由于没有实现安装器,第一次运行时会将生成的 disk.img 挂载到 /tmp/disk,并将用户空间代码复制到 disk.img的 /bin 目录,
-因此需要 root 权限 (见 generate-disk.sh)
 
 ## 调试
 
