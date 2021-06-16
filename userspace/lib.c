@@ -4,13 +4,12 @@
 
 #include <types.h>
 #include <stdarg.h> // 可变参数
-#include <userspace/lib.h>
+#include "lib.h"
 
 #define assert(condition)
 
 #define U64LEN 20           // uint64 十进制数长度
 
-SECTION(".user.text")
 static void reverse(char *const s, uint32_t li) {
     assert(s);
 
@@ -22,7 +21,6 @@ static void reverse(char *const s, uint32_t li) {
     }
 }
 
-SECTION(".user.text")
 static void hex(uint64_t n, char *str) {
     static const char base[] = "0123456789abcdef";
     uint8_t rem, i = 0;
@@ -37,7 +35,6 @@ static void hex(uint64_t n, char *str) {
     reverse(str, i - 1);
 }
 
-SECTION(".user.text")
 static void utoa(uint64_t value, char *str) {
     uint8_t i = 0;
     do {
@@ -48,7 +45,6 @@ static void utoa(uint64_t value, char *str) {
     reverse(str, i - 1);
 }
 
-SECTION(".user.text")
 static size_t strlen(const char *str) {
     assert(str);
 
@@ -59,18 +55,15 @@ static size_t strlen(const char *str) {
 }
 
 
-SECTION(".user.text")
 static void put_string(const char *data) {
     puts(data, -1);
 }
 
 
-SECTION(".user.text")
 static void put_char(char c) {
     puts(&c, 1);
 }
 
-SECTION(".user.text")
 static void print_d(int64_t num) {
     uint8_t i = 0;
     char str[U64LEN + 2]; //1 位存符号,1 位存 '\0'
@@ -82,21 +75,18 @@ static void print_d(int64_t num) {
     put_string(str);
 }
 
-SECTION(".user.text")
 static void print_u(uint64_t num) {
     char str[U64LEN + 1];
     utoa(num, str);
     put_string(str);
 }
 
-SECTION(".user.text")
 static void print_pointer(void *p) {
     char str[U64LEN + 3] = "0x";
     hex((ptr_t) p, str + 2);
     put_string(str);
 }
 
-SECTION(".user.text")
 static void print_hex(uint64_t x) {
     char str[U64LEN + 3] = "0x";
     hex(x, str + 2);
@@ -104,7 +94,6 @@ static void print_hex(uint64_t x) {
 }
 
 
-SECTION(".user.text")
 __attribute__ ((format (printf, 1, 2))) void printf(char *__restrict str, ...) {
     size_t str_len = strlen(str);
     va_list ap;

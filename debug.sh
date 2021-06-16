@@ -8,5 +8,5 @@ qemu-system-i386                                 \
   -no-reboot                                     \
   -s -S                                          \
   -drive format=raw,media=disk,file=disk.img,if=ide,index=0   \
-  -drive format=raw,media=cdrom,file=cmake-build-debug/quarkOS.iso \
+  -drive format=raw,media=cdrom,file=cmake-build-debug/kernel/quarkOS.iso \
   -boot d

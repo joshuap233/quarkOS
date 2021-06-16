@@ -5,15 +5,13 @@
 
 #include <types.h>
 #include <task/task.h>
-#include <userspace/lib.h>
+#include "lib.h"
 
 #define TERMINAL_BUF_SIZE 256
 
-SECTION(".user.data")
 char buf[TERMINAL_BUF_SIZE];
 
 
-SECTION(".user.text")
 void hello() {
     // 直接写成常量会被放到内核 rodata 区
     char space[] = "                ";
@@ -32,8 +30,7 @@ void hello() {
 }
 
 
-SECTION(".user.text")
-void user_init() {
+void main() {
     cls();
     hello();
     while (1) {

@@ -5,7 +5,7 @@
 #ifndef QUARKOS_LIB_IRLOCK_H
 #define QUARKOS_LIB_IRLOCK_H
 
-#include "types.h"
+#include <types.h>
 
 typedef struct interrupt_lock {
     uint32_t ir_enable;

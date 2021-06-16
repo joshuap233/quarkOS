@@ -9,5 +9,7 @@ then
     exit 1
 fi
 
-cp $1 ../isodir/boot
-grub-mkrescue -o quarkOS.iso ../isodir
+pwd
+
+cp $1 ../../isodir/boot
+grub-mkrescue -o quarkOS.iso ../../isodir
