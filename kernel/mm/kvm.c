@@ -31,6 +31,7 @@ void kvm_init() {
     ptr_t startKernel = (ptr_t) _startKernel;
     ptr_t dataStart = (ptr_t) _dataStart;
     ptr_t endKernel = (ptr_t) _endKernel;
+
     assertk(g_mem_start > endKernel - HIGH_MEM);
 
     pde_t *pdr = &pageDir[PDE_INDEX(HIGH_MEM)];
@@ -136,7 +137,7 @@ void kvm_unmap(struct page *page) {
     }
 }
 
-void kvm_unmap2(ptr_t addr){
+void kvm_unmap2(ptr_t addr) {
     kvm_unmap(kvm_vm2page((ptr_t) addr));
 }
 

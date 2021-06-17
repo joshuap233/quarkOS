@@ -61,24 +61,40 @@ void user_task_init() {
     extern void set_tss_esp(void *stack);
     extern void goto_usermode(u32_t stack_bottom);
     extern char user_text_start[], user_rodata_start[],
-            user_data_start[], user_bss_end[];
+            user_data_start[], user_bss_start[], user_bss_end[];
     ptr_t text = (ptr_t) user_text_start;
     ptr_t rodata = (ptr_t) user_rodata_start;
     ptr_t data = (ptr_t) user_data_start;
+    ptr_t bss = (ptr_t) user_bss_start;
     ptr_t bssEnd = (ptr_t) user_bss_end;
 
-    struct mm_struct *mm = mm_struct_init(
-            text, data - text,
-            rodata, data - rodata,
-            data, bssEnd - data
-    );
+    struct mm_struct *mm = kmalloc(sizeof(struct mm_struct));
+    vm_map_init(mm);
+    struct mm_args args = {
+            .text = text,
+            .pa1 = text,
+            .size1 = rodata - text,
+
+            .rodata = rodata,
+            .pa2 = rodata,
+            .size2 = data - rodata,
+
+            .data = data,
+            .pa3 = data,
+            .size3 = bss - data,
+
+            .bss= bss,
+            .pa4 = bss,
+            .size4 = bssEnd - bss
+    };
+    mm_struct_init(mm, &args);
 
     kvm_copy(mm->pgdir);
     CUR_TCB->mm = mm;
     switch_uvm(mm->pgdir);
     set_tss_esp(CUR_TCB->stack + PAGE_SIZE);
     CUR_TCB->timer_slice = TIME_SLICE_LENGTH;
-    goto_usermode(mm->stack.addr + PAGE_SIZE);
+    goto_usermode(mm->stack.va + PAGE_SIZE);
 }
 
 struct task_struct *kernel_clone(struct task_struct *cur, u32_t flag) {

@@ -55,7 +55,7 @@ void memBlock_init() {
 
     // 初始化 block 分配器
     u32_t alloc = sizeof(struct blockInfo) * cnt;
-    struct blockInfo *infos = (void *) firstMem->addr + HIGH_MEM;
+    struct blockInfo *infos = (void *) (ptr_t) firstMem->addr + HIGH_MEM;
     assertk(firstMem != NULL && firstMem->len > alloc);
     firstMem->len -= alloc;
     firstMem->addr += alloc;

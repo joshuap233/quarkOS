@@ -148,16 +148,16 @@ enum symbol_types {
  * each describing a segment or other information the system needs to
  * prepare the program for execution
  */
-typedef struct elf_program_header {
+typedef struct elf32_phdr{
     Elf32_Word p_type;
-    Elf32_Off p_offset;   // 段的第一个字节到文件头的偏移
+    Elf32_Off p_offset;   // 节的第一个字节到文件头的偏移
     Elf32_Addr p_vaddr;
     Elf32_Addr p_paddr;
-    Elf32_Word p_filesz;
-    Elf32_Word p_memsz;
+    Elf32_Word p_filesz;  // 文件中段的大小
+    Elf32_Word p_memsz;   // 内存中段大小, bss 段中,p_filesz 的值与 p_memsz 不同
     Elf32_Word p_flags;
     Elf32_Word p_align;
-} elf_phdr_t;
+} elf32_phdr_t;
 
 // elf_program_header.p_type
 enum segment_type {
@@ -173,7 +173,7 @@ enum segment_type {
 };
 
 enum segment_flag {
-    PF_X = 0x0,    // Execute
+    PF_X = 0x1,    // Execute
     PF_W = 0x2,    // Write
     PF_R = 0x4,    // Read
     PF_MASKPROC = 0xf0000000

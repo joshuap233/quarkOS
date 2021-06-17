@@ -20,8 +20,19 @@
 
 ## 调试
 
-1. `./debug.sh`
-2. 启动 gdb
+建议使用 Clion,可以直接导入我的 .run 下配置,或者:
+
+1. 允许读取 local .gdbint:
+```bash
+echo "set auto-load local-gdbinit on"  >> ~/.gdbinit
+echo "add-auto-load-safe-path xxx/.gdbinit"  >> ~/.gdbinit
+# 将 xxx 替换为你的 quarkOS 项目路径
+```
+
+2. `./debug.sh`
+   
+3. 启动 gdb,连接 1234 端口
+
 
 ## 设计
 

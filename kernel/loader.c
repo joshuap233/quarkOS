@@ -7,6 +7,7 @@
 #include <mm/kmalloc.h>
 #include <mm/page_alloc.h>
 #include <task/task.h>
+#include <lib/qstring.h>
 
 bool elf_check_header(elf32_header_t *elf_head) {
     //TODO:错误处理
@@ -29,22 +30,26 @@ bool elf_check_header(elf32_header_t *elf_head) {
         return false;
     if (elf_head->e_type != ET_REL && elf_head->e_type != ET_EXEC)
         return false;
+    assertk(elf_head->e_shentsize == sizeof(struct elf32_sh));
+    assertk(elf_head->e_phentsize == sizeof(elf32_phdr_t));
     return true;
 }
 
-INLINE u32_t get_flags(struct elf32_sh *sh) {
-    return sh->sh_flags == SHF_WRITE ? VM_UW : VM_UR;
+INLINE u32_t get_flags(struct elf32_phdr *pgh) {
+    assertk(!(pgh->p_flags & PF_MASKPROC));
+    return (pgh->p_flags & PF_W) ? VM_UW : VM_UR;
 }
 
 void load_elf_exec(const char *path) {
-    struct task_struct *task = CUR_TCB;
-    assertk(task->mm);
+    struct mm_struct *mm = CUR_TCB->mm;
+    assertk(mm);
 
     struct elf32_header *hdr;
-    struct page *page, *page1, *page2;
-    struct elf32_sh *sh, *str_sh;
-    char *string, *name;
-    size_t size;
+    struct page *page, *page1;
+    struct elf32_phdr *pgh;
+    struct vm_area *area;
+    pde_t *pgdir = mm->pgdir;
+    u32_t flag;
 
     fd_t file = vfs_ops.open(path);
     assertk(file >= 0);
@@ -56,31 +61,63 @@ void load_elf_exec(const char *path) {
         assertk(hdr->e_type == ET_EXEC);
         assertk(hdr->e_shstrndx != SHN_UNDEF);
         // 取消用户空间虚拟内存映射
-        vm_struct_unmaps(task->mm, true);
+        vm_struct_unmaps(mm);
+        q_memset(pgdir, 0, PAGE_SIZE / 4 * 3);
+        q_memset(mm, 0, sizeof(mm_struct_t));
+        mm->pgdir = pgdir;
 
-        page1 = vfs_ops.read_page(file, hdr->e_shoff);
+        // 程序头表
+        page1 = vfs_ops.read_page(file, hdr->e_phoff);
+        pgh = page1->data + hdr->e_phoff % PAGE_SIZE;
 
-        sh = page1->data + hdr->e_shoff % PAGE_SIZE;
-        str_sh = &sh[hdr->e_shstrndx];
-        assertk(str_sh->sh_type == SHT_STRTAB);
+        for (int i = 0; i < hdr->e_phnum; ++i) {
+            if (pgh->p_type != PT_NULL) {
+                assertk(pgh->p_type == PT_LOAD);
 
-        page2 = vfs_ops.read_page(file, str_sh->sh_offset);
-        string = page2->data + str_sh->sh_offset % PAGE_SIZE;
+                ptr_t va = pgh->p_vaddr;
+                size_t size = PAGE_ALIGN(pgh->p_memsz);
+                ptr_t pa = alloc_page(size);
+                flag = get_flags(pgh) | VM_PRES;
+                vm_maps(va, pa, flag, size);
 
-        assertk(string[0] == '\0');
-        for (int i = 0; i < hdr->e_shnum; ++i) {
-            if (sh->sh_type != SHT_NULL) {
-                name = &string[sh->sh_name];
-                struct page *tmp = vfs_ops.read_page(file, sh->sh_offset);
-                vm_map_page(
-                        task->mm->pgdir,
-                        sh->sh_offset,
-                        page_addr(tmp),
-                        get_flags(sh)
-                );
+                if (pgh->p_filesz != pgh->p_memsz) {
+                    assertk(mm->bss.size == 0);
+                    assertk(pgh->p_filesz == 0);
+
+                    area = &mm->bss;
+                    q_memset((void *) va, size, 0);
+                } else {
+                    if (pgh->p_flags & PF_X) {
+                        area = &mm->text;
+                    } else if (pgh->p_flags & PF_W) {
+                        area = &mm->data;
+                    } else {
+                        area = &mm->rodata;
+                    }
+                    assertk(area->size == 0);
+                    vfs_ops.lseek(file, pgh->p_offset, SEEK_SET);
+                    vfs_ops.read(file, (void *) va, pgh->p_memsz);
+                }
+
+                area->flag = flag;
+                area->va = va;
+                area->size = size;
+                mm->size += area->size;
             }
-            sh++;
+            pgh++;
         }
     }
+
+    vm_brk_init(mm);
+    vm_stack_init(mm);
+
+    mm->size += mm->brk.size + mm->stack.size;
     vfs_ops.close(file);
+
+    sys_context_t *sysContext = CUR_TCB->sysContext;
+    assertk(sysContext);
+
+    ptr_t esp = mm->stack.va + STACK_SIZE;
+    sysContext->esp = esp;
+    sysContext->eip = hdr->e_entry;
 }

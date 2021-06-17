@@ -169,7 +169,7 @@ INLINE struct page *get_buddy(struct page *page) {
 
 static struct page *__alloc_pages(struct mem_zone *zone, u32_t size) {
     size = fixSize(size);
-    assertk(size > 0 && size <= 4 * M);
+    assertk(size > 0 && size <= 4 * M && (size & PAGE_MASK) == 0);
     struct page *page = NULL, *new;
     list_head_t *root;
     u32_t logSize = log2(size >> 12);

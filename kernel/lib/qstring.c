@@ -56,8 +56,6 @@ bool q_memcmp(const void *s1, const void *s2, size_t len) {
 }
 
 void *q_memcpy(void *dest, const void *src, size_t n) {
-    assertk(dest && src);
-
     char *cd = dest;
     const char *cs = src;
 

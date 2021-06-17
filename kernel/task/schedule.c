@@ -67,9 +67,10 @@ void schedule() {
         }
     }
     next_task = tcb_entry(next);
-    if (next_task->mm){
+    if (next_task->mm) {
         // 设置用户任务内核栈
         set_tss_esp(next_task->stack + PAGE_SIZE);
+        lcr3(kvm_vm2pm((ptr_t) next_task->mm->pgdir));
     }
     switch_to(&cur_task->context, next_task->context);
     ir_unlock(&lock);

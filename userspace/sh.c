@@ -25,13 +25,13 @@ void hello() {
 }
 
 
-void main() {
+int main() {
     cls();
 //    hello();
     while (1) {
         gets(buf, 10);
     }
-    exit(0);
+    return 0;
 }
 
 
