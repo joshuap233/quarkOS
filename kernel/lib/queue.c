@@ -1,7 +1,7 @@
 //
 // Created by pjs on 2021/5/9.
 //
-#include "lib/queue.h"
+#include <lib/queue.h>
 #include <lib/spinlock.h>
 
 void lfQueue_node_init(lfq_node *node) {

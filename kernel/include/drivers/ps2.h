@@ -5,8 +5,8 @@
 #ifndef QUARKOS_DRIVERS_PS2_H
 #define QUARKOS_DRIVERS_PS2_H
 
-#include "types.h"
-#include "x86.h"
+#include <types.h>
+#include <x86.h>
 
 #define PS2_DAT    0x60 //读写数据端口
 #define PS2_CMD    0x64 //读端口读状态,写端口写入指令

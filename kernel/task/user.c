@@ -13,12 +13,9 @@ extern int exec(const char *path);
 
 SECTION(".user.text")
 void user_init() {
-    int i;
     pid_t pid = fork();
     if (pid == 0) {
         exec("/bin/sh");
-    } else if (pid > 0) {
-        i = 0;
     }
     exit(0);
 }

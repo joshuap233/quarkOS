@@ -5,9 +5,9 @@
 #ifndef QUARKOS_TASK_SCHEDULE_H
 #define QUARKOS_TASK_SCHEDULE_H
 
-#include "types.h"
-#include "lib/list.h"
-#include "lib/spinlock.h"
+#include <types.h>
+#include <lib/list.h>
+#include <lib/spinlock.h>
 
 #define TIME_SLICE_LENGTH 100  // 时间片长度为 100ms
 

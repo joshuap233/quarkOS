@@ -13,3 +13,4 @@ image/
 backup.c
 test.sh
 txt
+test/

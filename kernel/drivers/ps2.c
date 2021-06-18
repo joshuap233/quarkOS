@@ -1,16 +1,16 @@
 //
 // Created by pjs on 2021/1/27.
 //
-#include "types.h"
-#include "drivers/ps2.h"
-#include "x86.h"
-#include "lib/qlib.h"
+#include <types.h>
+#include <drivers/ps2.h>
+#include <x86.h>
+#include <lib/qlib.h>
 
 
 typedef bool status_t;
 #define FULL     1
 #define EMPTY    0
-#define N_POLL     10  //轮询端口次数
+#define N_POLL   10  //轮询端口次数
 
 
 bool poll_status(uint8_t bit, status_t expect);

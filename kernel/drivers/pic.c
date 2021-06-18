@@ -2,10 +2,10 @@
 // Created by pjs on 2021/1/26.
 //
 
-#include "types.h"
-#include "x86.h"
-#include "lib/qlib.h"
-#include "drivers/pic.h"
+#include <types.h>
+#include <x86.h>
+#include <lib/qlib.h>
+#include <drivers/pic.h>
 
 #define ICW1_ICW4        0x1                //本次初始化需要发送 ICW4
 #define ICW1_CASCADE    (0x0<<1)        //级联

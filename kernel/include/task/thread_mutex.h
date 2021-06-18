@@ -5,9 +5,9 @@
 #ifndef QUARKOS_TASK_SLEEPLOCK_H
 #define QUARKOS_TASK_SLEEPLOCK_H
 
-#include "types.h"
-#include "lib/list.h"
-#include "lib/spinlock.h"
+#include <types.h>
+#include <lib/list.h>
+#include <lib/spinlock.h>
 
 typedef struct thread_mutex {
     bool locked;        // 该锁是否已经被持有

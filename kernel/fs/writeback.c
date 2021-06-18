@@ -50,9 +50,9 @@ static void page_rw(struct page *buf);
 
 static void page_flush(struct page *buf);
 
-INLINE void __sleeplock_lock(rwlock_t *lk);
+INLINE void sleeplock_lock(rwlock_t *lk);
 
-INLINE void __sleeplock_unlock(rwlock_t *lk);
+INLINE void sleeplock_unlock(rwlock_t *lk);
 
 void page_cache_init() {
 
@@ -136,9 +136,9 @@ void page_read(struct page *buf) {
     rwlock_rUnlock(&buf->rwlock);
 
     // disk_isr 会修改 buf, 因此需要用写锁
-    __sleeplock_lock(&buf->rwlock);
+    sleeplock_lock(&buf->rwlock);
     page_rw(buf);
-    __sleeplock_unlock(&buf->rwlock);
+    sleeplock_unlock(&buf->rwlock);
 }
 
 
@@ -158,22 +158,22 @@ void mark_page_dirty(struct page *buf) {
 // 立即刷新内存
 void page_sync(struct page *buf) {
     assertk(buf);
-    __sleeplock_lock(&buf->rwlock);
+    sleeplock_lock(&buf->rwlock);
 
     buf->flag |= PG_DIRTY | PG_VALID;
     page_rw(buf);
 
-    __sleeplock_unlock(&buf->rwlock);
+    sleeplock_unlock(&buf->rwlock);
 }
 
 // 不使用缓冲区数据,强制重新读取磁盘
 void page_read_sync(struct page *buf) {
     assertk(buf);
-    __sleeplock_lock(&buf->rwlock);
+    sleeplock_lock(&buf->rwlock);
 
     page_rw(buf);
 
-    __sleeplock_unlock(&buf->rwlock);
+    sleeplock_unlock(&buf->rwlock);
 }
 
 static void page_rw(struct page *buf) {
@@ -220,11 +220,11 @@ static void page_flush(struct page *buf) {
     assertk(buf->flag & PG_DIRTY);
     rwlock_rUnlock(&buf->rwlock);
 
-    __sleeplock_lock(&buf->rwlock);
+    sleeplock_lock(&buf->rwlock);
 
     page_rw(buf);
 
-    __sleeplock_unlock(&buf->rwlock);
+    sleeplock_unlock(&buf->rwlock);
 }
 
 static void flush_pages() {
@@ -301,12 +301,12 @@ void page_recycle(u32_t size) {
     rwlock_wUnlock(&cacheAllocator.list.rwlock);
 }
 
-INLINE void __sleeplock_lock(rwlock_t *lk) {
+INLINE void sleeplock_lock(rwlock_t *lk) {
     thread_mutex_lock(&cacheAllocator.wait_rw);
     rwlock_wLock(lk);
 }
 
-INLINE void __sleeplock_unlock(rwlock_t *lk) {
+INLINE void sleeplock_unlock(rwlock_t *lk) {
     rwlock_wUnlock(lk);
     thread_mutex_unlock(&cacheAllocator.wait_rw);
 }
@@ -375,9 +375,9 @@ UNUSED void test_ide_rw() {
 
     // 保存初始值
     page_read_sync(buf0);
-    q_memcpy(tmp, buf0->data, BUF_SIZE);
+    memcpy(tmp, buf0->data, BUF_SIZE);
 
-    q_memset(buf0->data, 1, BUF_SIZE);
+    memset(buf0->data, 1, BUF_SIZE);
     mark_page_dirty(buf0);
     page_flush(buf0);
     page_read_sync(buf1);
@@ -386,16 +386,16 @@ UNUSED void test_ide_rw() {
         assertk(((char *) buf0->data)[i] == 1);
     }
 
-    q_memset(buf0->data, 2, BUF_SIZE);
+    memset(buf0->data, 2, BUF_SIZE);
     page_sync(buf0);
     page_read_sync(buf1);
     assert_cmp(buf1, 2);
 
     //恢复初始值
-    q_memcpy(buf0->data, tmp, BUF_SIZE);
+    memcpy(buf0->data, tmp, BUF_SIZE);
     page_sync(buf0);
     page_read_sync(buf1);
-    assertk(q_memcmp(tmp, buf1->data, BUF_SIZE));
+    assertk(memcmp(tmp, buf1->data, BUF_SIZE));
 
     //测试回收
     recycle(buf0);

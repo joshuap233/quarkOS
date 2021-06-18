@@ -4,7 +4,6 @@
 #include <elf.h>
 #include <fs/vfs.h>
 #include <loader.h>
-#include <mm/kmalloc.h>
 #include <mm/page_alloc.h>
 #include <task/task.h>
 #include <lib/qstring.h>
@@ -62,8 +61,8 @@ void load_elf_exec(const char *path) {
         assertk(hdr->e_shstrndx != SHN_UNDEF);
         // 取消用户空间虚拟内存映射
         vm_struct_unmaps(mm);
-        q_memset(pgdir, 0, PAGE_SIZE / 4 * 3);
-        q_memset(mm, 0, sizeof(mm_struct_t));
+        bzero(pgdir, PAGE_SIZE / 4 * 3);
+        bzero(mm, sizeof(mm_struct_t));
         mm->pgdir = pgdir;
 
         // 程序头表
@@ -85,7 +84,7 @@ void load_elf_exec(const char *path) {
                     assertk(pgh->p_filesz == 0);
 
                     area = &mm->bss;
-                    q_memset((void *) va, size, 0);
+                    bzero((void *) va, size);
                 } else {
                     if (pgh->p_flags & PF_X) {
                         area = &mm->text;

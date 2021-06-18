@@ -4,7 +4,7 @@
 
 #ifndef QUARKOS_DRIVERS_PCI_H
 #define QUARKOS_DRIVERS_PCI_H
-#include "types.h"
+#include <types.h>
 
 
 typedef union {

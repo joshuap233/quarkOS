@@ -97,7 +97,7 @@ static void __slab_free(void *addr, list_head_t *head) {
     slabInfo_t *info = &page->slab;
 
 #ifdef DEBUG
-    assertk(info->magic == SLAB_MAGIC)
+    assertk(info->magic == SLAB_MAGIC);
 #endif // DEBUG
 
     assertk(info->n_allocated > 0);
@@ -249,7 +249,7 @@ void test_slab_alloc() {
         slab_free(slabAddr[i][0]);
     }
     assertk(!list_empty(&allocator.slab[0]));
-    assertk(allocator.slab->next != PAGE_ENTRY(allocator.slab->next)->head.next)
+    assertk(allocator.slab->next != PAGE_ENTRY(allocator.slab->next)->head.next);
     except_chunk_size(0, CHUNK_CNT(0));
 
     slab_free(slabAddr[0][1]);

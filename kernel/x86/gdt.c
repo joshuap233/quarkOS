@@ -45,13 +45,13 @@ void gdt_init() {
     gdt_set(SEL_UTEXT, 0, GDT_LIMIT, GDT_FLAG, GDT_USR_CODE); //用户代码段
     gdt_set(SEL_UDATA, 0, GDT_LIMIT, GDT_FLAG, GDT_USR_DATA); //用户数据段
 
-    assertk(gdt[1].limit == 0xffff)
-    assertk(gdt[1].base_l == 0)
-    assertk(gdt[1].base_m == 0)
-    assertk(gdt[1].base_h == 0)
-    assertk(gdt[1].limit_h == 0xf)
-    assertk(gdt[1].flag == 0xc)
-    assertk(gdt[1].access == GDT_SYS_CODE)
+    assertk(gdt[1].limit == 0xffff);
+    assertk(gdt[1].base_l == 0);
+    assertk(gdt[1].base_m == 0);
+    assertk(gdt[1].base_h == 0);
+    assertk(gdt[1].limit_h == 0xf);
+    assertk(gdt[1].flag == 0xc);
+    assertk(gdt[1].access == GDT_SYS_CODE);
 
     tss_desc_set();
     gdtr_set((ptr_t) &gdtr);

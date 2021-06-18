@@ -9,8 +9,6 @@
 #include <lib/qlib.h>
 #include <fs/init.h>
 #include <isr.h>
-#include <syscall/syscall.h>
-#include <task/timer.h>
 #include <terminal.h>
 
 #ifdef __linux__

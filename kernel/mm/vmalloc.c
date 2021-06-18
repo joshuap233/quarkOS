@@ -4,7 +4,6 @@
 // 管理用户空间虚拟内存
 // TODO: 管理 brk
 #include <mm/vmalloc.h>
-#include <mm/mm.h>
 #include <mm/kvm.h>
 #include <mm/kmalloc.h>
 #include <mm/page_alloc.h>
@@ -34,8 +33,6 @@
  */
 
 static void vm_map_area(struct vm_area *area, ptr_t pa, pte_t *pgdir);
-
-#define area_entry(ptr) list_entry(ptr,struct vm_area,head)
 
 
 // 用于初始化第一个用户任务
@@ -139,7 +136,7 @@ int vm_remap_page(ptr_t va, pte_t *pgdir) {
     // 分配新页,临时映射到内核用于复制页内容
     new = __alloc_page(PAGE_SIZE);
     kvm_map(new, VM_PRES | VM_KW);
-    q_memcpy(new->data, (void *) va, PAGE_SIZE);
+    memcpy(new->data, (void *) va, PAGE_SIZE);
 
     // 取消临映射
     kvm_unmap(new);
@@ -276,7 +273,7 @@ static void vm_area_copy_stack(
     // 临时映射到内核用于复制
     stack = kmalloc(PAGE_SIZE);
     *new = kvm_vm2pm((ptr_t) stack) | VM_PRES | VM_UW;
-    q_memcpy(stack, (void *) kvm_pm2vm(PAGE_ADDR(*pde)), PAGE_SIZE);
+    memcpy(stack, (void *) kvm_pm2vm(PAGE_ADDR(*pde)), PAGE_SIZE);
 
     // 取消临时映射
     kvm_unmap2((ptr_t) stack);
@@ -287,7 +284,7 @@ static void vm_area_copy_stack(
 
 struct mm_struct *vm_struct_copy(struct mm_struct *src) {
     struct mm_struct *new = kmalloc(sizeof(struct mm_struct));
-    q_memcpy(new, src, sizeof(struct mm_struct));
+    memcpy(new, src, sizeof(struct mm_struct));
     vm_map_init(new);
 
     vm_area_copy(src->text.va, src->text.size, src->pgdir, new->pgdir);

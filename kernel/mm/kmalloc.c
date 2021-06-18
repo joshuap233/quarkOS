@@ -21,7 +21,7 @@ void *kmalloc(u32_t size) {
 void *kcalloc(u32_t size) {
     size = fixSize(size);
     void *addr = kmalloc(size);
-    q_memset(addr, 0, size);
+    bzero(addr, size);
     return addr;
 }
 
@@ -38,7 +38,7 @@ void *krealloc(void *_addr, size_t _size) {
 
     if (is_slab(page))
         size = slab_chunk_size(addr);
-    q_memcpy(addr, _addr, size);
+    memcpy(addr, _addr, size);
     kfree(_addr);
     return addr;
 }

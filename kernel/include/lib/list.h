@@ -5,7 +5,7 @@
 #ifndef QUARKOS_LIB_LIST_H
 #define QUARKOS_LIB_LIST_H
 
-#include "types.h"
+#include <types.h>
 
 #define LIST_HEAD(name) \
     list_head_t name = { &(name), &(name) }

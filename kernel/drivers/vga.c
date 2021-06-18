@@ -50,11 +50,11 @@ INLINE void vga_set_buf(char c, uint8_t color, cursor_t cur) {
 }
 
 INLINE void vga_clean_line(uint8_t row) {
-    q_memset16(&terminal_buffer[BUF_INDEX(0, row)], VGA_SPACE, VGA_WIDTH);
+    memset16(&terminal_buffer[BUF_INDEX(0, row)], VGA_SPACE, VGA_WIDTH);
 }
 
 INLINE void vga_scroll_up() {
-    q_memcpy(terminal_buffer, &terminal_buffer[BUF_INDEX(0, 1)], (VGA_HEIGHT - 1) * VGA_WIDTH * 2);
+    memcpy(terminal_buffer, &terminal_buffer[BUF_INDEX(0, 1)], (VGA_HEIGHT - 1) * VGA_WIDTH * 2);
     vga_clean_line(VGA_HEIGHT - 1);
 }
 
@@ -103,12 +103,12 @@ INLINE void dec_col() {
 
 void __vga_clean() {
     // 清屏为空格
-    q_memset16(terminal_buffer, VGA_SPACE, VGA_WIDTH * VGA_HEIGHT);
+    memset16(terminal_buffer, VGA_SPACE, VGA_WIDTH * VGA_HEIGHT);
 }
 
 void __vga_cleanc(cursor_t c) {
     //清除一个字符
-    q_memset16(&terminal_buffer[BUF_INDEX(c.col, c.row)], VGA_SPACE, 1);
+    memset16(&terminal_buffer[BUF_INDEX(c.col, c.row)], VGA_SPACE, 1);
 }
 
 

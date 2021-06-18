@@ -189,6 +189,8 @@ void copy_open_file(struct open_file **src, struct open_file **desc);
 
 void recycle_open_file(struct open_file *open);
 
+void getcwd(char *buf, size_t size);
+
 #define SEPARATOR            '/'
 
 

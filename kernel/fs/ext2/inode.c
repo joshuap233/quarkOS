@@ -1,7 +1,6 @@
 //
 // Created by pjs on 2021/5/26.
 //
-
 #include <types.h>
 #include <fs/vfs.h>
 #include <fs/ext2.h>
@@ -76,7 +75,7 @@ inode_t *inode_cpy(u32_t ino, super_block_t *sb) {
     rwlock_init(&inode->rwlock);
 
     // info 信息
-    q_memcpy(info->blocks, ei->blocks, sizeof(u32_t) * N_BLOCKS);
+    memcpy(info->blocks, ei->blocks, sizeof(u32_t) * N_BLOCKS);
     info->blockCnt = ei->cntSectors / (sb->blockSize / SECTOR_SIZE);
 
     mark_inode_dirty(inode, I_TIME);
@@ -135,7 +134,7 @@ inode_t *inode_alloc(inode_t *parent, u16_t mode, const char *name) {
     rwlock_init(&inode->rwlock);
 
     // info 信息
-    q_memset(info->blocks, 0, sizeof(u32_t) * N_BLOCKS);
+    bzero(info->blocks, sizeof(u32_t) * N_BLOCKS);
     info->blockCnt = 0;
 
     // 修改元数据
@@ -261,7 +260,7 @@ void ext2_write_back(inode_t *inode) {
         ino->dirAcl = inode->size >> 32;
         ino->linkCnt = inode->linkCnt;
         ino->cntSectors = ext2_i(inode)->blockCnt * 8;
-        q_memcpy(ino->blocks, ext2_i(inode)->blocks, N_BLOCKS * sizeof(u32_t));
+        memcpy(ino->blocks, ext2_i(inode)->blocks, N_BLOCKS * sizeof(u32_t));
         ino->mode = inode->type | inode->permission;
     }
     if (inode->state == I_DEL) {
@@ -269,7 +268,7 @@ void ext2_write_back(inode_t *inode) {
         ino->linkCnt = 0;
         ino->delTime = inode->deleteTime;
         ino->cntSectors = 0;
-        q_memset(ino->blocks, 0, N_BLOCKS * sizeof(u32_t));
+        bzero(ino->blocks, N_BLOCKS * sizeof(u32_t));
         directory_destroy(inode->dir);
         inode_destroy(inode);
     } else {

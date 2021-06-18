@@ -155,7 +155,7 @@ struct page *get_page(ptr_t addr) {
     return page;
 }
 
-INLINE struct page *get_buddy(struct page *page) {
+static struct page *get_buddy(struct page *page) {
     struct mem_zone *zone = get_zone(page);
     u32_t pgCnt = page->size >> 12;
     u32_t cnt = (page - zone->first) / pgCnt;

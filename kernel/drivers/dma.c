@@ -4,12 +4,12 @@
 // ide dma
 // TODO: 有个 BUG 找不出来,我都快要疯了,我再也不想写驱动了!!!
 
-#include "drivers/pci.h"
-#include "lib/qlib.h"
-#include "drivers/dma.h"
-#include "lib/list.h"
-#include "drivers/ide.h"
-#include "mm/kvm.h"
+#include <"drivers/pci.h>
+#include <lib/qlib.h>
+#include <drivers/dma.h>
+#include <lib/list.h>
+#include <drivers/ide.h>
+#include <mm/kvm.h>
 
 #define N_PRD   N_BUF
 #define LH list_head_t

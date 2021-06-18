@@ -2,10 +2,10 @@
 // Created by pjs on 2021/4/9.
 //
 
-#include "types.h"
-#include "x86.h"
-#include "drivers/pci.h"
-#include "lib/qlib.h"
+#include <types.h>
+#include <x86.h>
+#include <drivers/pci.h>
+#include <lib/qlib.h>
 
 // 32 bit 端口
 #define CONFIG_ADDRESS    0xCF8

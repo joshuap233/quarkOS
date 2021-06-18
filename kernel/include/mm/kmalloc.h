@@ -5,7 +5,7 @@
 #ifndef QUARKOS_KMALLOC_H
 #define QUARKOS_KMALLOC_H
 
-#include "types.h"
+#include <types.h>
 
 void *kmalloc(u32_t size);
 

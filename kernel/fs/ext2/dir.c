@@ -45,7 +45,7 @@ directory_t *directory_alloc(
     directory_t *dir = directory_get();
     dir->ino = ino;
     dir->inode = inode;
-    dir_name_set(dir, name, q_strlen(name));
+    dir_name_set(dir, name, strlen(name));
 
     dir->sb = inode->sb;
     dir->ops = &ext2_dir_ops;
@@ -75,7 +75,7 @@ directory_t *directory_cpy(ext2_dir_t *src, directory_t *parent) {
 }
 
 directory_t *find_entry_cache(directory_t *parent, const char *name) {
-    size_t len = q_strlen(name);
+    size_t len = strlen(name);
     list_head_t *hdr;
 
     list_for_each(hdr, &parent->child) {
@@ -89,7 +89,7 @@ directory_t *find_entry_cache(directory_t *parent, const char *name) {
 
 
 directory_t *find_entry_disk(inode_t *parent, const char *name) {
-    size_t name_len = q_strlen(name);
+    size_t name_len = strlen(name);
     ext2_dir_t *dir;
     u32_t bid;
     for_each_block(bid, parent) {
@@ -97,7 +97,7 @@ directory_t *find_entry_disk(inode_t *parent, const char *name) {
         for_each_dir(dir, parent->sb->blockSize) {
             if (dir->inode != 0
                 && dir->nameLen == name_len &&
-                q_memcmp(name, dir->name, name_len)) {
+                memcmp(name, dir->name, name_len)) {
 
                 directory_t *new = directory_cpy(dir, parent->dir);
                 return new;
@@ -141,7 +141,7 @@ static ext2_dir_t *new_dir_entry(ext2_dir_t *dir, u32_t ino, char *name, size_t 
     new->inode = ino;
     new->nameLen = name_len;
     new->type = type;
-    q_memcpy(new->name, name, name_len);
+    memcpy(new->name, name, name_len);
     u32_t remain = new->entrySize - entrySize;
     if (remain > ALIGN4(sizeof(ext2_dir_t) + 1)) {
         new->entrySize = entrySize;
@@ -156,9 +156,9 @@ static ext2_dir_t *new_dir_entry(ext2_dir_t *dir, u32_t ino, char *name, size_t 
 static void create_dir_entry(inode_t *parent, char *name, u32_t ino, u8_t type) {
     ext2_dir_t *dir, *new;
     u32_t bid;
-    struct page*buf;
+    struct page *buf;
     u32_t blockSize = parent->sb->blockSize;
-    size_t nameLen = q_strlen(name);
+    size_t nameLen = strlen(name);
 
     for_each_block(bid, parent) {
         buf = ext2_block_read(bid, parent->sb);
@@ -185,7 +185,7 @@ static void create_dir_entry(inode_t *parent, char *name, u32_t ino, u8_t type) 
 
 void make_empty_dir(inode_t *inode) {
     // 创建 . 与 .. 条目
-    struct page*buf;
+    struct page *buf;
     ext2_dir_t *dir;
     u32_t bid = ext2_i(inode)->blocks[0];
     u32_t blockSize = inode->sb->blockSize;
@@ -238,7 +238,7 @@ void append_to_parent(inode_t *parent, inode_t *child) {
 bool dir_empty(inode_t *inode) {
     u32_t bid;
     ext2_dir_t *dir;
-    struct page*buf;
+    struct page *buf;
     u32_t blockSize = inode->sb->blockSize;
     assertk(ext2_is_dir(inode));
     if (inode->linkCnt != 2) {
@@ -267,7 +267,7 @@ void remove_from_parent(inode_t *parent, directory_t *target) {
 
     ext2_dir_t *dir;
     u32_t bid;
-    struct page*buf;
+    struct page *buf;
     u32_t blockSize = parent->sb->blockSize;
     size_t name_len = target->nameLen;
     char *name = dir_name_dump(target);
@@ -278,7 +278,7 @@ void remove_from_parent(inode_t *parent, directory_t *target) {
         for_each_dir(dir, blockSize) {
             if (dir->inode != 0
                 && dir->nameLen == name_len
-                && q_memcmp(name, dir->name, dir->nameLen)) {
+                && memcmp(name, dir->name, dir->nameLen)) {
 
                 dir->inode = 0;
                 merge_dir_entry(dir, blockSize);

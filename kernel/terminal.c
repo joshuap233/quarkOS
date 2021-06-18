@@ -14,6 +14,7 @@
 
 
 INT kb_isr(interrupt_frame_t *frame);
+
 #define U64LEN 20           // uint64 十进制数长度
 #define KB_BUFFER_SIZE  256 //键盘缓冲区大小
 
@@ -60,10 +61,12 @@ void q_append(kb_queue_t *q, uint8_t c) {
 }
 
 char q_pop(kb_queue_t *q) {
+    assertk(q);
+
     if (q->header == q->tail) return KB_NULL;
-    char res = q->buffer[q->header];
+    uint8_t res = q->buffer[q->header];
     q->header = (q->header + 1) % KB_BUFFER_SIZE;
-    return res;
+    return (char) res;
 }
 
 
@@ -221,13 +224,13 @@ static void print_d(int64_t num) {
         str[i++] = '-';
         num = -num;
     }
-    q_utoa(num, str + i);
+    utoa(num, str + i);
     put_string(str);
 }
 
 static void print_u(uint64_t num) {
     char str[U64LEN + 1];
-    q_utoa(num, str);
+    utoa(num, str);
     put_string(str);
 }
 
@@ -245,7 +248,7 @@ static void print_hex(uint64_t x) {
 
 
 void put_string(const char *data) {
-    size_t size = q_strlen(data);
+    size_t size = strlen(data);
     for (size_t i = 0; i < size; i++)
         vga_put_char(data[i]);
     vga_sync_cursor();
@@ -263,7 +266,7 @@ void put_char(char c) {
 }
 
 __attribute__ ((format (printf, 1, 2))) void printfk(char *__restrict str, ...) {
-    size_t str_len = q_strlen(str);
+    size_t str_len = strlen(str);
     va_list ap;
     va_start(ap, str);
     for (size_t i = 0; i < str_len; i++) {

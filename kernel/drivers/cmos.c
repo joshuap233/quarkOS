@@ -3,10 +3,10 @@
 //
 // https://wiki.osdev.org/CMOS
 
-#include "drivers/cmos.h"
-#include "x86.h"
-#include "lib/time.h"
-#include "drivers/pit.h"
+#include <drivers/cmos.h>
+#include <x86.h>
+#include <lib/time.h>
+#include <drivers/pit.h>
 
 u64_t startup_timestamp = 0;
 

@@ -32,7 +32,7 @@ int sys_exec(u32_t *args) {
     return 0;
 }
 
-int sys_fork(u32_t *args) {
+int sys_fork(UNUSED u32_t *args) {
     return kernel_fork();
 }
 
@@ -103,14 +103,16 @@ int sys_exit(u32_t *args) {
     return 0;
 }
 
-int sys_cls(u32_t *args){
+int sys_cls(UNUSED u32_t *args) {
     // 清屏
     terminal_clear();
     return 0;
 }
 
-int sys_getcwd(u32_t *args){
-
+int sys_getcwd(u32_t *args) {
+    char *buf = (char *) args[0];
+    u32_t len = args[1];
+    getcwd(buf, len);
     return 0;
 }
 

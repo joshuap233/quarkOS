@@ -5,8 +5,8 @@
 #ifndef QUARKOS_TASK_TIMER_H
 #define QUARKOS_TASK_TIMER_H
 
-#include "types.h"
-#include "lib/list.h"
+#include <types.h>
+#include <lib/list.h>
 
 #define TIMER_COUNT 20
 typedef struct timer {

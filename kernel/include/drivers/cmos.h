@@ -5,7 +5,7 @@
 #ifndef QUARKOS_DRIVERS_CMOS_H
 #define QUARKOS_DRIVERS_CMOS_H
 
-#include "types.h"
+#include <types.h>
 
 struct cmos_time {
     u8_t second;

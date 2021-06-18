@@ -1,7 +1,6 @@
 //
 // Created by pjs on 2021/6/15.
 //
-// 直接嵌入内核, 方便 DEBUG
 
 #include <types.h>
 #include "lib.h"

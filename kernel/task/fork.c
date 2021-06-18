@@ -14,7 +14,6 @@
 #include <task/timer.h>
 
 //用于管理空闲 tid
-// TODO: 建立 tid 哈希表
 static tcb_t *task_map[TASK_NUM];
 
 static LIST_HEAD(finish_list);            // 已执行完成等待销毁的线程
@@ -129,7 +128,7 @@ struct task_struct *kernel_clone(struct task_struct *cur, u32_t flag) {
     }
 
     if (flag & CLONE_MM) {
-        assertk(cur->mm)
+        assertk(cur->mm);
         task->mm = vm_struct_copy(cur->mm);
     }
 
@@ -138,7 +137,7 @@ struct task_struct *kernel_clone(struct task_struct *cur, u32_t flag) {
         ptr_t sysContext = (ptr_t) cur->sysContext;
         u32_t offset = sysContext & PAGE_MASK;
 
-        q_memcpy(task->stack + offset,
+        memcpy(task->stack + offset,
                  cur->stack + offset,
                  STACK_SIZE - offset);
         task->context = task->stack + offset - sizeof(context_t);
@@ -206,13 +205,13 @@ void task_set_name(pid_t pid, const char *name) {
     ir_lock(&lock);
     tcb = task_map[pid];
     if (tcb) {
-        cnt = q_strlen(name);
+        cnt = strlen(name);
 
         assertk(cnt <= TASK_NAME_LEN);
 #ifdef DEBUG
         assertk(tcb->magic == TASK_MAGIC);
 #endif //DEBUG
-        q_memcpy(tcb->name, name, cnt);
+        memcpy(tcb->name, name, cnt);
     }
 
     ir_unlock(&lock);
@@ -361,7 +360,8 @@ void *workerA(UNUSED void *args) {
     return NULL;
 }
 
-void test_thread() {
+UNUSED void test_thread() {
+    // 测试内核线程
     test_start;
     spinlock_init(&lock);
     kthread_t tid[10];

@@ -5,10 +5,10 @@
 #ifndef QUARKOS_DRIVERS_DMA_H
 #define QUARKOS_DRIVERS_DMA_H
 
-#include "types.h"
-#include "x86.h"
-#include "drivers/pci.h"
-#include "isr.h"
+#include <types.h>
+#include <x86.h>
+#include <drivers/pci.h>
+#include <isr.h>
 
 void dma_rw(struct page*buf);
 

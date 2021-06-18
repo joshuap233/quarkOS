@@ -285,9 +285,9 @@ inode_t *vfs_find(char *path) {
 }
 
 static char *parse_path(const char *path) {
-    u32_t len = q_strlen(path) + 1;
+    u32_t len = strlen(path) + 1;
     char *new = kmalloc(len);
-    q_memcpy(new, path, len + 1);
+    memcpy(new, path, len + 1);
     if (new[len - 1] == SEPARATOR) {
         new[len - 1] = '\0';
     }
@@ -296,7 +296,7 @@ static char *parse_path(const char *path) {
 
 // 返回需要操作的 文件/目录名, parent 为父目录
 static char *split_path(char *path, inode_t **parent) {
-    u32_t len = q_strlen(path);
+    u32_t len = strlen(path);
     int64_t i = len;
 
     for (; i >= 0 && path[i] != SEPARATOR; --i);
@@ -315,9 +315,9 @@ static char *split_path(char *path, inode_t **parent) {
 char *dir_name_dump(directory_t *dir) {
     char *name = kmalloc(dir->nameLen + 1);
     u32_t cpy = MIN(dir->nameLen, FILE_DNAME_LEN);
-    q_memcpy(name, dir->l_name, cpy);
+    memcpy(name, dir->l_name, cpy);
     if (cpy > FILE_DNAME_LEN) {
-        q_memcpy(name + dir->nameLen - cpy, dir->h_name, dir->nameLen - cpy);
+        memcpy(name + dir->nameLen - cpy, dir->h_name, dir->nameLen - cpy);
     }
     name[dir->nameLen] = '\0';
     return name;
@@ -327,24 +327,24 @@ void dir_name_set(directory_t *dir, const char *name, u32_t len) {
     assertk(len <= FILE_NAME_LEN);
     u32_t cpy = MIN(len, FILE_DNAME_LEN);
 
-    q_memcpy(dir->l_name, name, cpy);
+    memcpy(dir->l_name, name, cpy);
     dir->h_name = NULL;
     dir->nameLen = len;
     if (len > FILE_DNAME_LEN) {
         dir->h_name = kmalloc(len - cpy);
-        q_memcpy(dir->h_name, name + cpy, len - cpy);
+        memcpy(dir->h_name, name + cpy, len - cpy);
     }
 }
 
 bool dir_name_cmp(directory_t *dir, const char *name) {
     u32_t len = MIN(FILE_DNAME_LEN, dir->nameLen);
-    if (!q_memcmp(dir->l_name, name, len)) {
+    if (!memcmp(dir->l_name, name, len)) {
         return false;
     }
 
     if (len > FILE_DNAME_LEN) {
         assertk(dir->h_name);
-        if (!q_memcmp(dir->h_name, name + len, dir->nameLen - len))
+        if (!memcmp(dir->h_name, name + len, dir->nameLen - len))
             return false;
     }
     return true;
@@ -398,6 +398,10 @@ void recycle_open_file(struct open_file *open) {
     }
 }
 
+void getcwd(UNUSED char *buf, UNUSED size_t size) {
+
+}
+
 /*----  挂载 ----*/
 directory_t *get_mount_point(UNUSED char *path) {
     //TODO
@@ -414,7 +418,7 @@ struct vfs_tree *vfs_new_node(directory_t *dir) {
 
 void vfs_mount(char *_path, inode_t *inode) {
     assertk(inode);
-    size_t len = q_strlen(_path);
+    size_t len = strlen(_path);
 
     if (vfs_tree == NULL) {
         if (len == 1 && _path[0] == '/') {

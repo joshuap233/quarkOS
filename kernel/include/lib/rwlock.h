@@ -5,8 +5,8 @@
 #ifndef QUARKOS_LIB_RWLOCK_H
 #define QUARKOS_LIB_RWLOCK_H
 
-#include "types.h"
-#include "spinlock.h"
+#include <types.h>
+#include <lib/spinlock.h>
 
 typedef struct rwlock {
     spinlock_t lock;

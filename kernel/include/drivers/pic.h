@@ -5,7 +5,7 @@
 #ifndef QUARKOS_DRIVERS_PIC_H
 #define QUARKOS_DRIVERS_PIC_H
 
-#include "x86.h"
+#include <x86.h>
 #define PIC1_CMD    0x20
 #define PIC2_CMD    0xa0
 #define PIC1_DAT    0x21

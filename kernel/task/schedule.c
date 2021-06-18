@@ -2,7 +2,6 @@
 // Created by pjs on 2021/4/20.
 //
 // 多级反馈队列
-// 线程运行次数用于 debug
 #include <task/schedule.h>
 #include <task/fork.h>
 #include <task/timer.h>

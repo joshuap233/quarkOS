@@ -16,7 +16,6 @@
 #include <mm/page.h>
 #include <fs/vfs.h>
 #include <lib/qstring.h>
-#include <mm/slab.h>
 #include <mm/kmalloc.h>
 
 static void ops_init();
@@ -102,7 +101,7 @@ static u32_t ext2_read(inode_t *file, uint32_t offset, uint32_t size, char *buf)
 
     page = ext2_block_read(bid, file->sb);
 
-    q_memcpy(buf, page->data + blkOffset, size);
+    memcpy(buf, page->data + blkOffset, size);
     return size;
 }
 
@@ -137,7 +136,7 @@ static u32_t ext2_write(inode_t *file, uint32_t offset, uint32_t size, char *buf
     }
 
     file->size = offset + size;
-    q_memcpy(page->data + blkOffset, buf, size);
+    memcpy(page->data + blkOffset, buf, size);
     mark_page_dirty(page);
     mark_inode_dirty(file, I_DATA);
     return size;

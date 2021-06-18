@@ -4,7 +4,7 @@
 #ifndef QUARKOS_X86_H
 #define QUARKOS_X86_H
 
-#include "types.h"
+#include <types.h>
 
 
 // 端口 port 数据读取到内存 addr 处(2*cnt 字节)

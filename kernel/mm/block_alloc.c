@@ -155,7 +155,7 @@ static void *move(void *addr, size_t size) {
     if (addr > (void *) (1 * M)) {
         void *new = (void *) block_alloc(size) + HIGH_MEM;
         assertk(new != NULL && (ptr_t) new < HIGH_MEM + 4 * M);
-        q_memcpy(new, addr, size);
+        memcpy(new, addr, size);
         return new;
     }
     return addr;

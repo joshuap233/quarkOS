@@ -105,6 +105,7 @@ void ext2_write_super_block(super_block_t *_sb) {
 }
 
 void super_block_backup(ext2_sb_info_t *sb) {
+    // TODO: 关机时备份,定时备份
     //备份超级块与块描述符
     u32_t bno;
     ext2_sb_t *blk;

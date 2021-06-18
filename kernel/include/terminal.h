@@ -10,12 +10,12 @@
 void terminal_init();
 
 
-#define assertk(condition) {\
+#define assertk(condition) do{\
     if (!(condition)) {     \
         printfk("\nassert error: %s: %s: %u\n",__FILE__,__FUNCTION__,__LINE__); \
         panic();                        \
     }\
-}
+}while(0)
 
 
 #define error(string) {\

@@ -1,10 +1,10 @@
 //
 // Created by pjs on 2021/1/26.
 //
-#include "types.h"
-#include "x86.h"
-#include "drivers/pit.h"
-#include "lib/qlib.h"
+#include <types.h>
+#include <x86.h>
+#include <drivers/pit.h>
+#include <lib/qlib.h>
 
 // 8 bit 端口,分别为 c0 c2 数据端口以及命令端口
 #define PIT_C0_DAT 0x40

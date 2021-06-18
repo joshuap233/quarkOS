@@ -173,7 +173,7 @@ static u32_t new_empty_block(inode_t *inode) {
     // 分配新块,并将数据置 0
     u32_t bid = set_block_bitmap(inode);
     struct page*foo = ext2_block_read(bid, inode->sb);
-    q_memset(foo->data, 0, inode->sb->blockSize);
+    bzero(foo->data, inode->sb->blockSize);
     return bid;
 }
 
