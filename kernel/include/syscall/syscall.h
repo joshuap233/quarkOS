@@ -23,5 +23,6 @@
 #define SYS_EXIT     13
 
 #define SYS_CLS      14
+#define SYS_GETCWD      15
 
 #endif //QUARKOS_SYSCALL_H

@@ -27,7 +27,7 @@ void hello() {
 
 int main() {
     cls();
-//    hello();
+    hello();
     while (1) {
         gets(buf, 10);
     }

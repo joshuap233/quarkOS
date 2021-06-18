@@ -109,6 +109,10 @@ int sys_cls(u32_t *args){
     return 0;
 }
 
+int sys_getcwd(u32_t *args){
+
+    return 0;
+}
 
 static int (*syscall[])(u32_t *args) = {
         [SYS_EXEC] = sys_exec,
@@ -125,7 +129,8 @@ static int (*syscall[])(u32_t *args) = {
         [SYS_WRITE] = sys_write,
         [SYS_SLEEP] = sys_sleep,
         [SYS_EXIT] = sys_exit,
-        [SYS_CLS] = sys_cls
+        [SYS_CLS] = sys_cls,
+        [SYS_GETCWD] = sys_getcwd
 };
 
 
@@ -134,7 +139,7 @@ int syscall_isr(struct sys_reg reg) {
     CUR_TCB->sysContext = (void *) reg.esp;
     u32_t no = reg.eax;
     u32_t args[6];
-    if (no <= SYS_CLS) {
+    if (no <= SYS_GETCWD) {
         args[0] = reg.ebx;
         args[1] = reg.ecx;
         args[2] = reg.edx;

@@ -51,6 +51,7 @@ void task_init() {
 
     CUR_TCB->sysContext = NULL;
     CUR_TCB->context = NULL;
+    CUR_TCB->open = NULL;
     task_set_name(CUR_TCB->pid, "init");
 
     init_task = &CUR_HEAD;
@@ -91,6 +92,8 @@ void user_task_init() {
 
     kvm_copy(mm->pgdir);
     CUR_TCB->mm = mm;
+    CUR_TCB->cwd = vfs_ops.find("/");
+
     switch_uvm(mm->pgdir);
     set_tss_esp(CUR_TCB->stack + PAGE_SIZE);
     CUR_TCB->timer_slice = TIME_SLICE_LENGTH;
@@ -119,6 +122,11 @@ struct task_struct *kernel_clone(struct task_struct *cur, u32_t flag) {
     task->stack = task;
     task->context = NULL;
     task->sysContext = NULL;
+    task->open = NULL;
+
+    if (flag & CLONE_FILE) {
+        copy_open_file(&cur->open, &task->open);
+    }
 
     if (flag & CLONE_MM) {
         assertk(cur->mm)
@@ -144,7 +152,7 @@ struct task_struct *kernel_clone(struct task_struct *cur, u32_t flag) {
 
 
 pid_t kernel_fork() {
-    struct task_struct *task = kernel_clone(CUR_TCB, CLONE_MM | CLONE_KERNEL_STACK);
+    struct task_struct *task = kernel_clone(CUR_TCB, CLONE_MM | CLONE_KERNEL_STACK | CLONE_FILE);
     sched_task_add(&task->run_list);
     return task->pid;
 }
@@ -259,14 +267,16 @@ _Noreturn static void *cleaner_worker() {
 
         list_head_t *hdr, *next;
         list_for_each_del(hdr, next, &finish_list) {
-            tcb_t *entry = tcb_entry(hdr);
-            assertk(entry->state == TASK_ZOMBIE);
-            free_pid(entry->pid);
-            //TODO: 回收打开的文件
-            if (entry->mm) {
-                vm_struct_destroy(entry->mm);
+            tcb_t *task = tcb_entry(hdr);
+            assertk(task->state == TASK_ZOMBIE);
+            free_pid(task->pid);
+            if (task->open) {
+                recycle_open_file(task->open);
             }
-            kfree(entry->stack);
+            if (task->mm) {
+                vm_struct_destroy(task->mm);
+            }
+            kfree(task->stack);
         }
         list_header_init(&finish_list);
         task_sleep(NULL, NULL);

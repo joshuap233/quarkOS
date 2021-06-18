@@ -18,7 +18,6 @@ typedef struct directory directory_t;
 
 #define FILE_NAME_LEN    128
 #define FILE_DNAME_LEN   40
-#define FILE_TABLE_SIZE  1024
 
 enum SEEK_WHENCE {
     SEEK_SET = 0,  // 参数 offset 即为新的读写位置.
@@ -61,6 +60,8 @@ struct fs_ops {
 
 // vfs 支持的操作
 struct vfs_ops {
+    fd_t (*find)(char *path);
+
     fd_t (*open)(const char *path);
 
     int32_t (*close)(fd_t fd);
@@ -172,12 +173,23 @@ struct super_block {
     rwlock_t rwlock;
 };
 
+struct open_file {
+    inode_t *inode;
+    fd_t fd;
+    struct open_file *next;
+};
+
 bool dir_name_cmp(directory_t *dir, const char *name);
 
 void dir_name_set(directory_t *dir, const char *name, u32_t len);
 
 char *dir_name_dump(directory_t *dir);
 
+void copy_open_file(struct open_file **src, struct open_file **desc);
+
+void recycle_open_file(struct open_file *open);
+
 #define SEPARATOR            '/'
+
 
 #endif //QUARKOS_FS_VFS_H

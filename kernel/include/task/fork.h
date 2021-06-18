@@ -9,6 +9,7 @@
 
 #define CLONE_KERNEL_STACK      0b1
 #define CLONE_MM               0b10
+#define CLONE_FILE            0b100
 
 void task_set_name(pid_t pid, const char *name);
 

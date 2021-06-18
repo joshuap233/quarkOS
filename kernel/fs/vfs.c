@@ -7,6 +7,7 @@
 #include <lib/qstring.h>
 #include <mm/kmalloc.h>
 #include <fs/writeback.h>
+#include <fs/hash.h>
 
 inode_t *vfs_find(char *path);
 
@@ -14,19 +15,11 @@ static char *split_path(char *path, inode_t **parent);
 
 static char *parse_path(const char *path);
 
-static fd_t alloc_fd(inode_t *inode);
-
-static void free_fd(fd_t fd);
-
-static inode_t *get_inode(fd_t fd);
-
 static directory_t *find_dir(char *path);
 
-// TODO: 构建哈希
-inode_t *file_table[FILE_TABLE_SIZE] = {
-        [0 ...FILE_TABLE_SIZE - 1] = NULL
-};
+static void add_open_file(inode_t *inode, fd_t fd);
 
+static struct open_file *remove_open_file(inode_t *inode);
 
 //记录挂载点
 struct vfs_tree {
@@ -44,7 +37,7 @@ static inode_t *cwd(const char *path) {
         return vfs_tree->dir->inode;
     } else {
         assertk(CUR_TCB->cwd);
-        return CUR_TCB->cwd;
+        return get_inode(CUR_TCB->cwd);
     }
 }
 
@@ -66,6 +59,8 @@ fd_t vfs_open(const char *_path) {
     inode->refCnt++;
 
     kfree(path);
+
+    add_open_file(inode, fd);
     return fd;
 }
 
@@ -75,7 +70,10 @@ int32_t vfs_close(fd_t fd) {
 
     if (!node) return -1;
     node->refCnt--;
+    struct open_file *file = remove_open_file(node);
+
     if (node->refCnt == 0) {
+        kfree(file);
         free_fd(fd);
         error = node->ops->close(node);
         if (error != 0) return error;
@@ -102,7 +100,7 @@ u32_t vfs_read(fd_t fd, void *buf, size_t size) {
 
 struct page *vfs_read_page(fd_t fd, size_t offset) {
     inode_t *node = get_inode(fd);
-    return node->ops->read_page(node,offset);
+    return node->ops->read_page(node, offset);
 }
 
 u32_t vfs_write(fd_t fd, void *buf, size_t size) {
@@ -149,7 +147,7 @@ int32_t vfs_lseek(fd_t fd, int32_t offset, enum SEEK_WHENCE whence) {
     return node->offset;
 }
 
-int64_t vfs_ftell(fd_t fd){
+int64_t vfs_ftell(fd_t fd) {
     inode_t *node = get_inode(fd);
     if (!node) return -2;
     return node->offset;
@@ -352,6 +350,54 @@ bool dir_name_cmp(directory_t *dir, const char *name) {
     return true;
 }
 
+static void add_open_file(inode_t *inode, fd_t fd) {
+    for (struct open_file *file = CUR_TCB->open; file; file = file->next) {
+        if (file->inode == inode) {
+            assertk(file->fd == fd);
+            return;
+        }
+    }
+
+    struct open_file *open = kmalloc(sizeof(struct open_file));
+    open->fd = fd;
+    open->inode = inode;
+    open->next = CUR_TCB->open;
+    CUR_TCB->open = open;
+}
+
+static struct open_file *remove_open_file(inode_t *inode) {
+    struct open_file *file, *prev = NULL;
+    for (file = CUR_TCB->open; file; prev = file, file = file->next) {
+        if (file->inode == inode) {
+            if (prev == NULL) {
+                CUR_TCB->open = file->next;
+            } else {
+                prev->next = file->next;
+            }
+            return file;
+        }
+    }
+    assertk(0);
+    return NULL;
+}
+
+void copy_open_file(struct open_file **src, struct open_file **desc) {
+    struct open_file *file;
+    *desc = *src;
+    for (file = *src; file; file = file->next) {
+        file->inode->refCnt++;
+    }
+}
+
+void recycle_open_file(struct open_file *open) {
+    assertk(open);
+    struct open_file *file, *next;
+    for (file = open; file; file = next) {
+        next = file->next;
+        vfs_close(file->fd);
+    }
+}
+
 /*----  挂载 ----*/
 directory_t *get_mount_point(UNUSED char *path) {
     //TODO
@@ -384,8 +430,23 @@ void vfs_umount() {
     //TODO:
 }
 
+
+fd_t _vfs_find(char *path) {
+    inode_t *inode = vfs_find(path);
+    fd_t fd;
+    assertk(inode);
+
+    fd = alloc_fd(inode);
+    assertk(fd >= 0);
+
+    add_open_file(inode, fd);
+
+    return fd;
+}
+
 void vfs_init() {
     vfs_tree = NULL;
+    vfs_ops.find = _vfs_find;
     vfs_ops.open = vfs_open;
     vfs_ops.close = vfs_close;
     vfs_ops.read = vfs_read;
@@ -401,27 +462,6 @@ void vfs_init() {
     vfs_ops.ls = vfs_ls;
     vfs_ops.umount = vfs_umount;
     vfs_ops.mount = vfs_mount;
-}
-
-static inode_t *get_inode(fd_t fd) {
-    inode_t *inode = file_table[fd];
-    return inode;
-}
-
-static fd_t alloc_fd(inode_t *inode) {
-    for (int i = 0; i < TASK_NUM; ++i) {
-        if (file_table[i] == 0) {
-            file_table[i] = inode;
-            return i;
-        }
-    }
-    assertk(0);
-    return 0;
-}
-
-static void free_fd(fd_t fd) {
-    assertk(fd >= 0);
-    file_table[fd] = 0;
 }
 
 

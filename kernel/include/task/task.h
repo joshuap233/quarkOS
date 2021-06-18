@@ -58,7 +58,6 @@ typedef enum task_state {
 
 
 typedef struct task_struct {
-    //TODO: 记录打开的文件用于回收
     list_head_t run_list;     //运行队列
 
     struct task_struct *parent; //父进程
@@ -76,7 +75,8 @@ typedef struct task_struct {
 
     struct mm_struct *mm;     // 分配的虚拟内存,内核线程共用一个
 
-    inode_t *cwd;
+    fd_t cwd;
+    struct open_file *open;
 
     context_t *context;        // 上下文信息
 
