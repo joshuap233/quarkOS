@@ -37,7 +37,7 @@ echo "add-auto-load-safe-path xxx/.gdbinit"  >> ~/.gdbinit
 
 ## 设计
 
-![1.png](doc/1.png)
+![1.png](doc/image/1.png)
 
 
 ## TIPS:
@@ -47,9 +47,9 @@ echo "add-auto-load-safe-path xxx/.gdbinit"  >> ~/.gdbinit
 
 ## TODO:
 
-- 内存回收，(部分模块实现的内存回收函数，但底层 buddy 并没有调用)
+- 内存回收，(部分模块实现了内存回收函数，但底层 buddy 并没有调用)
 
-- 更完善的用户空间( 它需要一个shell 😝 ) 
+- 它需要一个更完善的 shell 😝
 
 - 统一的错误码
 

@@ -15,14 +15,14 @@
 /**
  *  kernel
  *  --------
- *  用户任务入口函数 (4K)
+ *   4K padding
  *  -------- 3G
  *  PAGE_SIZE
  *  --------
  *  stack    ↓
  *
  *
- *  heap     ↑
+ *  brk      ↑
  *  --------
  *  data/bss
  *  --------
