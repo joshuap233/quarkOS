@@ -51,7 +51,7 @@ headerEnd:
 _start:
 
 	/* 设置临时内核栈, x86 栈向低地址扩展, c 函数执行需要栈 */
-	mov $stack_top, %esp
+	mov $stack_bottom, %esp
 
     movl %eax, tmp_magic
     movl %ebx, tmp_mba
@@ -67,7 +67,7 @@ _start:
 /* 临时内核栈 */
     .section .init.data
     .align   16
-stack_bottom:
-    .skip    4096
 stack_top:
+    .skip    4096
+stack_bottom:
 

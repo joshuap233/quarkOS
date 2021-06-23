@@ -23,4 +23,6 @@ void dma_init();
 
 void cmos_init();
 
+void nic_init();
+
 #endif //QUARKOS_DRIVERS_INIT_H

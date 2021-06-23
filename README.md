@@ -9,6 +9,14 @@
 1.  [构建 i686-elf-gcc](https://wiki.osdev.org/GCC_Cross-Compiler)
 2. `./build.sh`
 
+我使用的 gcc 版本:
+```text
+i686-elf-gcc (GCC) 10.2.0
+Copyright (C) 2020 Free Software Foundation, Inc.
+This is free software; see the source for copying conditions.  There is NO
+warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+```
+
 
 ## 运行
 

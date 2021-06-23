@@ -39,7 +39,6 @@
 #define REG_RSRPD        0x2C00 // RX Small Packet Detect Interrupt
 
 
-
 #define REG_TIPG         0x0410      // Transmit Inter Packet Gap
 #define ECTRL_SLU        0x40        //set link up
 
@@ -104,22 +103,46 @@
 #define E1000_NUM_RX_DESC 32
 #define E1000_NUM_TX_DESC 8
 
+// 接收描述符
 struct e1000_rx_desc {
-    volatile u64_t addr;
-    volatile u16_t length;
+    volatile u64_t addr;     // 缓冲区物理地址
+    volatile u16_t length;   // 硬件会设置包长度
     volatile u16_t checksum;
     volatile u8_t status;
     volatile u8_t errors;
     volatile u16_t special;
 } PACKED;
 
+struct recv_status {
+    volatile u8_t dd: 1;    // Descriptor Done
+    volatile u8_t eop: 1;   // End of Packet
+    volatile u8_t ixsm: 1;  // Ignore Checksum Indication(ipcs,tcpcs)
+    volatile u8_t vp: 1;    // ??
+    volatile u8_t rsv: 1;   // Reserved(0b)
+    volatile u8_t tcpcs: 1; // 1b: the hardware performed the TCP/UDP checksum on the received packet.
+    volatile u8_t ipcs: 1;  // 1b: the hardware performed IP checksum
+    volatile u8_t pif: 1;   // ??
+};
+
+struct recv_errors {
+    volatile u8_t ce: 1;     // CRC Error or Alignment Error
+    volatile u8_t se: 1;     // Symbol Error
+    volatile u8_t seq: 1;    // Sequence Error
+    volatile u8_t rsv: 1;    // Reserved
+    volatile u8_t cxe: 1;
+    volatile u8_t tcpe: 1;   // TCP/UDP Checksum Error
+    volatile u8_t ipe: 1;    //IP Checksum Error
+    volatile u8_t rxe: 1;    // RX Data Error
+};
+
+// 发送描述符
 struct e1000_tx_desc {
     volatile u64_t addr;
     volatile u16_t length;
-    volatile u8_t cso;
-    volatile u8_t cmd;
+    volatile u8_t cso;       // Checksum Offset
+    volatile u8_t cmd;       // Command field
     volatile u8_t status;
-    volatile u8_t css;
+    volatile u8_t css;       // Checksum Start Field
     volatile u16_t special;
 } PACKED;
 

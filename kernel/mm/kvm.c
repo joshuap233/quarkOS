@@ -65,11 +65,23 @@ static void kvm_page_init(ptr_t va, size_t size, u32_t flags) {
     ptr_t end = pa + size;
     pte_t *pte = getPageTableEntry(va);
     for (; pa < end; pa += PAGE_SIZE) {
+        assertk((*pte & VM_PRES) == 0);
         *pte = pa | VM_PRES | flags;
         pte++;
     }
 }
 
+void kvm_maps(ptr_t va, ptr_t pa, size_t size, u32_t flags) {
+    assertk((va & PAGE_MASK) == 0);
+    ptr_t end = va + size;
+    pte_t *pte = getPageTableEntry(va);
+    for (; va < end; pa += PAGE_SIZE, va += PAGE_SIZE) {
+        assertk((*pte & VM_PRES) == 0);
+        *pte = pa | flags;
+        pte++;
+        tlb_flush(va);
+    }
+}
 
 // 返回实际映射的虚拟地址
 void kvm_map(struct page *page, u32_t flags) {
@@ -84,14 +96,7 @@ void kvm_map(struct page *page, u32_t flags) {
 
     //TODO: 如果已经被映射则查找可用地址空间
     ptr_t size = page->size;
-    ptr_t end = va + size;
-    pte_t *pte = getPageTableEntry(va);
-    for (; va < end; pa += PAGE_SIZE, va += PAGE_SIZE) {
-        assertk((*pte & VM_PRES) == 0);
-        *pte = pa | flags;
-        pte++;
-        tlb_flush(va);
-    }
+    kvm_maps(va, pa, size, flags);
 }
 
 struct page *va_get_page(ptr_t addr) {

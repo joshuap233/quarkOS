@@ -53,6 +53,7 @@ void kernel_main() {
     // 磁盘驱动初始化
     ide_init();
     // dma_init();
+    nic_init();
 
     scheduler_init();
     task_init();

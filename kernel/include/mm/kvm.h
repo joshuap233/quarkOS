@@ -17,6 +17,7 @@ typedef uint32_t pte_t;
 
 
 void kvm_unmap(struct page *page);
+
 void kvm_unmap2(ptr_t addr);
 
 void kvm_map(struct page *page, uint32_t flags);
@@ -34,5 +35,8 @@ struct page *va_get_page(ptr_t addr);
 void switch_kvm();
 
 void switch_uvm(pde_t *pgdir);
+
+void kvm_maps(ptr_t va, ptr_t pa, size_t size, u32_t flags);
+
 
 #endif //QUARKOS_MM_KVM_H
