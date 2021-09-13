@@ -21,6 +21,7 @@
 #define HD_TYPE_OFFSET    0xe
 #define CLASS_OFFSET      0xa
 #define PRG_IF_OFFSET     0x9
+#define INTERRUPT_LINE    0x3C
 
 //base address 在配置空间的偏移
 #define PCI_BA_OFFSET0    0x10
@@ -68,6 +69,10 @@ u32_t pci_read_bar(pci_dev_t *pci, int8_t no) {
 void pci_write_bar(pci_dev_t *pci, int8_t no, u32_t value) {
     assertk(no <= 5);
     pci_outl(pci, map[no], value);
+}
+
+u8_t pci_interrupt_line(pci_dev_t *dev) {
+    return pci_inb(dev, INTERRUPT_LINE);
 }
 
 // 使用 dev 的 class_code 与 subclass 探测设备

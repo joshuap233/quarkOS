@@ -47,7 +47,7 @@ void thread_timer_init() {
         timer_pool.timer[i] = &_timer[i];
     }
 
-    reg_isr(32, clock_isr);
+    reg_isr(IRQ0, clock_isr);
 }
 
 bool ms_sleep_until(uint64_t msc) {

@@ -56,4 +56,6 @@ u32_t pci_read_bar(pci_dev_t *pci, int8_t no);
 
 void pci_write_bar(pci_dev_t *pci, int8_t no, u32_t value);
 
+u8_t pci_interrupt_line(pci_dev_t *dev);
+
 #endif //QUARKOS_DRIVERS_PCI_H

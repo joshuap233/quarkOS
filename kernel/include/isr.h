@@ -32,5 +32,6 @@ typedef struct error_code {
 void reg_isr(uint8_t n,void *isr);
 void idt_init();
 
+#define IRQ0  32
 
 #endif //QUARKOS_ISR_H

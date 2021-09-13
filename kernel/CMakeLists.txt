@@ -77,6 +77,14 @@ target_include_directories(
         "${PROJECT_SOURCE_DIR}/syscall"
 )
 
+add_subdirectory(${PROJECT_SOURCE_DIR}/net)
+target_link_libraries(${KERNEL_BIN} PUBLIC net)
+target_include_directories(
+        ${KERNEL_BIN} PUBLIC
+        "${PROJECT_SOURCE_DIR}/net"
+)
+
+
 ## 生成 iso
 add_custom_command(
         OUTPUT ${KERNEL_ISO}

@@ -60,7 +60,8 @@ struct page {
     u32_t size;                    // 当前页管理的内存单元大小(byte)
     u16_t flag;
     u16_t ref_cnt;                 // 引用计数
-    void *data;                      // 页对应的虚拟地址
+    void *data;                    // 页对应的虚拟地址
+
 #ifdef DEBUG
     u32_t magic;
 #endif //DEBUG

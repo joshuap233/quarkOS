@@ -70,7 +70,7 @@ void page_cache_init() {
 //    disk.isr = dma_dev.dma ? dma_isr_handler : ide_isr_handler;
 
     // 注册 ide 中断
-    reg_isr(32 + 14, disk_isr);
+    reg_isr(IRQ0 + 14, disk_isr);
     create_flush_thread();
 }
 
