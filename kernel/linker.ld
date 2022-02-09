@@ -48,7 +48,7 @@ SECTIONS
     user_bss_end = .;
 
 
-    /* 内核代码 */
+    /* 内核代码, 注意 elf 的 VMA 与 LMA*/
     . += 0xC0000000;
 
 	/* 读,执行代码 */
