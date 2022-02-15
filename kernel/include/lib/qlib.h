@@ -62,6 +62,8 @@ void stack_trace();
 
 void panic();
 
+char *func_name(u8_t n);
+
 #define container_of(ptr, type, member) \
     ((type *)((void *)(ptr) - offsetof(type,member)))
 

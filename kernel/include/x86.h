@@ -6,6 +6,31 @@
 
 #include <types.h>
 
+#define INTERRUPT_MASK (0b1 << 9)
+
+
+// gcc 优化屏障
+#define opt_barrier() asm volatile("": : :"memory")
+
+INLINE uint32_t get_eflags() {
+    uint32_t eflags;
+    asm volatile (
+    "pushf\n\t"
+    "popl %0"
+    :"=r"(eflags)
+    ::"memory"
+    );
+    return eflags;
+}
+
+INLINE void set_eflags(uint32_t eflags) {
+    asm volatile (
+    "pushl %0\n\t"
+    "popf"
+    ::"rm"(eflags)
+    :"memory"
+    );
+}
 
 // 端口 port 数据读取到内存 addr 处(2*cnt 字节)
 INLINE void insw(int port, void *addr, int cnt) {
@@ -63,9 +88,13 @@ INLINE void outl(uint16_t port, uint32_t value) {
 }
 
 
-INLINE void io_wait(void) {
+INLINE void io_wait() {
     // 等待一个 io 读写的时间
     asm volatile ( "outb %%al, $0x80" : : "a"(0));
+}
+
+INLINE bool ir_enable() {
+    return get_eflags() & INTERRUPT_MASK;
 }
 
 // 设置 if 位
@@ -86,31 +115,12 @@ INLINE void pause() {
     asm volatile ("pause");
 }
 
-INLINE uint32_t get_eflags() {
-    uint32_t eflags;
-    asm volatile (
-    "pushf\n\t"
-    "popl %0"
-    :"=r"(eflags)
-    ::"memory"
-    );
-    return eflags;
-}
 
-INLINE void set_eflags(uint32_t eflags) {
-    asm volatile (
-    "pushl %0\n\t"
-    "popf"
-    ::"rm"(eflags)
-    :"memory"
-    );
-}
-
-INLINE void lcr3(u32_t cr3){
+INLINE void lcr3(u32_t cr3) {
     asm volatile("movl %0,%%cr3" : : "r" (cr3));
 }
 
-INLINE void ltr(u32_t ss){
+INLINE void ltr(u32_t ss) {
     asm volatile("ltr %0" : : "a" (ss));
 }
 
@@ -155,10 +165,5 @@ INLINE void tlb_flush(ptr_t va) {
     __asm__ volatile ("invlpg (%0)" : : "a" (va));
 }
 
-
-#define INTERRUPT_MASK (0b1 << 9)
-
-// gcc 优化屏障
-#define opt_barrier() asm volatile("": : :"memory")
 
 #endif //QUARKOS_X86_H

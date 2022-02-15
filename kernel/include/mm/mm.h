@@ -27,9 +27,9 @@
 #define VM_PRES             0b1    // 在物理内存中
 #define VM_NPRES            0b0    // 不在物理内存中
 #define VM_KR               0b000  // 特权可读页
-#define VM_KW               0b010  // 特权可读写页
+#define VM_KRW              0b010  // 特权可读写页
 #define VM_UR               0b100  // 用户可读页
-#define VM_UW               0b110
+#define VM_URW              0b110
 
 #define VM_RW_BIT           1
 // 9-11 为被 cpu 忽略

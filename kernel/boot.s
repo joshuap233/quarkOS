@@ -1,4 +1,4 @@
-    .extern kern_entry
+    .extern kernel_entry
     .extern tmp_mba
     .extern tmp_magic
     /* multiboot 头常量 */
@@ -55,7 +55,7 @@ _start:
 
     movl %eax, tmp_magic
     movl %ebx, tmp_mba
-	call kern_entry
+	call kernel_entry
 
 	cli
 1:	hlt

@@ -25,4 +25,12 @@ void cmos_init();
 
 void nic_init();
 
+void smp_init();
+
+void lapic_init();
+
+void ioapic_init();
+
+void acpi_init();
+
 #endif //QUARKOS_DRIVERS_INIT_H

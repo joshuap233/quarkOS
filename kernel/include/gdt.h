@@ -17,7 +17,7 @@
 #define GDT_USR_CODE     0xfa    // 用户代码段
 #define GDT_USR_DATA     0xf2    // 用户数据段
 #define GDT_USR_RODATA   0xf0    // 用户只读数据段
-#define GDT_COUNT 20
+#define GDT_COUNT        20
 
 
 #define TSS_BUSY   0b1011

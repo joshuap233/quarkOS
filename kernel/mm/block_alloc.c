@@ -148,7 +148,7 @@ u32_t block_size() {
 }
 
 
-//移动 信息块
+//移动信息块
 static void *move(void *addr, size_t size) {
     //如果需要移动的内存在 1M 以下,则不移动
     assertk((ptr_t) addr < HIGH_MEM + 4 * M);

@@ -67,14 +67,14 @@ void mm_struct_init(struct mm_struct *mm, struct mm_args *args) {
     mm->data.size = size3;
     if (size3 > 0) {
         mm->data.va = args->data;
-        mm->data.flag = VM_PRES | VM_UW;
+        mm->data.flag = VM_PRES | VM_URW;
         vm_map_area(&mm->data, args->pa3, mm->pgdir);
     }
 
     mm->bss.size = size3;
     if (size4 > 0) {
         mm->bss.va = args->data;
-        mm->bss.flag = VM_PRES | VM_UW;
+        mm->bss.flag = VM_PRES | VM_URW;
         vm_map_area(&mm->bss, args->pa4, mm->pgdir);
     }
 
@@ -86,14 +86,14 @@ void vm_brk_init(struct mm_struct *mm) {
     assertk(mm->bss.va + mm->bss.size < HIGH_MEM - 2 * PAGE_SIZE);
     mm->brk.va = mm->bss.va + PAGE_SIZE;
     mm->brk.size = 0;
-    mm->brk.flag = VM_PRES | VM_UW;
+    mm->brk.flag = VM_PRES | VM_URW;
 }
 
 void vm_stack_init(struct mm_struct *mm) {
     // 设置用户栈
     mm->stack.va = HIGH_MEM - 2 * PAGE_SIZE;
     mm->stack.size = PAGE_SIZE;
-    mm->stack.flag = VM_PRES | VM_UW;
+    mm->stack.flag = VM_PRES | VM_URW;
     mm->size += PAGE_SIZE;
 
     struct page *page = __alloc_page(PAGE_SIZE);
@@ -114,7 +114,7 @@ static pte_t *vm_page_iter(ptr_t va, pde_t *pgdir, bool new) {
     if (new && !(*pde & VM_PRES)) {
         // 在内核空间映射用户页表
         pte = kcalloc(PAGE_SIZE);
-        *pde = kvm_vm2pm((ptr_t) pte) | VM_PRES | VM_UW;
+        *pde = kvm_vm2pm((ptr_t) pte) | VM_PRES | VM_URW;
     } else {
         struct page *page = get_page(PAGE_ADDR(*pde));
         assertk(page);
@@ -135,7 +135,7 @@ int vm_remap_page(ptr_t va, pte_t *pgdir) {
 
     // 分配新页,临时映射到内核用于复制页内容
     new = __alloc_page(PAGE_SIZE);
-    kvm_map(new, VM_PRES | VM_KW);
+    kvm_map(new, VM_PRES | VM_KRW);
     memcpy(new->data, (void *) va, PAGE_SIZE);
 
     // 取消临映射
@@ -240,7 +240,7 @@ static void vm_area_copy(
     while (size > 0) {
         pte_t *pte = vm_page_iter(addr, sPgdir, false);
         pte_t *new = vm_page_iter(addr, dPgdir, true);
-        if ((*pte & VM_UW) == VM_UW) {
+        if ((*pte & VM_URW) == VM_URW) {
             // 标记当前页的原本读写属性
             *pte &= VM_IGNORE_BIT1;
             CLEAR_BIT(*pte, VM_RW_BIT);
@@ -272,7 +272,7 @@ static void vm_area_copy_stack(
 
     // 临时映射到内核用于复制
     stack = kmalloc(PAGE_SIZE);
-    *new = kvm_vm2pm((ptr_t) stack) | VM_PRES | VM_UW;
+    *new = kvm_vm2pm((ptr_t) stack) | VM_PRES | VM_URW;
     memcpy(stack, (void *) kvm_pm2vm(PAGE_ADDR(*pde)), PAGE_SIZE);
 
     // 取消临时映射

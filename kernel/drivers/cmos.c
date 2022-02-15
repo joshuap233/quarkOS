@@ -11,15 +11,20 @@
 u64_t startup_timestamp = 0;
 
 // 当前年份,如果没有世纪寄存器,则用于判断当前世纪
-#define CURRENT_YEAR        2021
+#define CURRENT_YEAR        2022
 
 // 使用使用 apic 检测是否有世纪寄存器, cmos 年份只会显示后两位
-int32_t century_register = 0x00;
+static int32_t century_register = 0x00;
 
 enum {
     cmos_address = 0x70,
     cmos_data = 0x71
 };
+
+void cmos_w(u16_t addr, u8_t data) {
+    outb(cmos_address, addr);
+    outb(cmos_data, data);
+}
 
 INLINE int32_t get_update_in_progress_flag() {
     outb(cmos_address, 0x0A);
@@ -45,7 +50,7 @@ INLINE u8_t get_RTC_register(int32_t reg) {
 }
 
 // 读取 utc 时间或者夏令时
-void read_rtc(struct cmos_time *t) {
+static void read_rtc(struct cmos_time *t) {
     u8_t century;
     u8_t last_second;
     u8_t last_minute;
@@ -97,7 +102,6 @@ void read_rtc(struct cmos_time *t) {
     }
 
     // 计算年份
-
     if (century_register != 0) {
         t->year += century * 100;
     } else {

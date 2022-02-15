@@ -7,26 +7,25 @@
 
 #include <types.h>
 #include <x86.h>
-
-#ifndef SMP
-
+#include <lib/qstring.h>
+#include <lib/qlib.h>
 #include <lib/irlock.h>
 
-#endif //SMP
-
 extern uint32_t test_and_set(uint32_t *flag);
-
-
-#ifdef SMP
 
 typedef struct spinlock {
 #define SPINLOCK_LOCKED 1
 #define SPINLOCK_UNLOCK 0
     uint32_t flag;
+
+#ifdef DEBUG
+    struct cpu *cpu; // 持有锁的 cpu
+    char *name[256]; // 持有锁的函数名
+#endif
 } spinlock_t;
 
 INLINE bool spinlock_locked(spinlock_t *lock) {
-    return lock->flag  == SPINLOCK_LOCKED;
+    return lock->flag == SPINLOCK_LOCKED;
 }
 
 
@@ -45,44 +44,20 @@ INLINE bool spinlock_trylock(spinlock_t *lock) {
 
 
 INLINE void spinlock_lock(spinlock_t *lock) {
+    // 自旋锁需要关闭中断, 否则会造成死锁:
+    // 线程 A 使用资源 a -> 调度程序切换为线程 B,
+    // B 正在进行中断处理且使用资源 a, 那么中断程序中的自旋锁会死锁
+    disable_interrupt();
     while (test_and_set(&lock->flag) == SPINLOCK_LOCKED) {
         pause();
     }
+
+#ifdef DEBUG
+    char *name = func_name(1);
+    memcpy(lock->name, name, strlen(name) + 1);
+#endif
     opt_barrier();
 }
-
-
-#else
-
-typedef ir_lock_t spinlock_t;
-
-INLINE bool spinlock_locked(spinlock_t *lock) {
-    return lock->ir_enable & INTERRUPT_MASK;
-}
-
-
-INLINE void spinlock_init(UNUSED spinlock_t *lock) {
-}
-
-
-INLINE void spinlock_unlock(spinlock_t *lock) {
-    ir_unlock(lock);
-}
-
-INLINE bool spinlock_trylock(spinlock_t *lock) {
-    if (lock->ir_enable & INTERRUPT_MASK) {
-        ir_lock(lock);
-        return true;
-    }
-    return false;
-}
-
-
-INLINE void spinlock_lock(spinlock_t *lock) {
-    ir_lock(lock);
-}
-
-#endif //SMP
 
 
 #endif //QUARKOS_LIB_SPINLOCK_H

@@ -1,7 +1,7 @@
 //
 // Created by pjs on 2021/1/26.
 //
-// 8253/8253 PIT 以及 RTC
+//
 #ifndef QUARKOS_DRIVERS_PIT_H
 #define QUARKOS_DRIVERS_PIT_H
 

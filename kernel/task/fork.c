@@ -12,13 +12,13 @@
 #include <task/schedule.h>
 #include <task/fork.h>
 #include <task/timer.h>
+#include <cpu.h>
 
 //用于管理空闲 tid
 static tcb_t *task_map[TASK_NUM];
 
 static LIST_HEAD(finish_list);            // 已执行完成等待销毁的线程
 static LIST_HEAD(block_list);             // 全局阻塞列表
-list_head_t *idle_task = NULL;            // 空闲线程,始终在可运行列表
 list_head_t *init_task = NULL;
 static list_head_t *cleaner_task = NULL;  // 清理线程,用于清理其他线程
 
@@ -28,7 +28,7 @@ static pid_t alloc_pid(tcb_t *tcb);
 
 _Noreturn static void *cleaner_worker();
 
-static void idle_task_init();
+void idle_task_init();
 
 static void free_pid(pid_t pid);
 
@@ -101,12 +101,11 @@ void user_task_init() {
 
 struct task_struct *kernel_clone(struct task_struct *cur, u32_t flag) {
     extern void syscall_ret();
-    ir_lock_t lock;
-    ir_lock(&lock);
+    ir_lock();
     tcb_t *task = kmalloc(PAGE_SIZE);
     assertk(task != NULL);
     task->pid = alloc_pid(task);
-    ir_unlock(&lock);
+    ir_unlock();
 
 #ifdef DEBUG
     task->magic = TASK_MAGIC;
@@ -138,8 +137,8 @@ struct task_struct *kernel_clone(struct task_struct *cur, u32_t flag) {
         u32_t offset = sysContext & PAGE_MASK;
 
         memcpy(task->stack + offset,
-                 cur->stack + offset,
-                 STACK_SIZE - offset);
+               cur->stack + offset,
+               STACK_SIZE - offset);
         task->context = task->stack + offset - sizeof(context_t);
         task->context->eip = (ptr_t) syscall_ret;
         task->context->eflags = 0x200; // 开启中断
@@ -198,11 +197,10 @@ static void *idle_worker() {
 void task_set_name(pid_t pid, const char *name) {
     assertk(pid < TASK_NUM);
 
-    ir_lock_t lock;
     tcb_t *tcb;
     u8_t cnt;
 
-    ir_lock(&lock);
+    ir_lock();
     tcb = task_map[pid];
     if (tcb) {
         cnt = strlen(name);
@@ -214,7 +212,7 @@ void task_set_name(pid_t pid, const char *name) {
         memcpy(tcb->name, name, cnt);
     }
 
-    ir_unlock(&lock);
+    ir_unlock();
 }
 
 list_head_t *task_get_run_list(pid_t pid) {
@@ -241,11 +239,12 @@ void task_set_time_slice(pid_t pid, u16_t time_slice) {
     tcb->timer_slice = time_slice;
 }
 
-static void idle_task_init() {
+void idle_task_init() {
     kthread_t tid;
+    struct cpu *cpu = getCpu();
     kthread_create(&tid, idle_worker, NULL);
     assertk(tid == 0);
-    idle_task = task_get_run_list(tid);
+    cpu->idle = task_get_run_list(tid);
     task_set_name(tid, "idle");
     task_set_time_slice(tid, 0);
 }
@@ -261,8 +260,7 @@ static void cleaner_task_init() {
 
 _Noreturn static void *cleaner_worker() {
     while (1) {
-        ir_lock_t lock;
-        ir_lock(&lock);
+        ir_lock();
 
         list_head_t *hdr, *next;
         list_for_each_del(hdr, next, &finish_list) {
@@ -280,19 +278,18 @@ _Noreturn static void *cleaner_worker() {
         list_header_init(&finish_list);
         task_sleep(NULL, NULL);
 
-        ir_unlock(&lock);
+        ir_unlock();
     }
 }
 
 // 睡眠前释放锁,被唤醒后自动获取锁, 传入的锁没有被获取则不会睡眠
 int8_t task_sleep(list_head_t *_block_list, spinlock_t *lk) {
-    ir_lock_t lock;
-    ir_lock(&lock);
+    ir_lock();
     if (!_block_list)
         _block_list = &block_list;
     if (lk) {
-        if (!spinlock_locked(&lock)) {
-            ir_unlock(&lock);
+        if (!spinlock_locked(lk)) {
+            ir_unlock();
             return -1;
         };
         spinlock_unlock(lk);
@@ -304,13 +301,12 @@ int8_t task_sleep(list_head_t *_block_list, spinlock_t *lk) {
     schedule();
 
     if (lk) spinlock_lock(lk);
-    ir_unlock(&lock);
+    ir_unlock();
     return 0;
 }
 
 void task_wakeup(list_head_t *_task) {
-    ir_lock_t lock;
-    ir_lock(&lock);
+    ir_lock();
 
     //TODO:如果线程在计时器睡眠队列,将该计时器删除
     tcb_t *task = tcb_entry(_task);
@@ -320,12 +316,11 @@ void task_wakeup(list_head_t *_task) {
         sched_task_add(&task->run_list);
     }
 
-    ir_unlock(&lock);
+    ir_unlock();
 }
 
 void task_exit() {
-    ir_lock_t lock;
-    ir_lock(&lock);
+    ir_lock();
 
     if (&CUR_HEAD != init_task) {
         list_add_next(&CUR_HEAD, &finish_list);
@@ -335,7 +330,7 @@ void task_exit() {
     }
     CUR_TCB->state = TASK_ZOMBIE;
     schedule();
-    ir_unlock(&lock);
+    ir_unlock();
     idle();
 }
 

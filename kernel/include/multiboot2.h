@@ -363,7 +363,7 @@ typedef struct multiboot_tag_apm boot_tag_apm_t;
 typedef struct multiboot_tag boot_tag_t;
 typedef struct multiboot_mmap_entry boot_mmap_entry_t;
 typedef struct multiboot_tag_elf_sections boot_tag_elf_sections_t;
-
+typedef struct multiboot_tag_old_acpi boot_tag_acpi1;
 
 #define for_each_mmap(entry) \
     for ((entry) = bInfo.mmap->entries; (ptr_t) (entry) < (ptr_t) bInfo.mmap + bInfo.mmap->size; (entry)++)
@@ -381,7 +381,9 @@ struct bootInfo {
     boot_tag_apm_t *apm;
     string_table_t shstrtab, strtab;
     elf32_symbol_table_t symtab;
+    void *rsdp;  // rsdpDescriptor 指针
 };
+
 
 extern struct bootInfo bInfo;
 

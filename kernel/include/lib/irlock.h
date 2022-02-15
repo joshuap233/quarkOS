@@ -6,22 +6,21 @@
 #define QUARKOS_LIB_IRLOCK_H
 
 #include <types.h>
+#include <cpu.h>
+#include <drivers/mp.h>
 
-typedef struct interrupt_lock {
-    uint32_t ir_enable;
-} ir_lock_t;
+INLINE void ir_lock() {
+    struct cpu *cpu = getCpu();
+    cpu->ir_enable = get_eflags() & INTERRUPT_MASK;
 
-
-INLINE void ir_lock(ir_lock_t *lock) {
-    lock->ir_enable = get_eflags() & INTERRUPT_MASK;
-    // 只会禁用当前线程中断
-    if (lock->ir_enable)
+    if (cpu->ir_enable)
         disable_interrupt();
     opt_barrier();
 }
 
-INLINE void ir_unlock(ir_lock_t *lock) {
-    if (lock->ir_enable)
+INLINE void ir_unlock() {
+    struct cpu *cpu = getCpu();
+    if (cpu->ir_enable)
         enable_interrupt();
 }
 

@@ -21,6 +21,17 @@ void stack_trace() {
     }
 }
 
+// 返回前 n 的函数的函数名,n 为 0 时返回当前函数名
+char *func_name(u8_t n) {
+    struct stack_frame *stk;
+    asm volatile("movl %%ebp,%0":"=r"(stk));
+    while (stk->ebp && n > 0) {
+        stk = stk->ebp;
+        n--;
+    }
+    return cur_func_name((ptr_t) stk->eip);
+}
+
 //addr 为函数中指令的地址
 char *cur_func_name(ptr_t addr) {
     for (uint32_t i = 0; i < (bInfo.symtab.size / bInfo.symtab.entry_size); ++i) {

@@ -1,6 +1,7 @@
 //
 // Created by pjs on 2021/1/26.
 //
+// 单核使用
 
 #include <types.h>
 #include <x86.h>
@@ -56,3 +57,8 @@ void pic_init(uint32_t offset1, uint32_t offset2) {
     outb(PIC2_DAT, m2);
 }
 
+// 启用 apic 时禁用 pic
+void disable_pic() {
+    outb(PIC1_CMD, 0xff);
+    outb(PIC2_CMD, 0xff);
+}

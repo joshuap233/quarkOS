@@ -18,7 +18,7 @@ set(KERNEL_ISO ${CMAKE_PROJECT_NAME}.iso)
 set(INCLUDE ${PROJECT_SOURCE_DIR}/include)
 include_directories(${INCLUDE})
 
-set(S_SOURCE boot.s)
+set(S_SOURCE boot.s ap_boot.s ap_boot.s)
 set(C_SOURCE kernel.c multiboot2.c loader.c terminal.c)
 
 add_executable(${KERNEL_BIN} ${C_SOURCE} ${S_SOURCE} ${mylib} ${drivers})

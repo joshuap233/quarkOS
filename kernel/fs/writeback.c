@@ -18,6 +18,7 @@
 #include <mm/page_alloc.h>
 #include <mm/kvm.h>
 #include <fs/vfs.h>
+#include <drivers/lapic.h>
 
 static void create_flush_thread();
 
@@ -78,7 +79,7 @@ static struct page *new_buf(uint32_t no_secs) {
     struct page *buf = __alloc_page(PAGE_SIZE);
     struct pageCache *cache = &buf->pageCache;
 
-    kvm_map(buf, VM_PRES | VM_KW);
+    kvm_map(buf, VM_PRES | VM_KRW);
     buf->flag |= PG_CACHE;
     cache->no_secs = no_secs;
     cache->timestamp = 0;
@@ -181,12 +182,11 @@ static void page_rw(struct page *buf) {
     cacheAllocator.thread = &CUR_HEAD;
     disk.start(buf, buf->flag & PG_DIRTY);
 
-    ir_lock_t irLock;
-    ir_lock(&irLock);
+    ir_lock();
     // 如果 thread 为 NULL 则 isr 在 ir_lock 前已经执行完成
     if (cacheAllocator.thread)
         task_sleep(NULL, NULL);
-    ir_unlock(&irLock);
+    ir_unlock();
 
     rwlock_wLock(&cacheAllocator.list.rwlock);
     list_del(&buf->head);
@@ -212,7 +212,7 @@ INT disk_isr(UNUSED interrupt_frame_t *frame) {
         task_wakeup(cacheAllocator.thread);
         cacheAllocator.thread = NULL;
     }
-    pic2_eoi(32 + 14);
+    lapicEoi();
 }
 
 static void page_flush(struct page *buf) {

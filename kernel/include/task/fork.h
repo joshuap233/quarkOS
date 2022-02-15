@@ -19,8 +19,6 @@ void task_wakeup(list_head_t *task);
 
 list_head_t *task_get_run_list(pid_t pid);
 
-extern list_head_t *idle_task;
-
 int kthread_create(kthread_t *tid, void *(worker)(void *), void *args);
 
 void task_set_time_slice(pid_t pid, u16_t time_slice);

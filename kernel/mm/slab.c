@@ -136,7 +136,7 @@ static void add_slab(list_head_t *slab, uint16_t chunkSize) {
     struct page *page = __kalloc_page(PAGE_SIZE);
     page->flag |= PG_SLAB;
 
-    kvm_map(page, VM_PRES | VM_KW);
+    kvm_map(page, VM_PRES | VM_KRW);
     slabInfo_t *info = &page->slab;
     uint16_t cnt_unused = PAGE_SIZE / chunkSize;
     info->size = chunkSize;

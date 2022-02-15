@@ -34,5 +34,4 @@ void pit_init() {
     // 分别写入高字节和低字节
     outb(PIT_C0_DAT, (uint8_t) (divisor & MASK_U32(8)));
     outb(PIT_C0_DAT, (uint8_t) (divisor >> 8));
-
 }

@@ -23,7 +23,7 @@ void page_sync(struct page*buf);
 
 struct page*page_get(uint32_t no_secs);
 
-void page_recycle();
+void page_recycle(u32_t size);
 
 struct page*page_read_no(uint32_t no_secs);
 

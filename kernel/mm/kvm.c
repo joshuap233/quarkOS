@@ -1,7 +1,6 @@
 //
 // Created by pjs on 2021/2/1.
-//
-// 内核空间虚拟内存管理
+// kernel virtual memory 管理
 
 #include <mm/kvm.h>
 #include <mm/page_alloc.h>
@@ -17,7 +16,7 @@ static pde_t _Alignas(PAGE_SIZE) pageDir[N_PTE] = {
 _Alignas(PAGE_SIZE) static pte_t kPageTables[N_PTE / 4][N_PTE] = {
         [0 ...N_PTE / 4 - 1] = {[0 ...N_PTE - 1]=VM_NPRES}
 };
-static cr3_t kCr3;
+cr3_t kCr3;
 
 static void kvm_page_init(ptr_t va, size_t size, u32_t flags);
 
@@ -36,20 +35,22 @@ void kvm_init() {
 
     pde_t *pdr = &pageDir[PDE_INDEX(HIGH_MEM)];
     for (u32_t i = 0; i < N_PTE / 4; ++i) {
-        pdr[i] = ((ptr_t) &kPageTables[i] - HIGH_MEM) | VM_KW | VM_PRES;
+        pdr[i] = ((ptr_t) &kPageTables[i] - HIGH_MEM) | VM_KRW | VM_PRES;
     }
 
     kCr3 = CR3_CTRL | (((ptr_t) &pageDir) - HIGH_MEM);
 
     // 低于 1M 的内存区域
-    kvm_page_init(HIGH_MEM, startKernel - HIGH_MEM, VM_KW);
+    kvm_page_init(HIGH_MEM, startKernel - HIGH_MEM, VM_KRW);
 
     // text 段 与 rodada 段
     kvm_page_init(startKernel, dataStart - startKernel, VM_KR);
 
     // data 段, bss 段 与初始化内核分配的内存
-    kvm_page_init(dataStart, g_mem_start - (dataStart - HIGH_MEM), VM_KW);
+    kvm_page_init(dataStart, g_mem_start - (dataStart - HIGH_MEM), VM_KRW);
 
+    //TODO:
+    kvm_page_init(0xFE000000, 0x2000000, VM_KRW);
     lcr3(kCr3);
 }
 

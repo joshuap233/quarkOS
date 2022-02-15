@@ -14,7 +14,7 @@ void *kmalloc(u32_t size) {
     if (size <= SLAB_MAX)
         return slab_alloc(size);
     struct page *page = __alloc_page(size);
-    kvm_map(page, VM_PRES | VM_KW);
+    kvm_map(page, VM_PRES | VM_KRW);
     return page->data;
 }
 

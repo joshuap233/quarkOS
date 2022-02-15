@@ -6,7 +6,6 @@
 #define QUARKOS_ISR_H
 
 #include <types.h>
-#include <drivers/pic.h>
 
 typedef struct interrupt_frame {
     uint32_t eip;
@@ -31,7 +30,16 @@ typedef struct error_code {
 
 void reg_isr(uint8_t n,void *isr);
 void idt_init();
+void load_idtr();
 
-#define IRQ0  32
+#define IRQ0             32
+
+#define IRQ_TIMER        0
+#define IRQ_KBD          1
+#define IRQ_COM1         4
+#define IRQ_IDE          14
+#define IRQ_ERROR        19
+
+#define IRQ_SPURIOUS     31
 
 #endif //QUARKOS_ISR_H

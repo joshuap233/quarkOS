@@ -3,6 +3,7 @@
 rm -f disk.img
 dd if=/dev/zero of=disk.img bs=1M seek=1024 count=0
 mkfs -t ext2 -b 4096 -I 256 disk.img
+echo -e '\n'
 
 mkdir -p /tmp/disk
 sudo mount disk.img /tmp/disk

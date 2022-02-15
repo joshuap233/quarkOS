@@ -16,11 +16,10 @@ struct cmos_time {
     int32_t year;
 };
 
-extern int32_t century_register;
 // 系统启动时的时间戳
 extern u64_t startup_timestamp;
 
-void read_rtc();
+void cmos_w(u16_t addr, u8_t data);
 u64_t cur_timestamp();
 
 #endif //QUARKOS_DRIVERS_CMOS_H

@@ -4,7 +4,7 @@
 #include <lib/qlib.h>
 #include <isr.h>
 #include <syscall/syscall.h>
-
+#include <x86.h>
 
 //页错误错误码
 typedef struct pf_error_code {
@@ -76,9 +76,17 @@ typedef union idt {
     trap_gate_t trap_gate;
 }PACKED idt_t;
 
-extern void idtr_set(uint32_t idtr);
+
+extern void irqEnable(int irq, int cpuNo);
+
+static void reg_isr1(uint8_t n, void *isr);
 
 static idt_t _Alignas(8) idt[IDT_COUNT] = {0};
+
+idtr_t idtr = {
+        .limit = IDT_SIZE * IDT_COUNT - 1,
+        .address = (ptr_t) idt
+};
 
 extern void syscall_entry();
 
@@ -92,41 +100,47 @@ void idt_set_ig(idt_t *entry, uint32_t offset, uint16_t selector, uint8_t type) 
     ig->offset_l = offset & MASK_U32(16);
 }
 
-
-void idt_init() {
-    idtr_t idtr = {
-            .limit = IDT_SIZE * IDT_COUNT - 1,
-            .address = (ptr_t) idt
-    };
-    //暂时全部使用 interrupt gate(调用 ISR 时自动清除 IF 位)
-    reg_isr(0, ISR(0));
-    reg_isr(1, ISR(1));
-    reg_isr(2, ISR(2));
-    reg_isr(3, ISR(3));
-    reg_isr(4, ISR(4));
-    reg_isr(5, ISR(5));
-    reg_isr(6, ISR(6));
-    reg_isr(7, ISR(7));
-    reg_isr(8, ISR(8));
-    reg_isr(9, ISR(9));
-    reg_isr(10, ISR(10));
-    reg_isr(11, ISR(11));
-    reg_isr(12, ISR(12));
-    reg_isr(13, ISR(13));
-    reg_isr(14, ISR(14));
-    reg_isr(16, ISR(16));
-    reg_isr(17, ISR(17));
-    reg_isr(18, ISR(18));
-    reg_isr(19, ISR(19));
-    reg_isr(20, ISR(20));
-
-    // 系统调用中断
-    idt_set_ig(&idt[SYS_CALL_NO], (ptr_t) syscall_entry, IDT_SC, IDT_UTYPE);
+void load_idtr(){
+    extern void idtr_set(uint32_t idtr);
     idtr_set((ptr_t) &idtr);
 }
 
-void reg_isr(uint8_t n, void *isr) {
+void idt_init() {
+    //暂时全部使用 interrupt gate(调用 ISR 时自动清除 IF 位)
+    reg_isr1(0, ISR(0));
+    reg_isr1(1, ISR(1));
+    reg_isr1(2, ISR(2));
+    reg_isr1(3, ISR(3));
+    reg_isr1(4, ISR(4));
+    reg_isr1(5, ISR(5));
+    reg_isr1(6, ISR(6));
+    reg_isr1(7, ISR(7));
+    reg_isr1(8, ISR(8));
+    reg_isr1(9, ISR(9));
+    reg_isr1(10, ISR(10));
+    reg_isr1(11, ISR(11));
+    reg_isr1(12, ISR(12));
+    reg_isr1(13, ISR(13));
+    reg_isr1(14, ISR(14));
+    reg_isr1(16, ISR(16));
+    reg_isr1(17, ISR(17));
+    reg_isr1(18, ISR(18));
+    reg_isr1(19, ISR(19));
+    reg_isr1(20, ISR(20));
+
+    // 系统调用中断
+    idt_set_ig(&idt[SYS_CALL_NO], (ptr_t) syscall_entry, IDT_SC, IDT_UTYPE);
+    load_idtr();
+}
+
+
+static void reg_isr1(uint8_t n, void *isr) {
     idt_set_ig(&idt[n], (ptr_t) isr, IDT_SC, IDT_TYPE);
+}
+
+void reg_isr(uint8_t n, void *isr) {
+    reg_isr1(n, isr);
+    irqEnable(n - IRQ0, -1);
 }
 
 // 忽略 -Wunused-parameter

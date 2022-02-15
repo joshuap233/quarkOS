@@ -10,15 +10,18 @@
 #include <fs/vfs.h>
 #include <mm/mm.h>
 #include <mm/vmalloc.h>
+#include <cpu.h>
+
 
 #define TASK_NAME_LEN           16
 #define TASK_NUM                1024
 #define TASK_MAX_PRIORITY       3
 #define TASK_MAGIC       0x18ee7305
 
+
 /*
  * 线程切换时需要保存的上下文
- * 根据x86 systemV ABI eax, ecx, edx 是临时寄存器,使用(schedule)函数手动切换时无需保存,
+ * eax, ecx, edx 是临时寄存器(x86 systemV ABI),使用(schedule)函数手动切换时无需保存,
  * 使用中断切换时, __attribute__((interrupt)) 会保存 eax ecx, edx
  * 段选择子固定, 不使用 ldt, 都无需保存
  *  eip 不需要手动保存, call 与 ret 会自动保存与还原
@@ -58,7 +61,7 @@ typedef enum task_state {
 
 
 typedef struct task_struct {
-    list_head_t run_list;     //运行队列
+    list_head_t run_list;       //运行队列
 
     struct task_struct *parent; //父进程
     list_head_t child, sibling;
@@ -78,7 +81,7 @@ typedef struct task_struct {
     fd_t cwd;
     struct open_file *open;
 
-    context_t *context;        // 上下文信息
+    context_t *context;      // 上下文信息
 
     sys_context_t *sysContext;
 
@@ -95,6 +98,7 @@ INLINE tcb_t *cur_tcb() {
     asm("andl %%esp,%0; ":"=r" (tcb): "0" (~PAGE_MASK));
     return tcb;
 }
+
 
 #ifdef DEBUG
 

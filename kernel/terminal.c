@@ -11,7 +11,7 @@
 #include <lib/qstring.h>
 #include <lib/qlib.h>
 #include <task/timer.h>
-
+#include <drivers/lapic.h>
 
 INT kb_isr(interrupt_frame_t *frame);
 
@@ -25,7 +25,7 @@ typedef struct kb_queue {
 } kb_queue_t;
 
 void terminal_init() {
-    reg_isr(IRQ0 + 1, kb_isr);
+    reg_isr(IRQ_KBD, kb_isr);
 }
 
 // 键盘输入
@@ -213,7 +213,7 @@ static void kb_sc_parse(uint8_t scancode) {
 // PIC 1 号中断,键盘输入
 INT kb_isr(UNUSED interrupt_frame_t *frame) {
     kb_sc_parse(ps2_rd());
-    pic1_eoi();
+    lapicEoi();
 }
 
 // VGA 输出

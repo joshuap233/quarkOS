@@ -2,15 +2,16 @@
 // Created by pjs on 2021/1/23.
 //
 #include <gdt.h>
-#include <lib/qstring.h>
 
 static gdt_entry_t _Alignas(8) gdt[GDT_COUNT] = {0};
-
-extern void tr_set(uint32_t tss_desc_index);
-
-extern void gdtr_set(uint32_t gdtr);
+gdtr_t gdtr = {
+        // 使用平坦模型,
+        .limit = GDT_COUNT * GDT_SIZE - 1,
+        .address = (ptr_t) gdt
+};
 
 static void tss_desc_set();
+
 
 //用于设置全局描述符
 static void gdt_set(u32_t index, uint32_t base, uint32_t limit, uint8_t flag, uint8_t access) {
@@ -32,12 +33,15 @@ static void gdt_set(u32_t index, uint32_t base, uint32_t limit, uint8_t flag, ui
     entry->access = access;
 }
 
+void load_gdt() {
+    extern void tr_set(uint32_t tss_desc_index);
+    extern void gdtr_set(uint32_t gdtr);
+
+    gdtr_set((ptr_t) &gdtr);
+    tr_set(SEL_TSS << 3);
+}
+
 void gdt_init() {
-    // 使用平坦模型,
-    gdtr_t gdtr = {
-            .limit = GDT_COUNT * GDT_SIZE - 1,
-            .address = (ptr_t) gdt
-    };
     // 第 0 个 gdt 为 NULL(0)
 //    gdt_set(SEL_NULL, 0, 0, 0, 0); //内核代码段
     gdt_set(SEL_KTEXT, 0, GDT_LIMIT, GDT_FLAG, GDT_SYS_CODE); //内核代码段
@@ -54,8 +58,7 @@ void gdt_init() {
     assertk(gdt[1].access == GDT_SYS_CODE);
 
     tss_desc_set();
-    gdtr_set((ptr_t) &gdtr);
-    tr_set(SEL_TSS << 3);
+    load_gdt();
 }
 
 
@@ -80,6 +83,6 @@ static void tss_desc_set() {
 }
 
 
-void set_tss_esp(void *stack){
-    tss.esp0 = (ptr_t)stack;
+void set_tss_esp(void *stack) {
+    tss.esp0 = (ptr_t) stack;
 }

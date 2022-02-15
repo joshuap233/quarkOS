@@ -10,6 +10,10 @@
 #include <fs/init.h>
 #include <isr.h>
 #include <terminal.h>
+#include <drivers/mp.h>
+#include <gdt.h>
+#include <mm/page_alloc.h>
+
 
 #ifdef __linux__
 #error "你没有使用跨平台编译器进行编译"
@@ -31,19 +35,24 @@ void kernel_main() {
     vga_init();
     assertk(magic == 0x36d76289);
     assertk(mba->zero == 0);
+
     multiboot_init(mba);
     memBlock_init();
-    gdt_init();
-
-    // 中断初始化
-    idt_init();
-    pic_init(32, 40);
-    pit_init();
 
     // 内存管理模块初始化
+    gdt_init();
+
     kvm_init();
     pmm_init();
     slab_init();
+
+    acpi_init();
+    smp_init();
+    lapic_init();
+    ioapic_init();
+
+    // 中断初始化
+    idt_init();
 
     // ps2 设备初始化
     ps2_init();
@@ -53,7 +62,7 @@ void kernel_main() {
     // 磁盘驱动初始化
     ide_init();
     // dma_init();
-//    nic_init();
+    // nic_init();
 
     scheduler_init();
     task_init();
@@ -81,6 +90,38 @@ void kernel_main() {
     task_sleep(NULL, NULL);
 }
 
+static void startAp() {
+    extern void lapicStartAp(u8_t apicid, u32_t addr);
+    extern cr3_t kCr3;
+    extern gdtr_t gdtr;
+    extern char ap_start[];
+    extern char init_struct[];
+
+    u32_t *init = (u32_t *) init_struct;
+    init[0] = kCr3;
+    init[1] = (u32_t) &gdtr - HIGH_MEM;
+
+    for (int i = 0; i < cpuCfg.nCpu; ++i) {
+        if (&cpus[i] == getCpu()) {
+            continue;
+        }
+        init[2] = alloc_one_page() + STACK_SIZE;
+        lapicStartAp(cpus[i].apic_id, kvm_vm2pm((u32_t) ap_start));
+    }
+
+}
+
+void ap_main() {
+    extern void idle_task_init();
+    extern void load_gdt();
+
+    lapic_init();
+    load_gdt();
+    load_idtr();
+    idle_task_init();
+    enable_interrupt();
+    task_sleep(NULL, NULL);
+}
 
 /**** 映射临时页表  ****/
 
@@ -104,25 +145,24 @@ SECTION(".init.data") uint32_t tmp_magic;
 
 // 映射临时页表
 SECTION(".init.text")
-void map_tmp_page(void) {
+void map_tmp_page() {
     // 映射物理地址 0-4M 到虚拟地址 0 - 4M 与 HIGH_MEM ~ HIGH_MEM + 4M
     // 否则开启分页后,无法运行 init 代码
-    boot_page_dir[0] = (ptr_t) &boot_page_table1 | VM_PRES | VM_KW;
-    boot_page_dir[PDE_INDEX(HIGH_MEM)] = (ptr_t) &boot_page_table2 | VM_PRES | VM_KW;
+    boot_page_dir[0] = (ptr_t) &boot_page_table1 | VM_PRES | VM_KRW;
+    boot_page_dir[PDE_INDEX(HIGH_MEM)] = (ptr_t) &boot_page_table2 | VM_PRES | VM_KRW;
 
     for (int i = 0; i < 1024; ++i) {
-        boot_page_table1[i] = (i << 12) | VM_PRES | VM_KW;
-        boot_page_table2[i] = (i << 12) | VM_PRES | VM_KW;
+        boot_page_table1[i] = (i << 12) | VM_PRES | VM_KRW;
+        boot_page_table2[i] = (i << 12) | VM_PRES | VM_KRW;
     }
 
     // 不能直接用 x86.h 的 lcr3 与 enable_paging
     asm volatile("movl %0,%%cr3" : : "r" (&boot_page_dir));
 }
 
-
+// 继续用 grub2 设置的 gdt
 SECTION(".init.text")
-void kern_entry(void) {
-
+void kernel_entry() {
     map_tmp_page();
 
     // 开启分页

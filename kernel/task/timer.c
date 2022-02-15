@@ -10,6 +10,7 @@
 #include <task/schedule.h>
 #include <task/fork.h>
 #include <task/timer.h>
+#include <drivers/lapic.h>
 
 
 #define timer_entry(ptr) list_entry(ptr, timer_t, head)
@@ -79,13 +80,13 @@ INT clock_isr(UNUSED interrupt_frame_t *frame) {
             free_timer(tmp);
         }
     }
-    pic1_eoi();
+    lapicEoi();
 
     tcb_t *task = CUR_TCB;
     if (task->timer_slice == 0) {
         schedule();
     } else {
-        assertk(&task->run_list != idle_task);
+        assertk(&task->run_list != getCpu()->idle);
         task->timer_slice -= 10;
     }
 }

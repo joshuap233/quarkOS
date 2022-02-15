@@ -22,4 +22,8 @@ bool ms_sleep_until(uint64_t msc);
 
 void thread_timer_init();
 
+extern volatile uint64_t g_tick;
+
+#define G_TIME_SINCE_BOOT g_tick // 单位为 ms
+
 #endif //QUARKOS_TASK_TIMER_H

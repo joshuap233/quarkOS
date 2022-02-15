@@ -58,10 +58,8 @@ echo "add-auto-load-safe-path xxx/.gdbinit"  >> ~/.gdbinit
 
 
 
-
 ## TIPS:
 
-- spin_lock 这类基于原子交换的结构(锁)在单核下的实现为关闭中断。
 - 启动会运行测试代码，打印测试信息，需要在 src/include/types.h 中去除 TEST 宏，重新构建。
 
 ## TODO:
@@ -77,5 +75,4 @@ echo "add-auto-load-safe-path xxx/.gdbinit"  >> ~/.gdbinit
 - 网络协议栈
 
 - IPC
-  
-- SMP
+

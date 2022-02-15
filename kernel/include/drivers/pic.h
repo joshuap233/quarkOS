@@ -6,6 +6,7 @@
 #define QUARKOS_DRIVERS_PIC_H
 
 #include <x86.h>
+
 #define PIC1_CMD    0x20
 #define PIC2_CMD    0xa0
 #define PIC1_DAT    0x21
@@ -15,7 +16,7 @@
 extern uint8_t pic2_offset;
 
 // 通知 pic1 结束中断
-INLINE void pic1_eoi(){
+INLINE void pic1_eoi() {
     outb(PIC1_CMD, PIC_EOI);
 }
 
@@ -26,5 +27,7 @@ INLINE void pic2_eoi(uint8_t pic_offset) {
     // 当需要通知 pic2 结束时,同时也需要通知 pic1
     outb(PIC1_CMD, PIC_EOI);
 }
+
+void disable_pic();
 
 #endif //QUARKOS_DRIVERS_PIC_H

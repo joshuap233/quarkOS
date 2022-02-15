@@ -5,7 +5,6 @@
 #include <task/schedule.h>
 #include <task/fork.h>
 #include <task/timer.h>
-#include <drivers/pit.h>
 #include <lib/qlib.h>
 #include <lib/irlock.h>
 
@@ -37,8 +36,7 @@ void scheduler_init() {
 void schedule() {
     extern void set_tss_esp(void *stack);
 
-    ir_lock_t lock;
-    ir_lock(&lock);
+    ir_lock();
     if (G_TIME_SINCE_BOOT >= update_priority_time) {
         reset_priority();
         update_priority_time = G_TIME_SINCE_BOOT + RESET_PRIORITY_INTERVAL * 1000;
@@ -47,6 +45,8 @@ void schedule() {
     tcb_t *cur_task = CUR_TCB, *next_task;
     list_head_t *next = chose_next_task();
     list_head_t *cur = &cur_task->run_list;
+
+    list_head_t *idle_task = getCpu()->idle;
     if (next == idle_task && &CUR_HEAD == idle_task) {
         assertk(tcb_entry(idle_task)->timer_slice == 0);
         return;
@@ -72,7 +72,7 @@ void schedule() {
         lcr3(kvm_vm2pm((ptr_t) next_task->mm->pgdir));
     }
     switch_to(&cur_task->context, next_task->context);
-    ir_unlock(&lock);
+    ir_unlock();
 }
 
 
@@ -84,7 +84,8 @@ static list_head_t *chose_next_task() {
             return queue_get(queue);
         }
     }
-    return idle_task;
+
+    return getCpu()->idle;
 }
 
 // 将所有任务优先级提升到最高优先级

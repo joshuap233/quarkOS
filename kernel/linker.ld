@@ -13,6 +13,8 @@ SECTIONS
         init_text_start = .;
         *(.init.multiboot2)
         *(.init.text)
+
+        *(.ap)
     }
 
     .init.data ALIGN(4K) :

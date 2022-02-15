@@ -6,7 +6,8 @@
 struct bootInfo bInfo = {
         .shstrtab = {0},
         .strtab= {0},
-        .symtab = {0}
+        .symtab = {0},
+        .rsdp = NULL
 };
 
 
@@ -64,6 +65,9 @@ void multiboot_init(multiboot_info_t *bia) {
                 break;
             case MULTIBOOT_TAG_TYPE_ELF_SECTIONS:
                 bInfo.elf_symbols = (boot_tag_elf_sections_t *) tag;
+                break;
+            case MULTIBOOT_TAG_TYPE_ACPI_OLD:
+                bInfo.rsdp = &((boot_tag_acpi1 *) tag)->rsdp;
                 break;
         }
         //Boot information 的 tags以 8 字节对齐

@@ -1,8 +1,6 @@
 //
 // Created by pjs on 2021/2/1.
 //
-// TODO: 分配需要分配 3K, 5K, 9K...这种内存依然会造成大量内存碎片
-// 可以将多余的内存划分给 slab 分配器?
 
 #include <types.h>
 #include <lib/qlib.h>

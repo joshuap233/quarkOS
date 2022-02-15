@@ -36,7 +36,7 @@ bool elf_check_header(elf32_header_t *elf_head) {
 
 INLINE u32_t get_flags(struct elf32_phdr *pgh) {
     assertk(!(pgh->p_flags & PF_MASKPROC));
-    return (pgh->p_flags & PF_W) ? VM_UW : VM_UR;
+    return (pgh->p_flags & PF_W) ? VM_URW : VM_UR;
 }
 
 void load_elf_exec(const char *path) {
