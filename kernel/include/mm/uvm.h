@@ -7,7 +7,7 @@
 
 #include <types.h>
 #include <lib/list.h>
-#include <mm/kvm.h>
+#include <mm/vm.h>
 
 struct mm_args {
     ptr_t text; // 虚拟地址

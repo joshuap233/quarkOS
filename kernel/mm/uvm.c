@@ -3,8 +3,8 @@
 //
 // 管理用户空间虚拟内存
 // TODO: 管理 brk
-#include <mm/vmalloc.h>
-#include <mm/kvm.h>
+#include <mm/uvm.h>
+#include <mm/vm.h>
 #include <mm/kmalloc.h>
 #include <mm/page_alloc.h>
 #include <lib/qlib.h>
