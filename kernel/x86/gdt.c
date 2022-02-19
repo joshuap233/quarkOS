@@ -73,7 +73,7 @@ static void tss_desc_set(u32_t idx) {
 
     gdt_set(idx, base, limit, TSS_FLAG, TSS_NBUSY | TSS_KERNEL | TSS_PRES);
 
-    register uint32_t esp0 asm("esp");
+    register u32_t esp0 asm("esp");
     tss.esp0 = esp0;
     tss.ss0 = 0x10;         // 内核数据段选择子
 

@@ -21,7 +21,8 @@ struct cpu cpus[N_CPU] = {
                 .ir_enable = true,
                 .idle = NULL,
                 .lock = NULL,
-                .apic_id = -1
+                .apic_id = -1,
+                .start = false
         }
 };
 

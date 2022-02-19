@@ -19,7 +19,6 @@ static tcb_t *task_map[TASK_NUM];
 
 static LIST_HEAD(finish_list);            // 已执行完成等待销毁的线程
 static LIST_HEAD(block_list);             // 全局阻塞列表
-list_head_t *init_task = NULL;
 static list_head_t *cleaner_task = NULL;  // 清理线程,用于清理其他线程
 
 static void cleaner_task_init();
@@ -28,34 +27,33 @@ static pid_t alloc_pid(tcb_t *tcb);
 
 _Noreturn static void *cleaner_worker();
 
-void idle_task_init();
-
 static void free_pid(pid_t pid);
 
 
-void task_init() {
+void task_init1(){
 #ifdef DEBUG
     cur_tcb()->magic = TASK_MAGIC;
 #endif //DEBUG
-    thread_timer_init();
-    idle_task_init();
 
     CUR_TCB->priority = TASK_MAX_PRIORITY;
     // 任务初始化后,还有内核模块需要初始化,因此设置一个很大的时间片
     // CUR_TCB->timer_slice = 10000;
     CUR_TCB->timer_slice = TIME_SLICE_LENGTH;
     CUR_TCB->pid = alloc_pid(CUR_TCB);
-    assertk(CUR_TCB->pid != 0);
     CUR_TCB->state = TASK_RUNNING;
     CUR_TCB->stack = CUR_TCB;
 
     CUR_TCB->sysContext = NULL;
     CUR_TCB->context = NULL;
     CUR_TCB->open = NULL;
-    task_set_name(CUR_TCB->pid, "init");
-
-    init_task = &CUR_HEAD;
+    task_set_name(CUR_TCB->pid, "idle");
     spinlock_init(&CUR_TCB->lock);
+    getCpu()->idle = &CUR_TCB->run_list;
+}
+
+void task_init() {
+    task_init1();
+    thread_timer_init();
     cleaner_task_init();
 }
 
@@ -195,10 +193,6 @@ static void free_pid(pid_t pid) {
     task_map[pid] = NULL;
 }
 
-static void *idle_worker() {
-    idle();
-}
-
 void task_set_name(pid_t pid, const char *name) {
     assertk(pid < TASK_NUM);
 
@@ -243,17 +237,6 @@ void task_set_time_slice(pid_t pid, u16_t time_slice) {
 #endif //DEBUG
     tcb->timer_slice = time_slice;
 }
-
-void idle_task_init() {
-    kthread_t tid;
-    struct cpu *cpu = getCpu();
-    kthread_create(&tid, idle_worker, NULL);
-    assertk(tid == 0);
-    cpu->idle = task_get_run_list(tid);
-    task_set_name(tid, "idle");
-    task_set_time_slice(tid, 0);
-}
-
 
 static void cleaner_task_init() {
     kthread_t tid;
@@ -325,12 +308,12 @@ void task_wakeup(list_head_t *_task) {
 void task_exit() {
     ir_lock();
 
-    if (&CUR_HEAD != init_task) {
-        list_add_next(&CUR_HEAD, &finish_list);
-        tcb_t *ct = tcb_entry(cleaner_task);
-        if (ct->state != TASK_RUNNING)
-            task_wakeup(cleaner_task);
-    }
+    assertk(&CUR_TCB->run_list != getCpu()->idle);
+    list_add_next(&CUR_HEAD, &finish_list);
+    tcb_t *ct = tcb_entry(cleaner_task);
+    if (ct->state != TASK_RUNNING)
+        task_wakeup(cleaner_task);
+
     CUR_TCB->state = TASK_ZOMBIE;
     schedule();
     ir_unlock();

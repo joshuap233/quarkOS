@@ -31,7 +31,7 @@ static multiboot_info_t *mba;
 static uint32_t magic;
 static void startAp();
 extern void cpu_init();
-#include <task/timer.h>
+
 // mba 为 multiboot info struct 首地址
 void kernel_main() {
     vga_init();
@@ -61,7 +61,7 @@ void kernel_main() {
     terminal_init();
 
     // 磁盘驱动初始化
-//    ide_init();
+    ide_init();
     // dma_init();
     // nic_init();
     scheduler_init();
@@ -74,7 +74,7 @@ void kernel_main() {
     enable_interrupt();
     cpu_init();
 
-//    ext2_init();
+    ext2_init();
 
 #ifdef TEST
 //    test_ide_rw();
@@ -88,21 +88,32 @@ void kernel_main() {
     // 初始化用户任务后,当前的栈将被第一个用户任务用作内核栈,
     // 栈内容将被中断数据覆盖,user_task_init 后的函数可用
     user_task_init();
-    task_sleep(NULL, NULL);
+    task_set_time_slice(CUR_TCB->pid,0);
+    idle();
 }
 
+INLINE void switch_stack(){
+    register u32_t esp asm("esp");
+    void *stack = kmalloc(STACK_SIZE);
+    memcpy(stack, (void*)PAGE_ADDR((ptr_t)esp),STACK_SIZE);
+    // 切换栈
+    asm volatile ("mov %0, %%esp": :"r" (stack+((ptr_t)esp & PAGE_MASK)));
+}
 
 void ap_main() {
-    extern void idle_task_init();
     extern void load_gdt();
     extern void load_cr3();
+    extern void task_init1();
     load_gdt();
     load_cr3();
     lapic_init();
     load_idtr();
-    idle_task_init();
+    switch_stack();
+    task_init1();
+    getCpu()->start = true;
+    task_set_time_slice(CUR_TCB->pid,0);
     enable_interrupt();
-    task_sleep(NULL, NULL);
+    idle();
 }
 
 // 放到 ap 段, 标记段为 loadable
@@ -115,9 +126,6 @@ UNUSED static u8_t foo(){
 /**** 映射临时页表  ****/
 
 // 内核栈
-static _Alignas(STACK_SIZE)
-u8_t kStack[STACK_SIZE];
-
 static _Alignas(STACK_SIZE) SECTION(".init.data")
 pde_t boot_page_dir[N_PDE] = {[0 ...N_PDE - 1]=VM_NPRES};
 
@@ -162,13 +170,11 @@ void kernel_entry(void) {
     "mov %%eax, %%cr0"
     :: :"%eax");
 
-    uint32_t kStack_top = (ptr_t) ((void *) &kStack + STACK_SIZE);
-
-    // 切换到新栈, ebp 清 0 用于追踪栈底
-    asm volatile (
-    "mov %0, %%esp\n\t"
-    "xor %%ebp, %%ebp" : :
-    "r" (kStack_top));
+    // stack + HIGH_MEM
+    asm volatile(
+    "addl %%esp, %%eax \n\t"
+    "movl %%eax, %%esp"
+    ::"a"(HIGH_MEM));
 
     // mba 在 data 节,而 tmp_mba 在 init 节,
     // data 节分页开启前无法直接访问,因此需要先设置 tmp_mba
@@ -181,6 +187,7 @@ void kernel_entry(void) {
 // kStack2 需要同时在临时页表与内核页表中映射,因此使用静态分配
 static _Alignas(STACK_SIZE)
 u8_t kStack2[STACK_SIZE];
+
 static void startAp() {
     extern void lapicStartAp(u8_t apicid, u32_t addr);
     extern char init_struct[];
@@ -197,5 +204,6 @@ static void startAp() {
         }
         init[1] = (ptr_t)&kStack2 + STACK_SIZE;
         lapicStartAp(cpus[i].apic_id, (ptr_t)ap_start);
+        while (!cpus[i].start);
     }
 }

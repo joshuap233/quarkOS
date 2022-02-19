@@ -55,6 +55,9 @@ _start:
 
     movl %eax, tmp_magic
     movl %ebx, tmp_mba
+
+    // ebp 清零追踪栈底
+    xor %ebp, %ebp
 	call kernel_entry
 
 	cli

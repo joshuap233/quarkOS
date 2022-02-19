@@ -13,6 +13,7 @@ struct cpu {
     bool ir_enable;           // 是否开启中断
     struct spinlock *lock;    // 当前 cpu 线程持有的自旋锁
     list_head_t *idle;
+    bool start;
 };
 
 extern struct cpu cpus[N_CPU];
