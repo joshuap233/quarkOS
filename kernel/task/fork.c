@@ -5,9 +5,9 @@
 #include <lib/list.h>
 #include <lib/qstring.h>
 #include <fs/vfs.h>
-#include <mm/kvm.h>
+#include <mm/vm.h>
 #include <mm/kmalloc.h>
-#include <mm/vmalloc.h>
+#include <mm/uvm.h>
 #include <task/task.h>
 #include <task/schedule.h>
 #include <task/fork.h>
@@ -42,7 +42,8 @@ void task_init() {
 
     CUR_TCB->priority = TASK_MAX_PRIORITY;
     // 任务初始化后,还有内核模块需要初始化,因此设置一个很大的时间片
-    CUR_TCB->timer_slice = 10000;
+    // CUR_TCB->timer_slice = 10000;
+    CUR_TCB->timer_slice = TIME_SLICE_LENGTH;
     CUR_TCB->pid = alloc_pid(CUR_TCB);
     assertk(CUR_TCB->pid != 0);
     CUR_TCB->state = TASK_RUNNING;
@@ -54,6 +55,7 @@ void task_init() {
     task_set_name(CUR_TCB->pid, "init");
 
     init_task = &CUR_HEAD;
+    spinlock_init(&CUR_TCB->lock);
     cleaner_task_init();
 }
 
@@ -88,6 +90,7 @@ void user_task_init() {
             .size4 = bssEnd - bss
     };
     mm_struct_init(mm, &args);
+    spinlock_init(&CUR_TCB->lock);
 
     kvm_copy(mm->pgdir);
     CUR_TCB->mm = mm;
@@ -96,6 +99,7 @@ void user_task_init() {
     switch_uvm(mm->pgdir);
     set_tss_esp(CUR_TCB->stack + PAGE_SIZE);
     CUR_TCB->timer_slice = TIME_SLICE_LENGTH;
+
     goto_usermode(mm->stack.va + PAGE_SIZE);
 }
 
@@ -145,6 +149,7 @@ struct task_struct *kernel_clone(struct task_struct *cur, u32_t flag) {
         task->context->ebx = 0;        // 返回值(syscall_ret 还原到 eax)
     }
 
+    spinlock_init(&task->lock);
     return task;
 }
 
@@ -306,17 +311,15 @@ int8_t task_sleep(list_head_t *_block_list, spinlock_t *lk) {
 }
 
 void task_wakeup(list_head_t *_task) {
-    ir_lock();
-
     //TODO:如果线程在计时器睡眠队列,将该计时器删除
     tcb_t *task = tcb_entry(_task);
+    spinlock_lock(&task->lock);
     if (task->state != TASK_RUNNING) {
         task->state = TASK_RUNNING;
         list_del(&task->run_list);
         sched_task_add(&task->run_list);
     }
-
-    ir_unlock();
+    spinlock_unlock(&task->lock);
 }
 
 void task_exit() {

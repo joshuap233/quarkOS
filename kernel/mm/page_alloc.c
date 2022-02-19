@@ -307,6 +307,7 @@ static ptr_t pages[MAX_ORDER];
 static ptr_t pages2[20];
 
 void test_alloc() {
+    test_start
     u32_t pageCnt = page_cnt();
     u32_t size = allocator_size();
     ptr_t start = allocator.zone[0].addr;
@@ -336,6 +337,7 @@ void test_alloc() {
 
     assertk(allocator_size() == size);
     assertk(page_cnt() == pageCnt);
+    test_pass
 }
 
 

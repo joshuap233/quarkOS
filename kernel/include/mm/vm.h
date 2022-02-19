@@ -34,6 +34,8 @@ struct page *va_get_page(ptr_t addr);
 
 void switch_kvm();
 
+void kvm_unmap3(void *va, u32_t size);
+
 void switch_uvm(pde_t *pgdir);
 
 void kvm_maps(ptr_t va, ptr_t pa, size_t size, u32_t flags);

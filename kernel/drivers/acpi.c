@@ -6,10 +6,10 @@
 #include <lib/qstring.h>
 #include <highmem.h>
 #include "drivers/acpi.h"
-#include <mm/kvm.h>
+#include <mm/vm.h>
 
 #define RSDP_SIGNATURE "RSD PTR "
-#define RSDT_SIGNATURE "RSDP"
+#define RSDT_SIGNATURE "RSDT"
 
 struct sysDesTable sysDesTable;
 
@@ -61,7 +61,7 @@ static struct sdtHeader *get_rsdt(u32_t addr) {
     if (!memcmp(rsdt, RSDT_SIGNATURE, 4)) {
         return NULL;
     }
-    if (acpiChecksum(rsdt)) {
+    if (!acpiChecksum(rsdt)) {
         return NULL;
     }
     return rsdt;
@@ -70,25 +70,25 @@ static struct sdtHeader *get_rsdt(u32_t addr) {
 void acpi_init() {
     struct rsdpDescriptor *rsdp = get_rsdp();
     assertk(rsdp);
-    kvm_maps(
-            (u32_t) rsdp + HIGH_MEM,
-            (u32_t) rsdp,
-            sizeof(struct sdtHeader),
-            VM_PRES | VM_KR
-    );
+
+    kvm_maps(PAGE_ADDR(rsdp->rsdtAddress+HIGH_MEM),
+            rsdp->rsdtAddress,
+            PAGE_SIZE,VM_KR|VM_PRES);
 
     struct sdtHeader *rsdt = get_rsdt(rsdp->rsdtAddress);
-    assertk(rsdt);
+    // rsdt 后跟随 sdt 指针
+    assertk(rsdt && rsdt->length <= PAGE_SIZE);
 
     u32_t *entry = (void *) rsdt + sizeof(struct sdtHeader);
     u32_t cnt = (rsdt->length - sizeof(struct sdtHeader)) / 4;
     for (u32_t i = 0; i < cnt; i++) {
-        if (memcmp((void *) *entry, "APIC", 4)) {
-            sysDesTable.madt = entry;
+        struct sdtHeader*e = (struct sdtHeader *)(*entry + HIGH_MEM);
+        if (memcmp(e, "APIC", 4)) {
+            sysDesTable.madt = e;
         }
         entry++;
     }
 
-    kvm_unmap2(a);
+//    kvm_unmap3((void*)PAGE_ADDR(rsdp->rsdtAddress+HIGH_MEM),PAGE_SIZE);
 }
 

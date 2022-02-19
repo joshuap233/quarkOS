@@ -9,7 +9,7 @@
 #include <drivers/dma.h>
 #include <lib/list.h>
 #include <drivers/ide.h>
-#include <mm/kvm.h>
+#include <mm/vm.h>
 
 #define N_PRD   N_BUF
 #define LH list_head_t

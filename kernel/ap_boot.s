@@ -1,14 +1,16 @@
-.code16
-.global ap_start
-.section .ap
+    .code16
+    .global ap_start
+    .section .ap
+    .type ap_start, @function
 ap_start:
     cli
+
     xorw    %ax,%ax
     movw    %ax,%ds
     movw    %ax,%es
     movw    %ax,%ss
 
-    # lgdt    gdtr
+    lgdt    gdtr
     movl    %cr0, %eax
     orl     $1, %eax
     movl    %eax, %cr0
@@ -19,15 +21,15 @@ ap_start:
 .align 8
 gdt:
     .long 0, 0
-    .long 0x0000FFFF, 0x00CF9A00    # code
-    .long 0x0000FFFF, 0x008F9200    # data
+    .long 0xffff, 0xcf9a00    # code
+    .long 0xffff, 0xcf9200    # data
 gdtr:
-    .word 79
+    .word 23
     .long gdt
 
 .global init_struct
 init_struct:
-kCr3:
+cr3:
     .long   0
 stack_bottom:
     .long   0
@@ -42,6 +44,10 @@ ap_start32:
     movw %ax,%gs
     movw %ax,%ss
 
+
+    movl cr3, %eax
+    movl %eax, %cr3
+
     movl %cr0, %eax
     orl  $0x80000000, %eax
     mov  %eax, %cr0
@@ -52,3 +58,6 @@ ap_start32:
 	cli
 1:	hlt
 	jmp 1b
+
+.global ap_end
+ap_end:

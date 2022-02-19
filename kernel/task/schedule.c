@@ -36,7 +36,6 @@ void scheduler_init() {
 void schedule() {
     extern void set_tss_esp(void *stack);
 
-    ir_lock();
     if (G_TIME_SINCE_BOOT >= update_priority_time) {
         reset_priority();
         update_priority_time = G_TIME_SINCE_BOOT + RESET_PRIORITY_INTERVAL * 1000;
@@ -66,13 +65,14 @@ void schedule() {
         }
     }
     next_task = tcb_entry(next);
+    assertk(next_task->state == TASK_RUNNING);
+
     if (next_task->mm) {
         // 设置用户任务内核栈
         set_tss_esp(next_task->stack + PAGE_SIZE);
         lcr3(kvm_vm2pm((ptr_t) next_task->mm->pgdir));
     }
     switch_to(&cur_task->context, next_task->context);
-    ir_unlock();
 }
 
 

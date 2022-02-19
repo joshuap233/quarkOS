@@ -16,7 +16,7 @@ struct sdtHeader {
     uint32_t oemVision;
     uint32_t creatorID;
     uint32_t creatorVersion;
-};
+}PACKED;
 
 struct sysDesTable {
     void *madt;

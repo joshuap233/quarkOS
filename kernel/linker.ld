@@ -4,7 +4,12 @@ ENTRY(_start)
 /* 输出节 */
 SECTIONS
 {
-	/* .text 从内存 1M 开始*/
+    .ap 0x6000 :
+    {
+        *(.ap)
+        *(.ap.foo)
+    }
+
 	. = 1M;
 
     /* 初始代码 */
@@ -13,8 +18,6 @@ SECTIONS
         init_text_start = .;
         *(.init.multiboot2)
         *(.init.text)
-
-        *(.ap)
     }
 
     .init.data ALIGN(4K) :

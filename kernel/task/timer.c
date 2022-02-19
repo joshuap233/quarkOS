@@ -48,7 +48,7 @@ void thread_timer_init() {
         timer_pool.timer[i] = &_timer[i];
     }
 
-    reg_isr(IRQ0, clock_isr);
+    reg_isr1(IRQ0+IRQ_TIMER, clock_isr,getCpu()->apic_id);
 }
 
 bool ms_sleep_until(uint64_t msc) {

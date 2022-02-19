@@ -1,5 +1,5 @@
 <component name="ProjectRunConfigurationManager">
-  <configuration default="false" name="kernel" type="CLion_Remote" singleton="false" version="1" remoteCommand="127.0.0.1:1234" symbolFile="$PROJECT_DIR$/cmake-build-debug/kernel/quarkOS.bin" sysroot="$PROJECT_DIR$">
+  <configuration default="false" name="kernel" type="CLion_Remote" singleton="false" version="1" remoteCommand="127.0.0.1:1234" symbolFile="$PROJECT_DIR$/cmake-build-debug/kernel/quarkOS.bin" sysroot="$PROJECT_DIR$/kernel">
     <debugger kind="GDB">/usr/bin/gdb</debugger>
     <method v="2" />
   </configuration>

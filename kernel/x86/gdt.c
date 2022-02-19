@@ -10,7 +10,7 @@ gdtr_t gdtr = {
         .address = (ptr_t) gdt
 };
 
-static void tss_desc_set();
+static void tss_desc_set(u32_t idx);
 
 
 //用于设置全局描述符
@@ -36,14 +36,17 @@ static void gdt_set(u32_t index, uint32_t base, uint32_t limit, uint8_t flag, ui
 void load_gdt() {
     extern void tr_set(uint32_t tss_desc_index);
     extern void gdtr_set(uint32_t gdtr);
-
+    static u32_t  idx = 0;
+    u32_t selector = SEL_TSS_BASE +idx;
+    idx ++;
+    tss_desc_set(selector);
     gdtr_set((ptr_t) &gdtr);
-    tr_set(SEL_TSS << 3);
+    tr_set(selector << 3);
 }
 
 void gdt_init() {
     // 第 0 个 gdt 为 NULL(0)
-//    gdt_set(SEL_NULL, 0, 0, 0, 0); //内核代码段
+    // gdt_set(SEL_NULL, 0, 0, 0, 0); //内核代码段
     gdt_set(SEL_KTEXT, 0, GDT_LIMIT, GDT_FLAG, GDT_SYS_CODE); //内核代码段
     gdt_set(SEL_KDATE, 0, GDT_LIMIT, GDT_FLAG, GDT_SYS_DATA); //内核数据段
     gdt_set(SEL_UTEXT, 0, GDT_LIMIT, GDT_FLAG, GDT_USR_CODE); //用户代码段
@@ -57,18 +60,18 @@ void gdt_init() {
     assertk(gdt[1].flag == 0xc);
     assertk(gdt[1].access == GDT_SYS_CODE);
 
-    tss_desc_set();
     load_gdt();
 }
 
 
 static tss_t tss = {0};
 
-static void tss_desc_set() {
+static void tss_desc_set(u32_t idx) {
+
     ptr_t base = (ptr_t) &tss;
     ptr_t limit = sizeof(tss_t);
 
-    gdt_set(SEL_TSS, base, limit, TSS_FLAG, TSS_NBUSY | TSS_KERNEL | TSS_PRES);
+    gdt_set(idx, base, limit, TSS_FLAG, TSS_NBUSY | TSS_KERNEL | TSS_PRES);
 
     register uint32_t esp0 asm("esp");
     tss.esp0 = esp0;

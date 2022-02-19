@@ -25,7 +25,7 @@ typedef struct kb_queue {
 } kb_queue_t;
 
 void terminal_init() {
-    reg_isr(IRQ_KBD, kb_isr);
+    reg_isr(IRQ0+IRQ_KBD, kb_isr);
 }
 
 // 键盘输入

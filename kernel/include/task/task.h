@@ -9,7 +9,7 @@
 #include <lib/list.h>
 #include <fs/vfs.h>
 #include <mm/mm.h>
-#include <mm/vmalloc.h>
+#include <mm/uvm.h>
 #include <cpu.h>
 
 
@@ -81,11 +81,12 @@ typedef struct task_struct {
     fd_t cwd;
     struct open_file *open;
 
-    context_t *context;      // 上下文信息
+    context_t *context;       // 上下文信息
 
     sys_context_t *sysContext;
 
     u32_t magic;
+    spinlock_t lock;
 } tcb_t;
 
 struct thread_info {

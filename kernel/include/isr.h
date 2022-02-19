@@ -27,7 +27,7 @@ typedef struct error_code {
 
 #define ISR(index) isr ## index
 
-
+void reg_isr1(uint8_t n, void *isr,int16_t lapicId);
 void reg_isr(uint8_t n,void *isr);
 void idt_init();
 void load_idtr();

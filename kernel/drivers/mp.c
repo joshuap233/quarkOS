@@ -10,12 +10,20 @@
 #include <highmem.h>
 #include <drivers/mp.h>
 #include <drivers/lapic.h>
+#include <mm/vm.h>
 
 #define LAPIC_ENTRY   0
 #define IOAPIC_ENTRY  1
 
 
-struct cpu cpus[N_CPU];
+struct cpu cpus[N_CPU] = {
+        [0 ...N_CPU-1] = {
+                .ir_enable = true,
+                .idle = NULL,
+                .lock = NULL,
+                .apic_id = -1
+        }
+};
 
 struct apic cpuCfg = {
         .nCpu = 0,
@@ -59,13 +67,14 @@ void smp_init() {
     disable_pic();
 
     struct apicTable *table = sysDesTable.madt;
+
     assertk(memcmp(table, "APIC", 4));
     assertk(acpiChecksum(&table->header));
 
     struct lapicEntry *lapicEntry;
     struct ioapicEntry *ioapicEntry;
 
-    cpuCfg.lapicPtr = table->lapicAddr + HIGH_MEM;
+    cpuCfg.lapicPtr = table->lapicAddr;
     for (struct apicEntry *entry = (struct apicEntry *) (table + 1),
                  *end = (void *) table + table->header.length;
          entry < end; entry = (void *) entry + entry->length) {
@@ -81,7 +90,7 @@ void smp_init() {
                 if (cpuCfg.ioapicPtr == 0) {
                     ioapicEntry = (struct ioapicEntry *) entry;
                     cpuCfg.ioApicId = ioapicEntry->ioapicId;
-                    cpuCfg.ioapicPtr = ioapicEntry->ioapicAddr + HIGH_MEM;
+                    cpuCfg.ioapicPtr = ioapicEntry->ioapicAddr;
                 }
                 break;
         }
@@ -90,11 +99,22 @@ void smp_init() {
 }
 
 
+void cpu_init(){
+    for (int i = 0; i < cpuCfg.nCpu; ++i) {
+        cpus[i].ir_enable = true;
+    }
+    struct cpu*cpu = getCpu();
+    assertk(cpu->lock == NULL);
+    assertk(cpu->apic_id>=0);
+    assertk(cpu->idle!=NULL);
+
+}
+
 struct cpu *getCpu() {
     u32_t id = lapicId();
 
     for (int i = 0; i < cpuCfg.nCpu; ++i) {
-        if (cpus[i].apic_id == id){
+        if (cpus[i].apic_id == (int8_t)id){
             return &cpus[i];
         }
     }

@@ -9,4 +9,4 @@ qemu-system-i386                                 \
   -drive format=raw,media=cdrom,file=cmake-build-debug/kernel/quarkOS.iso \
   -smp 4  \
   -boot d \
-  -nic user,model=e1000
+#  -nic user,model=e1000

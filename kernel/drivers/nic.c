@@ -10,7 +10,7 @@
 #include <types.h>
 #include <x86.h>
 #include <lib/qlib.h>
-#include <mm/kvm.h>
+#include <mm/vm.h>
 #include <isr.h>
 #include <net/eth.h>
 

@@ -4,7 +4,7 @@
 #include <mm/page_alloc.h>
 #include <lib/qlib.h>
 #include <mm/slab.h>
-#include <mm/kvm.h>
+#include <mm/vm.h>
 
 
 #define SLAB_INDEX(size) (log2(size)-2)

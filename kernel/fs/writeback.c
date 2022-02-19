@@ -16,7 +16,7 @@
 #include <lib/irlock.h>
 #include <mm/page.h>
 #include <mm/page_alloc.h>
-#include <mm/kvm.h>
+#include <mm/vm.h>
 #include <fs/vfs.h>
 #include <drivers/lapic.h>
 
@@ -71,7 +71,7 @@ void page_cache_init() {
 //    disk.isr = dma_dev.dma ? dma_isr_handler : ide_isr_handler;
 
     // 注册 ide 中断
-    reg_isr(IRQ0 + 14, disk_isr);
+    reg_isr1(IRQ0 + IRQ_IDE, disk_isr,getCpu()->apic_id);
     create_flush_thread();
 }
 

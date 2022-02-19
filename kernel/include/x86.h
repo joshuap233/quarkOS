@@ -154,11 +154,6 @@ INLINE uint32_t cupid_available() {
     return get_eflags() & CPUID_MASK;
 }
 
-INLINE uint32_t cpu_core() {
-    uint32_t reg;
-    asm volatile("cpuid":"=a"(reg):"a"(4));
-    return ((reg >> 26) & 0x3f) + 1;
-}
 
 //刷新 tlb 缓存
 INLINE void tlb_flush(ptr_t va) {

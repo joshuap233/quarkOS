@@ -38,8 +38,10 @@ lfq_node *lfQueue_get(lf_queue *queue) {
 
     lfq_node *next;
     next = queue->head->next;
-    if (next == NULL)
+    if (next == NULL){
+        spinlock_unlock(&queue->lock);
         return NULL;
+    }
     queue->head->next = next->next;
 
     spinlock_unlock(&queue->lock);

@@ -2,7 +2,7 @@
 #include <multiboot2.h>
 #include <mm/init.h>
 #include <mm/mm.h>
-#include <mm/kvm.h>
+#include <mm/vm.h>
 #include <task/init.h>
 #include <task/fork.h>
 #include <drivers/init.h>
@@ -13,7 +13,7 @@
 #include <drivers/mp.h>
 #include <gdt.h>
 #include <mm/page_alloc.h>
-
+#include <mm/kmalloc.h>
 
 #ifdef __linux__
 #error "你没有使用跨平台编译器进行编译"
@@ -29,8 +29,10 @@
 
 static multiboot_info_t *mba;
 static uint32_t magic;
-
-//mba 为 multiboot info struct 首地址
+static void startAp();
+extern void cpu_init();
+#include <task/timer.h>
+// mba 为 multiboot info struct 首地址
 void kernel_main() {
     vga_init();
     assertk(magic == 0x36d76289);
@@ -39,17 +41,16 @@ void kernel_main() {
     multiboot_init(mba);
     memBlock_init();
 
-    // 内存管理模块初始化
     gdt_init();
-
     kvm_init();
-    pmm_init();
-    slab_init();
 
     acpi_init();
     smp_init();
     lapic_init();
     ioapic_init();
+
+    pmm_init();
+    slab_init();
 
     // 中断初始化
     idt_init();
@@ -60,21 +61,20 @@ void kernel_main() {
     terminal_init();
 
     // 磁盘驱动初始化
-    ide_init();
+//    ide_init();
     // dma_init();
     // nic_init();
-
     scheduler_init();
     task_init();
-    cmos_init();
 
     page_cache_init();
     vfs_init();
 
+    cmos_init();
     enable_interrupt();
+    cpu_init();
 
-    // 需要在中断开启之后
-    ext2_init();
+//    ext2_init();
 
 #ifdef TEST
 //    test_ide_rw();
@@ -84,43 +84,32 @@ void kernel_main() {
 //    test_thread();
 #endif // TEST
 
+    startAp();
     // 初始化用户任务后,当前的栈将被第一个用户任务用作内核栈,
     // 栈内容将被中断数据覆盖,user_task_init 后的函数可用
     user_task_init();
     task_sleep(NULL, NULL);
 }
 
-static void startAp() {
-    extern void lapicStartAp(u8_t apicid, u32_t addr);
-    extern cr3_t kCr3;
-    extern gdtr_t gdtr;
-    extern char ap_start[];
-    extern char init_struct[];
-
-    u32_t *init = (u32_t *) init_struct;
-    init[0] = kCr3;
-    init[1] = (u32_t) &gdtr - HIGH_MEM;
-
-    for (int i = 0; i < cpuCfg.nCpu; ++i) {
-        if (&cpus[i] == getCpu()) {
-            continue;
-        }
-        init[2] = alloc_one_page() + STACK_SIZE;
-        lapicStartAp(cpus[i].apic_id, kvm_vm2pm((u32_t) ap_start));
-    }
-
-}
 
 void ap_main() {
     extern void idle_task_init();
     extern void load_gdt();
-
-    lapic_init();
+    extern void load_cr3();
     load_gdt();
+    load_cr3();
+    lapic_init();
     load_idtr();
     idle_task_init();
     enable_interrupt();
     task_sleep(NULL, NULL);
+}
+
+// 放到 ap 段, 标记段为 loadable
+// 没找到 linker 脚本标记 loadable 的方法.就这样吧..
+SECTION(".ap.foo")
+UNUSED static u8_t foo(){
+    return 1;
 }
 
 /**** 映射临时页表  ****/
@@ -145,7 +134,7 @@ SECTION(".init.data") uint32_t tmp_magic;
 
 // 映射临时页表
 SECTION(".init.text")
-void map_tmp_page() {
+void map_tmp_page(void) {
     // 映射物理地址 0-4M 到虚拟地址 0 - 4M 与 HIGH_MEM ~ HIGH_MEM + 4M
     // 否则开启分页后,无法运行 init 代码
     boot_page_dir[0] = (ptr_t) &boot_page_table1 | VM_PRES | VM_KRW;
@@ -162,7 +151,8 @@ void map_tmp_page() {
 
 // 继续用 grub2 设置的 gdt
 SECTION(".init.text")
-void kernel_entry() {
+void kernel_entry(void) {
+
     map_tmp_page();
 
     // 开启分页
@@ -188,3 +178,24 @@ void kernel_entry() {
     kernel_main();
 }
 
+// kStack2 需要同时在临时页表与内核页表中映射,因此使用静态分配
+static _Alignas(STACK_SIZE)
+u8_t kStack2[STACK_SIZE];
+static void startAp() {
+    extern void lapicStartAp(u8_t apicid, u32_t addr);
+    extern char init_struct[];
+
+    extern char ap_start[];
+
+    u32_t *init = (void *)((ptr_t)init_struct + HIGH_MEM);
+    // 内核页表的 VM 在 3G 以上,需要用临时页表
+    init[0]= (u32_t)boot_page_dir;
+
+    for (int i = 0; i < cpuCfg.nCpu; ++i) {
+        if (&cpus[i] == getCpu()) {
+            continue;
+        }
+        init[1] = (ptr_t)&kStack2 + STACK_SIZE;
+        lapicStartAp(cpus[i].apic_id, (ptr_t)ap_start);
+    }
+}

@@ -37,8 +37,8 @@ typedef struct chunkLink {
 // slab 头信息
 typedef struct slabInfo {
     chunkLink_t *chunk;     // 指向第一个可用内存块
-    uint16_t size;          // slab 内存块大小
-    uint16_t n_allocated;   // 已经分配块个数
+    u16_t size;          // slab 内存块大小
+    u16_t n_allocated;   // 已经分配块个数
 #ifdef DEBUG
     u32_t magic;            // 用于 debug
 #endif //DEBUG
@@ -48,7 +48,7 @@ typedef struct slabInfo {
 struct pageCache {
     lfq_node dirty;         // 脏页队列
     u32_t timestamp;        // 上次访问该页的时间
-    uint32_t no_secs;       // 需要读写的扇区起始 lba 值
+    u32_t no_secs;       // 需要读写的扇区起始 lba 值
 };
 
 #define SECTOR_SIZE 512

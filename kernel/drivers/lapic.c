@@ -62,6 +62,7 @@ void lapic_init() {
     lapicW(TDCR, X1);
     lapicW(TIMER, PERIODIC | (IRQ0 + IRQ_TIMER));
     lapicW(TICR, 10000000);
+//    lapicW(TICR, 100);
 
     // 屏蔽 LINT(禁用 lapic 时, 可以把 LINT) 当 INTR 引脚用)
     lapicW(LINT0, MASKED);
@@ -72,13 +73,15 @@ void lapic_init() {
         lapicW(PCINT, MASKED);
     }
 
+    // TODO:
     lapicW(ERROR, IRQ0 + IRQ_ERROR);
 
     // 读错误寄存器前需要写一次,清空寄存器
     lapicW(ESR, 0);
     lapicW(ESR, 0);
 
-    lapicW(EOI, 0);//??
+    //??
+    lapicW(EOI, 0);
 
     // 必须先写 ICR_HI(IPI_ALL 设置这个没用)
     lapicW(ICR_HI, 0);
@@ -96,8 +99,6 @@ void microdelay(int us) {
 
 // 启用 application processor
 void lapicStartAp(u8_t apicid, u32_t addr) {
-    int i;
-
     // shutdown status byte :
     // 0Ah: bios 会跳到 0x467 记录的入口地址处
     cmos_w(0xf, 0xa);
@@ -112,7 +113,7 @@ void lapicStartAp(u8_t apicid, u32_t addr) {
     lapicW(ICR_LO, INIT | LEVEL);
     microdelay(100);
 
-    for (i = 0; i < 2; i++) {
+    for (int i = 0; i < 2; i++) {
         lapicW(ICR_HI, apicid << 24);
         lapicW(ICR_LO, STARTUP | (addr >> 12));
         microdelay(200);

@@ -104,12 +104,12 @@ typedef struct tss {
 }PACKED tss_t;
 
 // 段描述符编号
-#define SEL_NULL   0
-#define SEL_KTEXT  1
-#define SEL_KDATE  2
-#define SEL_UTEXT  3
-#define SEL_UDATA  4
-#define SEL_TSS    5
+#define SEL_NULL        0
+#define SEL_KTEXT       1
+#define SEL_KDATE       2
+#define SEL_UTEXT       3
+#define SEL_UDATA       4
+#define SEL_TSS_BASE    5
 
 void set_tss_esp(void *stack);
 

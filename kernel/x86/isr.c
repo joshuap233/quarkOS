@@ -77,9 +77,9 @@ typedef union idt {
 }PACKED idt_t;
 
 
-extern void irqEnable(int irq, int cpuNo);
+extern void irqEnable(int irq, int16_t lapicId);
 
-static void reg_isr1(uint8_t n, void *isr);
+static void reg_isr0(uint8_t n, void *isr);
 
 static idt_t _Alignas(8) idt[IDT_COUNT] = {0};
 
@@ -107,26 +107,26 @@ void load_idtr(){
 
 void idt_init() {
     //暂时全部使用 interrupt gate(调用 ISR 时自动清除 IF 位)
-    reg_isr1(0, ISR(0));
-    reg_isr1(1, ISR(1));
-    reg_isr1(2, ISR(2));
-    reg_isr1(3, ISR(3));
-    reg_isr1(4, ISR(4));
-    reg_isr1(5, ISR(5));
-    reg_isr1(6, ISR(6));
-    reg_isr1(7, ISR(7));
-    reg_isr1(8, ISR(8));
-    reg_isr1(9, ISR(9));
-    reg_isr1(10, ISR(10));
-    reg_isr1(11, ISR(11));
-    reg_isr1(12, ISR(12));
-    reg_isr1(13, ISR(13));
-    reg_isr1(14, ISR(14));
-    reg_isr1(16, ISR(16));
-    reg_isr1(17, ISR(17));
-    reg_isr1(18, ISR(18));
-    reg_isr1(19, ISR(19));
-    reg_isr1(20, ISR(20));
+    reg_isr0(0, ISR(0));
+    reg_isr0(1, ISR(1));
+    reg_isr0(2, ISR(2));
+    reg_isr0(3, ISR(3));
+    reg_isr0(4, ISR(4));
+    reg_isr0(5, ISR(5));
+    reg_isr0(6, ISR(6));
+    reg_isr0(7, ISR(7));
+    reg_isr0(8, ISR(8));
+    reg_isr0(9, ISR(9));
+    reg_isr0(10, ISR(10));
+    reg_isr0(11, ISR(11));
+    reg_isr0(12, ISR(12));
+    reg_isr0(13, ISR(13));
+    reg_isr0(14, ISR(14));
+    reg_isr0(16, ISR(16));
+    reg_isr0(17, ISR(17));
+    reg_isr0(18, ISR(18));
+    reg_isr0(19, ISR(19));
+    reg_isr0(20, ISR(20));
 
     // 系统调用中断
     idt_set_ig(&idt[SYS_CALL_NO], (ptr_t) syscall_entry, IDT_SC, IDT_UTYPE);
@@ -134,14 +134,19 @@ void idt_init() {
 }
 
 
-static void reg_isr1(uint8_t n, void *isr) {
+static void reg_isr0(uint8_t n, void *isr) {
     idt_set_ig(&idt[n], (ptr_t) isr, IDT_SC, IDT_TYPE);
 }
 
 void reg_isr(uint8_t n, void *isr) {
-    reg_isr1(n, isr);
+    reg_isr0(n, isr);
     irqEnable(n - IRQ0, -1);
 }
+void reg_isr1(uint8_t n, void *isr,int16_t lapicId) {
+    reg_isr0(n, isr);
+    irqEnable(n - IRQ0, lapicId);
+}
+
 
 // 忽略 -Wunused-parameter
 #pragma GCC diagnostic push

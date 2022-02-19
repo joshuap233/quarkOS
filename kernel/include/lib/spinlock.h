@@ -20,8 +20,8 @@ typedef struct spinlock {
 
 #ifdef DEBUG
     struct cpu *cpu; // 持有锁的 cpu
-    char *name[256]; // 持有锁的函数名
-#endif
+    char *name; // 持有锁的函数名
+#endif // DEBUG
 } spinlock_t;
 
 INLINE bool spinlock_locked(spinlock_t *lock) {
@@ -35,26 +35,30 @@ INLINE void spinlock_init(spinlock_t *lock) {
 
 
 INLINE void spinlock_unlock(spinlock_t *lock) {
+#ifdef DEBUG
+    struct cpu *cpu = getCpu();
+    cpu->lock = NULL;
+    lock->cpu = NULL;
+    lock->name  = NULL;
+#endif
     lock->flag = 0;
-}
-
-INLINE bool spinlock_trylock(spinlock_t *lock) {
-    return test_and_set(&lock->flag) != SPINLOCK_LOCKED;
 }
 
 
 INLINE void spinlock_lock(spinlock_t *lock) {
+    // TODO:
     // 自旋锁需要关闭中断, 否则会造成死锁:
     // 线程 A 使用资源 a -> 调度程序切换为线程 B,
     // B 正在进行中断处理且使用资源 a, 那么中断程序中的自旋锁会死锁
-    disable_interrupt();
     while (test_and_set(&lock->flag) == SPINLOCK_LOCKED) {
         pause();
     }
 
 #ifdef DEBUG
-    char *name = func_name(1);
-    memcpy(lock->name, name, strlen(name) + 1);
+    struct cpu *cpu = getCpu();
+    cpu->lock = lock;
+    lock->cpu = cpu;
+    lock->name  = func_name(1);
 #endif
     opt_barrier();
 }

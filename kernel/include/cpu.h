@@ -9,9 +9,9 @@
 #include <lib/list.h>
 
 struct cpu {
-    u8_t apic_id;          // lapic id
-    bool ir_enable;        // 是否开启中断
-    struct spinlock *lock; // 当前 cpu 线程持有的自旋锁
+    int16_t apic_id;          // lapic id
+    bool ir_enable;           // 是否开启中断
+    struct spinlock *lock;    // 当前 cpu 线程持有的自旋锁
     list_head_t *idle;
 };
 

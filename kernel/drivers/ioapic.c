@@ -5,6 +5,7 @@
 #include <drivers/mp.h>
 #include <lib/qlib.h>
 #include <isr.h>
+#include <cpu.h>
 
 // 寄存器索引
 #define IOAPIC_ID      0
@@ -34,6 +35,7 @@ void ioapic_init() {
     ioapic = (u32_t *) cpuCfg.ioapicPtr;
 
     u32_t irqCnt = (ioapicr(IOAPIC_VER) >> 16) & IR_CNT_MAST;
+    assertk(irqCnt!=0);
     assertk((ioapicr(IOAPIC_ID) >> 24) == cpuCfg.ioApicId);
 
     // 关闭所有中断,将中断设置为高电平边缘触发(isa irq 为高电平触发)
@@ -44,15 +46,13 @@ void ioapic_init() {
     }
 }
 
-void irqEnable(int irq, int cpuNo) {
-    // cpuNo 为处理当当前中断的 cpu 号 ( 0 ~ (c_cpu-1) )
-    assertk(cpuNo < cpuCfg.nCpu);
+void irqEnable(int irq, int16_t lapicId) {
+    // lapicId 为处理当当前中断的 lapicId ( 0 ~ (c_cpu-1) )
     static u16_t id = 0;
-
-    if (cpuNo == -1) {
-        cpuNo = id;
+    if (lapicId == -1) {
         id = (id + 1) % cpuCfg.nCpu;
+        lapicId = cpus[id].apic_id;
     }
     ioapicw(IO_TBL + 2 * irq, IRQ0 + irq);
-    ioapicw(IO_TBL + 2 * irq + 1, cpuNo << 24);
+    ioapicw(IO_TBL + 2 * irq + 1, lapicId << 24);
 }
