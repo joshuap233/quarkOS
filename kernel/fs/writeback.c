@@ -22,21 +22,19 @@
 
 static void create_flush_thread();
 
-static list_head_t *flush_worker;
-
 static struct cache {
     struct head {
         list_head_t head;
-        rwlock_t rwlock;    // head 链表操作需要加锁(链表增删改查)
-    } list;                 // 有效缓存页列表
+        rwlock_t rwlock;        // head 链表操作需要加锁(链表增删改查)
+    } list;                     // 有效缓存页列表
 
     list_head_t *thread;
 
     struct page *page_writing;  // 正在被磁盘读写的页
     thread_mutex_t wait_rw;     // 缓冲区读写磁盘时加锁
 
-    lf_queue dirty;         // 脏页
-    lf_queue inode_dirty;   // 脏 inode
+    lf_queue dirty;             // 脏页
+    lf_queue inode_dirty;       // 脏 inode
 } cacheAllocator;
 
 static struct disk {
@@ -270,7 +268,6 @@ static void create_flush_thread() {
     kthread_t tid;
     kthread_create(&tid, page_flush_worker, NULL);
     task_set_name(tid, "page_flash");
-    flush_worker = task_get_run_list(tid);
 }
 
 static void recycle(struct page *buf) {

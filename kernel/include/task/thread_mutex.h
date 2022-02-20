@@ -10,8 +10,8 @@
 #include <lib/spinlock.h>
 
 typedef struct thread_mutex {
-    bool locked;        // 该锁是否已经被持有
-    spinlock_t lock;    // 保证该锁的数据修改原子性
+    bool locked;         // 该锁是否已经被持有
+    spinlock_t lock;     // 保证该锁的数据修改原子性
     list_head_t sleep;   // 该锁的休眠线程队列
 } thread_mutex_t;
 

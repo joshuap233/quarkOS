@@ -15,9 +15,16 @@
 #include <cpu.h>
 
 //用于管理空闲 tid
-static tcb_t *task_map[TASK_NUM];
+static struct task_map{
+    tcb_t *map[TASK_NUM];
+    struct spinlock lock;
+}taskMap;
 
+
+
+static spinlock_t list_lock;              // finish_list 与 block_list以及其他睡眠队列共用一把锁
 static LIST_HEAD(finish_list);            // 已执行完成等待销毁的线程
+
 static LIST_HEAD(block_list);             // 全局阻塞列表
 static list_head_t *cleaner_task = NULL;  // 清理线程,用于清理其他线程
 
@@ -52,6 +59,9 @@ void task_init1(){
 }
 
 void task_init() {
+    spinlock_init(&taskMap.lock);
+    spinlock_init(&list_lock);
+
     task_init1();
     thread_timer_init();
     cleaner_task_init();
@@ -103,11 +113,9 @@ void user_task_init() {
 
 struct task_struct *kernel_clone(struct task_struct *cur, u32_t flag) {
     extern void syscall_ret();
-    ir_lock();
     tcb_t *task = kmalloc(PAGE_SIZE);
     assertk(task != NULL);
     task->pid = alloc_pid(task);
-    ir_unlock();
 
 #ifdef DEBUG
     task->magic = TASK_MAGIC;
@@ -158,10 +166,11 @@ pid_t kernel_fork() {
     return task->pid;
 }
 
-extern void thread_entry(void *(worker)(void *), void *args, tcb_t *tcb);
 
 // 成功返回 0,否则返回错误码(<0)
 int kthread_create(kthread_t *tid, void *(worker)(void *), void *args) {
+    extern void thread_entry(void *(worker)(void *), void *args, tcb_t *tcb);
+
     struct task_struct *thread = kernel_clone(CUR_TCB, 0);
     struct context *context;
     context = (void *) thread + STACK_SIZE - sizeof(struct context);
@@ -177,20 +186,25 @@ int kthread_create(kthread_t *tid, void *(worker)(void *), void *args) {
 }
 
 static pid_t alloc_pid(tcb_t *tcb) {
+    spinlock_lock(&taskMap.lock);
     for (int i = 0; i < TASK_NUM; ++i) {
-        if (task_map[i] == 0) {
-            task_map[i] = tcb;
+        if (taskMap.map[i] == 0) {
+            taskMap.map[i] = tcb;
+            spinlock_unlock(&taskMap.lock);
             return i;
         }
     }
+    spinlock_unlock(&taskMap.lock);
     // 0 始终被 idle 线程占用
     return 0;
 }
 
 
 static void free_pid(pid_t pid) {
-    assertk(pid != 0);
-    task_map[pid] = NULL;
+    spinlock_lock(&taskMap.lock);
+    assertk(pid != 0 && taskMap.map[pid]!=NULL);
+    taskMap.map[pid] = NULL;
+    spinlock_unlock(&taskMap.lock);
 }
 
 void task_set_name(pid_t pid, const char *name) {
@@ -199,26 +213,29 @@ void task_set_name(pid_t pid, const char *name) {
     tcb_t *tcb;
     u8_t cnt;
 
-    ir_lock();
-    tcb = task_map[pid];
+    spinlock_lock(&taskMap.lock);
+    tcb = taskMap.map[pid];
+    spinlock_unlock(&taskMap.lock);
+
     if (tcb) {
         cnt = strlen(name);
-
         assertk(cnt <= TASK_NAME_LEN);
+
 #ifdef DEBUG
         assertk(tcb->magic == TASK_MAGIC);
 #endif //DEBUG
+
         memcpy(tcb->name, name, cnt);
     }
-
-    ir_unlock();
 }
 
 list_head_t *task_get_run_list(pid_t pid) {
     assertk(pid < TASK_NUM);
 
     tcb_t *tcb;
-    tcb = task_map[pid];
+    spinlock_lock(&taskMap.lock);
+    tcb = taskMap.map[pid];
+    spinlock_unlock(&taskMap.lock);
 
 #ifdef DEBUG
     assertk(tcb->magic == TASK_MAGIC);
@@ -229,12 +246,15 @@ list_head_t *task_get_run_list(pid_t pid) {
 void task_set_time_slice(pid_t pid, u16_t time_slice) {
     tcb_t *tcb;
     assertk(pid < TASK_NUM);
-    tcb = task_map[pid];
+    spinlock_lock(&taskMap.lock);
+    tcb = taskMap.map[pid];
+    spinlock_lock(&taskMap.lock);
     assertk(tcb->pid == pid);
 
 #ifdef DEBUG
     assertk(tcb->magic == TASK_MAGIC);
 #endif //DEBUG
+
     tcb->timer_slice = time_slice;
 }
 
@@ -248,9 +268,8 @@ static void cleaner_task_init() {
 
 _Noreturn static void *cleaner_worker() {
     while (1) {
-        ir_lock();
-
         list_head_t *hdr, *next;
+        spinlock_lock(&list_lock);
         list_for_each_del(hdr, next, &finish_list) {
             tcb_t *task = tcb_entry(hdr);
             assertk(task->state == TASK_ZOMBIE);
@@ -264,59 +283,59 @@ _Noreturn static void *cleaner_worker() {
             kfree(task->stack);
         }
         list_header_init(&finish_list);
+        spinlock_unlock(&list_lock);
         task_sleep(NULL, NULL);
-
-        ir_unlock();
     }
 }
 
 // 睡眠前释放锁,被唤醒后自动获取锁, 传入的锁没有被获取则不会睡眠
 int8_t task_sleep(list_head_t *_block_list, spinlock_t *lk) {
-    ir_lock();
     if (!_block_list)
         _block_list = &block_list;
     if (lk) {
         if (!spinlock_locked(lk)) {
-            ir_unlock();
             return -1;
         };
         spinlock_unlock(lk);
     }
 
+    spinlock_lock(&list_lock);
     list_add_next(&CUR_HEAD, _block_list);
+    spinlock_unlock(&list_lock);
 
     CUR_TCB->state = TASK_SLEEPING;
     schedule();
 
     if (lk) spinlock_lock(lk);
-    ir_unlock();
     return 0;
 }
 
+// task_wakeup 外的函数如果获取了 task 锁,则 lock 为 True
 void task_wakeup(list_head_t *_task) {
     //TODO:如果线程在计时器睡眠队列,将该计时器删除
     tcb_t *task = tcb_entry(_task);
-    spinlock_lock(&task->lock);
     if (task->state != TASK_RUNNING) {
         task->state = TASK_RUNNING;
+        spinlock_lock(&task->lock);
         list_del(&task->run_list);
+        spinlock_unlock(&task->lock);
+
         sched_task_add(&task->run_list);
     }
-    spinlock_unlock(&task->lock);
 }
 
 void task_exit() {
-    ir_lock();
-
     assertk(&CUR_TCB->run_list != getCpu()->idle);
+
+    spinlock_lock(&list_lock);
     list_add_next(&CUR_HEAD, &finish_list);
+    spinlock_unlock(&list_lock);
+
     tcb_t *ct = tcb_entry(cleaner_task);
     if (ct->state != TASK_RUNNING)
         task_wakeup(cleaner_task);
-
     CUR_TCB->state = TASK_ZOMBIE;
     schedule();
-    ir_unlock();
     idle();
 }
 

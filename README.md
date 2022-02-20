@@ -70,8 +70,6 @@ echo "add-auto-load-safe-path xxx/.gdbinit"  >> ~/.gdbinit
 
 - 统一的错误码
 
-- 部分代码不是线程安全的(这部分的数据结构可能修改，暂时不加锁)
-
 - 网络协议栈
 
 - IPC
