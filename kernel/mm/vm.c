@@ -35,22 +35,22 @@ void kvm_init() {
     ptr_t dataStart = (ptr_t) _dataStart;
     ptr_t endKernel = (ptr_t) _endKernel;
 
-    assertk(g_mem_start > endKernel - HIGH_MEM);
+    assertk(g_mem_start > endKernel - KERNEL_START);
 
-    pde_t *pdr = &pageDir[PDE_INDEX(HIGH_MEM)];
+    pde_t *pdr = &pageDir[PDE_INDEX(KERNEL_START)];
     for (u32_t i = 0; i < N_PTE / 4; ++i) {
-        pdr[i] = ((ptr_t) &kPageTables[i] - HIGH_MEM) | VM_KRW | VM_PRES;
+        pdr[i] = ((ptr_t) &kPageTables[i] - KERNEL_START) | VM_KRW | VM_PRES;
     }
 
-    kCr3 = CR3_CTRL | (((ptr_t) &pageDir) - HIGH_MEM);
+    kCr3 = CR3_CTRL | (((ptr_t) &pageDir) - KERNEL_START);
     // 映射 1M 以下区域
-    kvm_page_init(HIGH_MEM, startKernel - HIGH_MEM, VM_KRW);
+    kvm_page_init(KERNEL_START, startKernel - KERNEL_START, VM_KRW);
 
     // text 段 与 rodada 段
     kvm_page_init(startKernel, dataStart - startKernel, VM_KR);
 
     // data 段, bss 段 与初始化内核分配的内存
-    kvm_page_init(dataStart, g_mem_start - (dataStart - HIGH_MEM), VM_KRW);
+    kvm_page_init(dataStart, g_mem_start - (dataStart - KERNEL_START), VM_KRW);
 
     kvm_maps4(DEV_SPACE,DEV_SPACE, DEVSP_SIZE, VM_PRES|VM_KRW);
     load_cr3();
@@ -59,14 +59,14 @@ void kvm_init() {
 
 
 INLINE pte_t *getPageTableEntry(ptr_t va) {
-    assertk(va >= HIGH_MEM);
-    return &((u32_t *) kPageTables)[(va - HIGH_MEM) >> 12];
+    assertk(va >= KERNEL_START);
+    return &((u32_t *) kPageTables)[(va - KERNEL_START) >> 12];
 }
 
 static void kvm_page_init(ptr_t va, size_t size, u32_t flags) {
     assertk((va & PAGE_MASK) == 0);
 
-    ptr_t pa = va - HIGH_MEM;
+    ptr_t pa = va - KERNEL_START;
     ptr_t end = pa + size;
     pte_t *pte = getPageTableEntry(va);
     for (; pa < end; pa += PAGE_SIZE) {
@@ -104,38 +104,20 @@ void kvm_maps(ptr_t va, ptr_t pa, size_t size, u32_t flags) {
 // 返回实际映射的虚拟地址
 void kvm_map(struct page *page, u32_t flags) {
     ptr_t pa = page_addr(page);
-    ptr_t va = pa;
+    ptr_t va = p2v(pa);
 
-    // 3G 以上的物理内存不足
-    if (va < HIGH_MEM) {
-        va = HIGH_MEM + (pa & (1 * G - 1));
-    }
     page->data = (void *) va;
-
-    //TODO: 如果已经被映射则查找可用地址空间
     ptr_t size = page->size;
     kvm_maps(va, pa, size, flags);
 }
 
 struct page *va_get_page(ptr_t addr) {
-    addr = kvm_vm2pm(addr);
+    addr = v2p(addr);
     assertk(addr != 0);
     struct page *page = get_page(addr);
     if (!page || !page_head(page))
         return NULL;
     return page;
-}
-
-// 使用虚拟地址找到物理地址
-ptr_t kvm_vm2pm(ptr_t va) {
-    pte_t *pte = getPageTableEntry(va);
-    return PAGE_ADDR(*pte);
-}
-
-ptr_t kvm_pm2vm(ptr_t pa) {
-    struct page *page = get_page(pa);
-    assertk(page);
-    return (ptr_t) page->data;
 }
 
 struct page *kvm_vm2page(ptr_t va) {
@@ -145,7 +127,7 @@ struct page *kvm_vm2page(ptr_t va) {
 
 // 释放临时映射
 void kvm_unmap3(void *va, u32_t size){
-    assertk((ptr_t) va > HIGH_MEM);
+    assertk((ptr_t) va > KERNEL_START);
     assertk((size & PAGE_MASK) == 0);
 
     void *end = va + size;
@@ -187,7 +169,7 @@ void switch_kvm() {
 }
 
 void switch_uvm(pde_t *pgdir) {
-    lcr3(kvm_vm2pm((ptr_t) pgdir));
+    lcr3(v2p((ptr_t) pgdir));
 }
 
 void kvm_recycle() {

@@ -11,8 +11,6 @@
 
 /*
  * 物理内存分配器
- * zone 0 为第 3G 内存, zone 1 为 高 1G 内存
- * 内存不足 4G 则没有 zone 1,内核使用 zone 0 区域
  * root[0] - root[10] 为 0 - 4M 内存块
  */
 #define ORDER_SIZE(order) ((ptr_t)1<<(order)<<12)
@@ -20,7 +18,6 @@
 static struct buddyAllocator allocator;
 
 
-//返回已经使用的页面数量
 struct page *page_setup(struct page *pages, ptr_t addr, ptr_t size) {
     u32_t reSize = allocator.pageCnt - (pages - allocator.pages);
     assertk(reSize >= (size >> 12));
@@ -29,10 +26,8 @@ struct page *page_setup(struct page *pages, ptr_t addr, ptr_t size) {
     addr = PAGE_ALIGN(addr);
 
     struct page *page = pages;
-    struct mem_zone *zone = addr >= HIGH_MEM ? &allocator.zone[1] : &allocator.zone[0];
     u32_t cnt;
     u32_t orderSize;
-
 
     for (int i = MAX_ORDER; size > 0 && i >= 0; --i) {
         orderSize = ORDER_SIZE(i);
@@ -43,14 +38,14 @@ struct page *page_setup(struct page *pages, ptr_t addr, ptr_t size) {
         for (u32_t j = 0; j < cnt; ++j) {
             page->flag |= PG_Head;
             page->size = orderSize;
-            list_add_prev(&page->head, &zone->root[i]);
+            list_add_prev(&page->head, &allocator.root[i]);
             for (int k = 0; k < ORDER_CNT(i); ++k) {
                 page->flag |= PG_Page;
                 page++;
             }
         }
     }
-    zone->size += (page - pages) << 12;
+    allocator.size += (page - pages) << 12;
     return page;
 }
 
@@ -58,7 +53,9 @@ struct page *page_setup(struct page *pages, ptr_t addr, ptr_t size) {
 void pmm_init_mm() {
     u32_t pageCnt = (block_end() - block_start()) >> 12;
     allocator.pageCnt = pageCnt;
-    allocator.pages = (void *) block_alloc_align(pageCnt * sizeof(struct page), sizeof(struct page)) + HIGH_MEM;
+    allocator.pages = (void *) block_alloc_align(
+            pageCnt * sizeof(struct page),
+                    sizeof(struct page)) + KERNEL_START;
 }
 
 void pmm_init() {
@@ -66,14 +63,8 @@ void pmm_init() {
     blockInfo_t *info;
     struct page *page;
 
-    allocator.zone[0].size = 0;
-    allocator.zone[1].size = 0;
-
-    allocator.zone[0].addr = PAGE_ALIGN(block_start());
-    allocator.zone[1].addr = HIGH_MEM;
-
-    allocator.zone[0].first = allocator.pages;
-    allocator.zone[1].first = NULL;
+    allocator.size = 0;
+    allocator.addr = PAGE_ALIGN(block_start());
 
     // 初始化页面
     page = allocator.pages;
@@ -91,49 +82,32 @@ void pmm_init() {
         page++;
     }
 
-    // 初始化 zone
-    for (int i = 0; i < 2; ++i) {
-        for (int j = 0; j <= MAX_ORDER; ++j) {
-            list_header_init(&allocator.zone[i].root[j]);
-        }
+    for (int j = 0; j <= MAX_ORDER; ++j) {
+        list_header_init(&allocator.root[j]);
     }
 
     u32_t addr, size;
     page = allocator.pages;
 
-    // 将 page 放入 zone
+    // 将物理页放入管理器
     list_for_each(hdr, &blockAllocator.head) {
         info = block_mem_entry(hdr);
         addr = info->addr;
         size = info->size;
-
-        if (addr < HIGH_MEM && addr + size > HIGH_MEM) {
-            page = page_setup(page, addr, HIGH_MEM - addr);
-            addr = HIGH_MEM;
-            size = addr + size - HIGH_MEM;
-            allocator.zone[1].first = page;
-        }
         page = page_setup(page, addr, size);
     }
     allocator.pageCnt = page - allocator.pages;
-    allocator.zone[0].freeSize = allocator.zone[0].size;
-    allocator.zone[1].freeSize = allocator.zone[1].size;
+    allocator.freeSize = allocator.size;
 
 #ifdef TEST
     test_alloc();
 #endif //TEST
 }
 
-INLINE struct mem_zone *get_zone(struct page *page) {
-    struct mem_zone *zone = &allocator.zone[1];
-    return (zone->first && zone->first < page)
-           ? &allocator.zone[1]
-           : &allocator.zone[0];
-}
 
 // 获取页的物理地址
 ptr_t page_addr(struct page *page) {
-    ptr_t start = allocator.zone[0].addr;
+    ptr_t start = allocator.addr;
     return start + ((ptr_t) (page - allocator.pages) << 12);
 }
 
@@ -142,7 +116,7 @@ ptr_t page_addr(struct page *page) {
 struct page *get_page(ptr_t addr) {
     if ((addr & PAGE_MASK) != 0)
         return NULL;
-    ptr_t start = allocator.zone[0].addr;
+    ptr_t start = allocator.addr;
 
     if (addr < start)
         return NULL;
@@ -153,10 +127,9 @@ struct page *get_page(ptr_t addr) {
     return page;
 }
 
-static struct page *get_buddy(struct page *page) {
-    struct mem_zone *zone = get_zone(page);
+struct page *get_buddy(struct page *page) {
     u32_t pgCnt = page->size >> 12;
-    u32_t cnt = (page - zone->first) / pgCnt;
+    u32_t cnt = (page - allocator.pages) / pgCnt;
     struct page *buddy = (cnt & 1) ? page - pgCnt : page + pgCnt;
     if (allocator.pages + allocator.pageCnt <= buddy) {
         buddy = NULL;
@@ -165,7 +138,7 @@ static struct page *get_buddy(struct page *page) {
     return buddy;
 }
 
-static struct page *__alloc_pages(struct mem_zone *zone, u32_t size) {
+struct page *__alloc_page(u32_t size) {
     size = fixSize(size);
     assertk(size > 0 && size <= 4 * M && (size & PAGE_MASK) == 0);
     struct page *page = NULL, *new;
@@ -173,7 +146,7 @@ static struct page *__alloc_pages(struct mem_zone *zone, u32_t size) {
     u32_t logSize = log2(size >> 12);
 
     for (uint16_t i = logSize; i <= MAX_ORDER; ++i) {
-        root = &zone->root[i];
+        root = &allocator.root[i];
         if (!list_empty(root)) {
             page = PAGE_ENTRY(root->next);
             assertk(page_head(page));
@@ -183,22 +156,17 @@ static struct page *__alloc_pages(struct mem_zone *zone, u32_t size) {
                 assertk(!page_head(new));
                 new->size = ORDER_SIZE(j);
                 new->flag |= PG_Head;
-                list_add_prev(&new->head, &zone->root[j]);
+                list_add_prev(&new->head, &allocator.root[j]);
             }
             break;
         }
     }
     assertk(page != NULL);
-    zone->size -= size;
+    allocator.size -= size;
     list_del(&page->head);
     page->size = size;
     page->ref_cnt = 1;
     return page;
-}
-
-// 分配 0 -3G 内存
-struct page *__alloc_page(u32_t size) {
-    return __alloc_pages(&allocator.zone[0], size);
 }
 
 ptr_t alloc_page(u32_t size) {
@@ -210,23 +178,6 @@ ptr_t alloc_one_page() {
     return alloc_page(PAGE_SIZE);
 }
 
-// 分配 3-4 G 内存
-struct page *__kalloc_page(u32_t size) {
-    struct mem_zone *zone =
-            allocator.zone[0].freeSize > size ?
-            &allocator.zone[0] : &allocator.zone[1];
-    return __alloc_pages(zone, size);
-}
-
-ptr_t kalloc_page(u32_t size) {
-    struct page *page = __kalloc_page(size);
-    return page_addr(page);
-}
-
-ptr_t kalloc_one_page() {
-    return kalloc_page(PAGE_SIZE);
-}
-
 void __free_page(struct page *page) {
     assertk(page->ref_cnt > 0);
     assertk(page->flag & PG_Head);
@@ -234,17 +185,16 @@ void __free_page(struct page *page) {
     page->ref_cnt--;
     if (page->ref_cnt > 0) return;
 
-    struct mem_zone *zone = get_zone(page);
     u32_t order = log2(page->size >> 12);
     page->data = NULL;
-    page->flag |= PG_Page | PG_Head; // 清除其他 flag
+    page->flag |= PG_Page | PG_Head;    // 清除其他 flag
     for (; page->ref_cnt == 0 && order <= MAX_ORDER; ++order) {
         struct page *buddy = get_buddy(page);
         if (!buddy ||                   // 部分页面没有buddy
             buddy->ref_cnt != 0 ||      // 被引用的页面
             buddy->size != page->size ||// buddy 的部分页面没有被释放
             order == MAX_ORDER) {       // 页面大小为 4M 不需要继续合并
-            list_add_prev(&page->head, &zone->root[order]);
+            list_add_prev(&page->head, &allocator.root[order]);
             break;
         }
         list_del(&buddy->head);
@@ -277,11 +227,8 @@ int32_t free_page(ptr_t addr) {
 
 static u32_t page_cnt() {
     u32_t pageCnt = 0;
-    for (int i = 0; i < 2; ++i) {
-        if (allocator.zone[i].freeSize <= 0) continue;
-        for (int j = 0; j <= MAX_ORDER; ++j) {
-            pageCnt += list_cnt(&allocator.zone[i].root[j]);
-        }
+    for (int j = 0; j <= MAX_ORDER; ++j) {
+        pageCnt += list_cnt(&allocator.root[j]) * ORDER_CNT(j);
     }
     return pageCnt;
 }
@@ -289,15 +236,12 @@ static u32_t page_cnt() {
 static u32_t allocator_size() {
     u32_t size = 0;
     list_head_t *hdr;
-    for (int i = 0; i < 2; ++i) {
-        if (allocator.zone[i].freeSize <= 0) continue;
-        for (int j = 0; j <= MAX_ORDER; ++j) {
-            u32_t orderSize = ORDER_SIZE(j);
-            list_for_each(hdr, &allocator.zone[i].root[j]) {
-                struct page *page = PAGE_ENTRY(hdr);
-                size += orderSize;
-                assertk(page->size == orderSize);
-            }
+    for (int j = 0; j <= MAX_ORDER; ++j) {
+        u32_t orderSize = ORDER_SIZE(j);
+        list_for_each(hdr, &allocator.root[j]) {
+            struct page *page = PAGE_ENTRY(hdr);
+            size += orderSize;
+            assertk(page->size == orderSize);
         }
     }
     return size;
@@ -310,7 +254,7 @@ void test_alloc() {
     test_start
     u32_t pageCnt = page_cnt();
     u32_t size = allocator_size();
-    ptr_t start = allocator.zone[0].addr;
+    ptr_t start = allocator.addr;
     struct page *page;
     for (int i = 0; i < 10; ++i) {
         page = get_page(start + (i << 12));
@@ -320,11 +264,11 @@ void test_alloc() {
 
     assertk(size == (allocator.pageCnt << 12));
     for (int i = 0; i < MAX_ORDER; ++i) {
-        pages[i] = kalloc_page(ORDER_SIZE(i));
+        pages[i] = alloc_page(ORDER_SIZE(i));
     }
 
     for (int i = 0; i < 20; ++i) {
-        pages2[i] = kalloc_page(PAGE_SIZE);
+        pages2[i] = alloc_page(PAGE_SIZE);
     }
 
     for (int i = 0; i < MAX_ORDER; ++i) {

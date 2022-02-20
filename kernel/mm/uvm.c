@@ -83,7 +83,7 @@ void mm_struct_init(struct mm_struct *mm, struct mm_args *args) {
 }
 
 void vm_brk_init(struct mm_struct *mm) {
-    assertk(mm->bss.va + mm->bss.size < HIGH_MEM - 2 * PAGE_SIZE);
+    assertk(mm->bss.va + mm->bss.size < KERNEL_START - 2 * PAGE_SIZE);
     mm->brk.va = mm->bss.va + PAGE_SIZE;
     mm->brk.size = 0;
     mm->brk.flag = VM_PRES | VM_URW;
@@ -91,7 +91,7 @@ void vm_brk_init(struct mm_struct *mm) {
 
 void vm_stack_init(struct mm_struct *mm) {
     // 设置用户栈
-    mm->stack.va = HIGH_MEM - 2 * PAGE_SIZE;
+    mm->stack.va = KERNEL_START - 2 * PAGE_SIZE;
     mm->stack.size = PAGE_SIZE;
     mm->stack.flag = VM_PRES | VM_URW;
     mm->size += PAGE_SIZE;
@@ -114,7 +114,7 @@ static pte_t *vm_page_iter(ptr_t va, pde_t *pgdir, bool new) {
     if (new && !(*pde & VM_PRES)) {
         // 在内核空间映射用户页表
         pte = kcalloc(PAGE_SIZE);
-        *pde = kvm_vm2pm((ptr_t) pte) | VM_PRES | VM_URW;
+        *pde = v2p((ptr_t) pte) | VM_PRES | VM_URW;
     } else {
         struct page *page = get_page(PAGE_ADDR(*pde));
         assertk(page);
@@ -272,8 +272,8 @@ static void vm_area_copy_stack(
 
     // 临时映射到内核用于复制
     stack = kmalloc(PAGE_SIZE);
-    *new = kvm_vm2pm((ptr_t) stack) | VM_PRES | VM_URW;
-    memcpy(stack, (void *) kvm_pm2vm(PAGE_ADDR(*pde)), PAGE_SIZE);
+    *new = v2p((ptr_t) stack) | VM_PRES | VM_URW;
+    memcpy(stack, (void *) p2v(PAGE_ADDR(*pde)), PAGE_SIZE);
 
     // 取消临时映射
     kvm_unmap2((ptr_t) stack);
@@ -299,7 +299,7 @@ struct mm_struct *vm_struct_copy(struct mm_struct *src) {
 
     // 复制虚拟页表并将页表标记为只读
     // 调用重新加载 cr3 以刷新 tlb 缓存
-    lcr3(kvm_vm2pm((ptr_t) CUR_TCB->mm->pgdir));
+    lcr3(v2p((ptr_t) CUR_TCB->mm->pgdir));
     return new;
 }
 

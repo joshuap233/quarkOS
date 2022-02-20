@@ -5,11 +5,10 @@
 #ifndef QUARKOS_HIGHMEM_H
 #define QUARKOS_HIGHMEM_H
 
-#define HIGH_MEM     0xc0000000
-#define KERNEL_START HIGH_MEM
+#define KERNEL_START 0xc0000000
 #define STACK_SIZE   PAGE_SIZE
 
-#define K_END   ((ptr_t) _endKernel-HIGH_MEM)
+#define K_END   ((ptr_t) _endKernel-KERNEL_START)
 
 // 内核最大地址+1, 不要修改成 *_end,
 extern char _endKernel[], _startKernel[];

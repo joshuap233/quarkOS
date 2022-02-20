@@ -10,7 +10,7 @@
 
 #define block_entry block_mem_entry
 
-// (g_mem_start+HIGH_MEM) - kernel_end 之间的内存为
+// (g_mem_start+KERNEL_START) - kernel_end 之间的内存为
 // 内核初始化消耗的内存,需要在初始化页表时直接映射
 ptr_t g_mem_start = 0;
 
@@ -55,7 +55,7 @@ void memBlock_init() {
 
     // 初始化 block 分配器
     u32_t alloc = sizeof(struct blockInfo) * cnt;
-    struct blockInfo *infos = (void *) (ptr_t) firstMem->addr + HIGH_MEM;
+    struct blockInfo *infos = (void *) (ptr_t) firstMem->addr + KERNEL_START;
     assertk(firstMem != NULL && firstMem->len > alloc);
     firstMem->len -= alloc;
     firstMem->addr += alloc;
@@ -151,10 +151,10 @@ u32_t block_size() {
 //移动信息块
 static void *move(void *addr, size_t size) {
     //如果需要移动的内存在 1M 以下,则不移动
-    assertk((ptr_t) addr < HIGH_MEM + 4 * M);
+    assertk((ptr_t) addr < KERNEL_START + 4 * M);
     if (addr > (void *) (1 * M)) {
-        void *new = (void *) block_alloc(size) + HIGH_MEM;
-        assertk(new != NULL && (ptr_t) new < HIGH_MEM + 4 * M);
+        void *new = (void *) block_alloc(size) + KERNEL_START;
+        assertk(new != NULL && (ptr_t) new < KERNEL_START + 4 * M);
         memcpy(new, addr, size);
         return new;
     }

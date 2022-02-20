@@ -133,7 +133,7 @@ static void *__slab_alloc(list_head_t *head, list_head_t *full, uint16_t size) {
 }
 
 static void add_slab(list_head_t *slab, uint16_t chunkSize) {
-    struct page *page = __kalloc_page(PAGE_SIZE);
+    struct page *page = __alloc_page(PAGE_SIZE);
     page->flag |= PG_SLAB;
 
     kvm_map(page, VM_PRES | VM_KRW);

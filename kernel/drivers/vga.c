@@ -6,7 +6,7 @@
 #include <highmem.h>
 
 
-#define VGA_TEXT_MODE_MEM (0xB8000 + HIGH_MEM)
+#define VGA_TEXT_MODE_MEM (0xB8000 + KERNEL_START)
 
 // VGA模式 3 提供 80 * 25的字符窗口显示
 // 0xB8000 ~ 0xBFFFF 内存地址映射到显存(VGA text mode)

@@ -143,10 +143,10 @@ SECTION(".init.data") uint32_t tmp_magic;
 // 映射临时页表
 SECTION(".init.text")
 void map_tmp_page(void) {
-    // 映射物理地址 0-4M 到虚拟地址 0 - 4M 与 HIGH_MEM ~ HIGH_MEM + 4M
+    // 映射物理地址 0-4M 到虚拟地址 0 - 4M 与 KERNEL_START ~ KERNEL_START + 4M
     // 否则开启分页后,无法运行 init 代码
     boot_page_dir[0] = (ptr_t) &boot_page_table1 | VM_PRES | VM_KRW;
-    boot_page_dir[PDE_INDEX(HIGH_MEM)] = (ptr_t) &boot_page_table2 | VM_PRES | VM_KRW;
+    boot_page_dir[PDE_INDEX(KERNEL_START)] = (ptr_t) &boot_page_table2 | VM_PRES | VM_KRW;
 
     for (int i = 0; i < 1024; ++i) {
         boot_page_table1[i] = (i << 12) | VM_PRES | VM_KRW;
@@ -170,11 +170,11 @@ void kernel_entry(void) {
     "mov %%eax, %%cr0"
     :: :"%eax");
 
-    // stack + HIGH_MEM
+    // stack + KERNEL_START
     asm volatile(
     "addl %%esp, %%eax \n\t"
     "movl %%eax, %%esp"
-    ::"a"(HIGH_MEM));
+    ::"a"(KERNEL_START));
 
     // mba 在 data 节,而 tmp_mba 在 init 节,
     // data 节分页开启前无法直接访问,因此需要先设置 tmp_mba
@@ -194,7 +194,7 @@ static void startAp() {
 
     extern char ap_start[];
 
-    u32_t *init = (void *)((ptr_t)init_struct + HIGH_MEM);
+    u32_t *init = (void *)((ptr_t)init_struct + KERNEL_START);
     // 内核页表的 VM 在 3G 以上,需要用临时页表
     init[0]= (u32_t)boot_page_dir;
 

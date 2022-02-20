@@ -240,7 +240,7 @@ void nic_init() {
 
     if (PCI_MEM_BAR(bar)) {
         net_dev.mem_base = PCI_MEM_BAR_ADDR(bar);
-        assertk(net_dev.mem_base >= HIGH_MEM);
+        assertk(net_dev.mem_base >= KERNEL_START);
         assertk(PCI_MEM_BAR_TYPE(bar) == 0);
 
         pci_write_bar(pciDev, 0, MASK_U32(32));

@@ -31,9 +31,9 @@ static struct hash {
 
 INLINE u32_t hash_generate(inode_t *inode) {
     ptr_t ptr = (ptr_t) inode;
-    assertk(ptr > HIGH_MEM);
+    assertk(ptr > KERNEL_START);
 
-    u32_t index = (ptr - HIGH_MEM) % FILE_HASH_SIZE;
+    u32_t index = (ptr - KERNEL_START) % FILE_HASH_SIZE;
     return index;
 }
 

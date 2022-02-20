@@ -47,7 +47,6 @@ void schedule() {
 
     list_head_t *idle_task = getCpu()->idle;
     if (next == idle_task && &CUR_HEAD == idle_task) {
-        assertk(tcb_entry(idle_task)->timer_slice == 0);
         return;
     }
     // idle task 时间片始终为 0,且不在反馈队列中
@@ -70,7 +69,7 @@ void schedule() {
     if (next_task->mm) {
         // 设置用户任务内核栈
         set_tss_esp(next_task->stack + PAGE_SIZE);
-        lcr3(kvm_vm2pm((ptr_t) next_task->mm->pgdir));
+        lcr3(v2p((ptr_t) next_task->mm->pgdir));
     }
     switch_to(&cur_task->context, next_task->context);
 }

@@ -21,20 +21,20 @@ static void parse_elf_section() {
     bInfo.shstrtab.size = string_table->sh_size;
     assertk(bInfo.shstrtab.addr[0] == '\0');
 
-    assertk((ptr_t) (sh + elf_symbols->num * sizeof(elf32_sh_t)) < HIGH_MEM + 4 * M);
+    assertk((ptr_t) (sh + elf_symbols->num * sizeof(elf32_sh_t)) < KERNEL_START + 4 * M);
     for (uint32_t num = elf_symbols->num; num > 0; num--) {
         switch (sh->sh_type) {
             case SHT_STRTAB:
                 if (sh->sh_addr != (ptr_t) bInfo.shstrtab.addr) {
                     assertk(sh->sh_addr + sh->sh_size < 4 * M);
-                    bInfo.strtab.addr = (void *) (sh->sh_addr) + HIGH_MEM;
+                    bInfo.strtab.addr = (void *) (sh->sh_addr) + KERNEL_START;
                     bInfo.strtab.size = sh->sh_size;
                 }
                 break;
             case SHT_SYMTAB: {
                 //第一个项为空(所有字段为0)
                 assertk(sh->sh_addr + sh->sh_size < 4 * M);
-                bInfo.symtab.header = (elf32_symbol_t *) (sh->sh_addr) + HIGH_MEM;
+                bInfo.symtab.header = (elf32_symbol_t *) (sh->sh_addr) + KERNEL_START;
                 bInfo.symtab.size = sh->sh_size;
                 bInfo.symtab.entry_size = sizeof(elf32_symbol_t);
                 break;
@@ -54,7 +54,7 @@ void multiboot_init(multiboot_info_t *bia) {
     tag = (boot_tag_t *) (bia + 1);
 
     while ((ptr_t) tag < tail) {
-        assertk((ptr_t) tag < HIGH_MEM + 4 * M);
+        assertk((ptr_t) tag < KERNEL_START + 4 * M);
 
         switch (tag->type) {
             case MULTIBOOT_TAG_TYPE_MMAP:

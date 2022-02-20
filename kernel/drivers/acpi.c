@@ -56,7 +56,7 @@ static struct rsdpDescriptor *get_rsdp() {
 }
 
 static struct sdtHeader *get_rsdt(u32_t addr) {
-    struct sdtHeader *rsdt = (struct sdtHeader *) (addr + HIGH_MEM);
+    struct sdtHeader *rsdt = (struct sdtHeader *) (addr + KERNEL_START);
 
     if (!memcmp(rsdt, RSDT_SIGNATURE, 4)) {
         return NULL;
@@ -71,7 +71,7 @@ void acpi_init() {
     struct rsdpDescriptor *rsdp = get_rsdp();
     assertk(rsdp);
 
-    kvm_maps(PAGE_ADDR(rsdp->rsdtAddress+HIGH_MEM),
+    kvm_maps(PAGE_ADDR(rsdp->rsdtAddress+KERNEL_START),
             rsdp->rsdtAddress,
             PAGE_SIZE,VM_KR|VM_PRES);
 
@@ -82,13 +82,13 @@ void acpi_init() {
     u32_t *entry = (void *) rsdt + sizeof(struct sdtHeader);
     u32_t cnt = (rsdt->length - sizeof(struct sdtHeader)) / 4;
     for (u32_t i = 0; i < cnt; i++) {
-        struct sdtHeader*e = (struct sdtHeader *)(*entry + HIGH_MEM);
+        struct sdtHeader*e = (struct sdtHeader *)(*entry + KERNEL_START);
         if (memcmp(e, "APIC", 4)) {
             sysDesTable.madt = e;
         }
         entry++;
     }
 
-//    kvm_unmap3((void*)PAGE_ADDR(rsdp->rsdtAddress+HIGH_MEM),PAGE_SIZE);
+//    kvm_unmap3((void*)PAGE_ADDR(rsdp->rsdtAddress+KERNEL_START),PAGE_SIZE);
 }
 

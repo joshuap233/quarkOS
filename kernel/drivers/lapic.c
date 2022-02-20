@@ -102,7 +102,7 @@ void lapicStartAp(u8_t apicid, u32_t addr) {
     // shutdown status byte :
     // 0Ah: bios 会跳到 0x467 记录的入口地址处
     cmos_w(0xf, 0xa);
-    u16_t *wrv = (u16_t *) (0x467 + HIGH_MEM);
+    u16_t *wrv = (u16_t *) (0x467 + KERNEL_START);
     wrv[0] = 0;
     wrv[1] = addr >> 4;
 
