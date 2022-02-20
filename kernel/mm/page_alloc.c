@@ -15,8 +15,16 @@
  */
 #define ORDER_SIZE(order) ((ptr_t)1<<(order)<<12)
 #define ORDER_CNT(order)  (1<<(order))
-static struct buddyAllocator allocator;
 
+static struct buddyAllocator{
+    list_head_t root[MAX_ORDER + 1];
+    struct spinlock lock;
+
+    ptr_t addr;
+    ptr_t size;           // 剩余可用内存
+    struct page *pages;
+    u32_t pageCnt;        // 管理器管理的页面数量
+}allocator;
 
 struct page *page_setup(struct page *pages, ptr_t addr, ptr_t size) {
     u32_t reSize = allocator.pageCnt - (pages - allocator.pages);
@@ -97,8 +105,7 @@ void pmm_init() {
         page = page_setup(page, addr, size);
     }
     allocator.pageCnt = page - allocator.pages;
-    allocator.freeSize = allocator.size;
-
+    spinlock_init(&allocator.lock);
 #ifdef TEST
     test_alloc();
 #endif //TEST
@@ -112,7 +119,6 @@ ptr_t page_addr(struct page *page) {
 }
 
 // 使用物理地址找到页
-
 struct page *get_page(ptr_t addr) {
     if ((addr & PAGE_MASK) != 0)
         return NULL;
@@ -145,6 +151,7 @@ struct page *__alloc_page(u32_t size) {
     list_head_t *root;
     u32_t logSize = log2(size >> 12);
 
+    spinlock_lock(&allocator.lock);
     for (uint16_t i = logSize; i <= MAX_ORDER; ++i) {
         root = &allocator.root[i];
         if (!list_empty(root)) {
@@ -163,6 +170,8 @@ struct page *__alloc_page(u32_t size) {
     }
     assertk(page != NULL);
     allocator.size -= size;
+    spinlock_unlock(&allocator.lock);
+
     list_del(&page->head);
     page->size = size;
     page->ref_cnt = 1;
@@ -182,12 +191,14 @@ void __free_page(struct page *page) {
     assertk(page->ref_cnt > 0);
     assertk(page->flag & PG_Head);
 
+    wlock_lock(&page->rwlock);
     page->ref_cnt--;
     if (page->ref_cnt > 0) return;
 
     u32_t order = log2(page->size >> 12);
     page->data = NULL;
     page->flag |= PG_Page | PG_Head;    // 清除其他 flag
+    spinlock_lock(&allocator.lock);
     for (; page->ref_cnt == 0 && order <= MAX_ORDER; ++order) {
         struct page *buddy = get_buddy(page);
         if (!buddy ||                   // 部分页面没有buddy
@@ -207,6 +218,8 @@ void __free_page(struct page *page) {
 
         page->size <<= 1;
     }
+    wlock_unlock(&page->rwlock);
+    spinlock_unlock(&allocator.lock);
 }
 
 // addr 为物理地址

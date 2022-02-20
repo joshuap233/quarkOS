@@ -15,6 +15,8 @@ struct slabCache {
     list_head_t cache_list;
     list_head_t full_list;
     size_t size;   // slab 块大小
+
+    struct spinlock lock;
 };
 
 void *slab_alloc(uint16_t size);

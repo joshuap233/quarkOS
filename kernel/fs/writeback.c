@@ -1,7 +1,6 @@
 //
 // Created by pjs on 2021/4/7.
 //
-// TODO: 页缓存分块读写(仅写入脏块)
 #include <fs/writeback.h>
 #include <drivers/ide.h>
 #include <lib/qstring.h>
@@ -93,22 +92,22 @@ struct page *page_get(uint32_t no_secs) {
     list_head_t *head;
     struct pageCache *cache;
 
-    rwlock_rLock(&cacheAllocator.list.rwlock);
+    rlock_lock(&cacheAllocator.list.rwlock);
     list_for_each(head, &cacheAllocator.list.head) {
         buf = PAGE_ENTRY(head);
         cache = &buf->pageCache;
         if (cache->no_secs == no_secs) {
             assertk(buf->flag & PG_CACHE);
-            rwlock_rUnlock(&cacheAllocator.list.rwlock);
+            rlock_unlock(&cacheAllocator.list.rwlock);
             return buf;
         }
     }
-    rwlock_rUnlock(&cacheAllocator.list.rwlock);
+    rlock_unlock(&cacheAllocator.list.rwlock);
 
     buf = new_buf(no_secs);
-    rwlock_wLock(&cacheAllocator.list.rwlock);
+    wlock_lock(&cacheAllocator.list.rwlock);
     list_add_prev(&buf->head, &cacheAllocator.list.head);
-    rwlock_wUnlock(&cacheAllocator.list.rwlock);
+    wlock_unlock(&cacheAllocator.list.rwlock);
 
     return buf;
 }
@@ -127,12 +126,12 @@ struct page *page_read_no_sync(uint32_t no_secs) {
 
 void page_read(struct page *buf) {
     assertk(buf);
-    rwlock_rLock(&buf->rwlock);
+    rlock_lock(&buf->rwlock);
     if (buf->flag & PG_VALID) {
-        rwlock_rUnlock(&buf->rwlock);
+        rlock_unlock(&buf->rwlock);
         return;
     }
-    rwlock_rUnlock(&buf->rwlock);
+    rlock_unlock(&buf->rwlock);
 
     // disk_isr 会修改 buf, 因此需要用写锁
     sleeplock_lock(&buf->rwlock);
@@ -143,14 +142,14 @@ void page_read(struct page *buf) {
 
 void mark_page_dirty(struct page *buf) {
     assertk(buf);
-    rwlock_wLock(&buf->rwlock);
+    wlock_lock(&buf->rwlock);
 
     assertk(buf->flag & PG_CACHE);
     if (!(buf->flag & PG_DIRTY)) {
         buf->flag |= PG_DIRTY | PG_VALID;
         lfQueue_put(&cacheAllocator.dirty, &buf->pageCache.dirty);
     }
-    rwlock_wUnlock(&buf->rwlock);
+    wlock_unlock(&buf->rwlock);
 }
 
 
@@ -186,10 +185,10 @@ static void page_rw(struct page *buf) {
         task_sleep(NULL, NULL);
     ir_unlock();
 
-    rwlock_wLock(&cacheAllocator.list.rwlock);
+    wlock_lock(&cacheAllocator.list.rwlock);
     list_del(&buf->head);
     list_add_next(&buf->head, &cacheAllocator.list.head);
-    rwlock_wUnlock(&cacheAllocator.list.rwlock);
+    wlock_unlock(&cacheAllocator.list.rwlock);
 }
 
 
@@ -214,9 +213,9 @@ INT disk_isr(UNUSED interrupt_frame_t *frame) {
 }
 
 static void page_flush(struct page *buf) {
-    rwlock_rLock(&buf->rwlock);
+    rlock_rLock(&buf->rwlock);
     assertk(buf->flag & PG_DIRTY);
-    rwlock_rUnlock(&buf->rwlock);
+    rlock_unlock(&buf->rwlock);
 
     sleeplock_lock(&buf->rwlock);
 
@@ -283,7 +282,7 @@ void page_recycle(u32_t size) {
     u64_t cur = cur_timestamp();
 
     // 向前遍历
-    rwlock_wLock(&cacheAllocator.list.rwlock);
+    wlock_lock(&cacheAllocator.list.rwlock);
     hdr = cacheAllocator.list.head.prev;
     while (hdr != &cacheAllocator.list.head && size > 0) {
         if (size <= 0) return;
@@ -295,16 +294,16 @@ void page_recycle(u32_t size) {
             size -= PAGE_SIZE;
         }
     }
-    rwlock_wUnlock(&cacheAllocator.list.rwlock);
+    wlock_unlock(&cacheAllocator.list.rwlock);
 }
 
 INLINE void sleeplock_lock(rwlock_t *lk) {
     thread_mutex_lock(&cacheAllocator.wait_rw);
-    rwlock_wLock(lk);
+    wlock_lock(lk);
 }
 
 INLINE void sleeplock_unlock(rwlock_t *lk) {
-    rwlock_wUnlock(lk);
+    wlock_unlock(lk);
     thread_mutex_unlock(&cacheAllocator.wait_rw);
 }
 

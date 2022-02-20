@@ -21,12 +21,14 @@ static void reset_priority();
 
 static struct scheduler {
     queue_t queue[TASK_MAX_PRIORITY + 1];
+    spinlock_t lock;
 } scheduler;
 
 void scheduler_init() {
     for (int i = 0; i <= TASK_MAX_PRIORITY; ++i) {
         queue_init(&scheduler.queue[i]);
     }
+    spinlock_init(&scheduler.lock);
     update_priority_time = G_TIME_SINCE_BOOT + RESET_PRIORITY_INTERVAL * 1000;
 }
 
@@ -77,13 +79,15 @@ void schedule() {
 
 static list_head_t *chose_next_task() {
     // 会从队列删除需要运行的任务
+    spinlock_lock(&scheduler.lock);
     for (int i = TASK_MAX_PRIORITY; i >= 0; i--) {
         queue_t *queue = &scheduler.queue[i];
         if (!queue_empty(queue)) {
+            spinlock_unlock(&scheduler.lock);
             return queue_get(queue);
         }
     }
-
+    spinlock_unlock(&scheduler.lock);
     return getCpu()->idle;
 }
 
@@ -93,6 +97,7 @@ static void reset_priority() {
     list_head_t *hdr = &scheduler.queue[TASK_MAX_PRIORITY];
     list_head_t *tail = hdr->prev;
     // 插入 top 时,高优先级在低优先级前
+    spinlock_lock(&scheduler.lock);
     for (int i = TASK_MAX_PRIORITY - 1; i >= 0; i--) {
         queue_t *queue = &scheduler.queue[i];
         if (!list_empty(queue->next)) {
@@ -105,22 +110,30 @@ static void reset_priority() {
             list_header_init(queue);
         }
     }
+    spinlock_unlock(&scheduler.lock);
+
     if (hdr1 != NULL) {
         assertk(tail1 != NULL);
         tail1->next = hdr;
         hdr->prev = tail1;
     }
 
+    spinlock_lock(&scheduler.lock);
     list_for_each_rev(hdr, &scheduler.queue[TASK_MAX_PRIORITY]) {
         if (tcb_entry(hdr)->priority == TASK_MAX_PRIORITY)
             break;
         tcb_entry(hdr)->priority = TASK_MAX_PRIORITY;
     }
+    spinlock_unlock(&scheduler.lock);
 }
 
 
 void sched_task_add(list_head_t *task) {
     assertk(task);
     tcb_t *new = tcb_entry(task);
+    u32_t priority  = ;
+
+    spinlock_lock(&scheduler.lock);
     queue_put(task, &scheduler.queue[new->priority]);
+    spinlock_unlock(&scheduler.lock);
 }

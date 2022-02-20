@@ -20,7 +20,7 @@ INLINE void rwlock_init(rwlock_t *lk) {
     spinlock_init(&lk->writelock);
 }
 
-INLINE void rwlock_rLock(rwlock_t *lk) {
+INLINE void rlock_lock(rwlock_t *lk) {
     spinlock_lock(&lk->lock);
     lk->readers++;
     if (lk->readers == 1) {
@@ -29,7 +29,7 @@ INLINE void rwlock_rLock(rwlock_t *lk) {
     spinlock_unlock(&lk->lock);
 }
 
-INLINE void rwlock_rUnlock(rwlock_t *lk) {
+INLINE void rlock_unlock(rwlock_t *lk) {
     spinlock_lock(&lk->lock);
     lk->readers--;
     if (lk->readers == 0) {
@@ -38,11 +38,11 @@ INLINE void rwlock_rUnlock(rwlock_t *lk) {
     spinlock_unlock(&lk->lock);
 }
 
-INLINE void rwlock_wLock(rwlock_t *lk) {
+INLINE void wlock_lock(rwlock_t *lk) {
     spinlock_lock(&lk->writelock);
 }
 
-INLINE void rwlock_wUnlock(rwlock_t *lk) {
+INLINE void wlock_unlock(rwlock_t *lk) {
     spinlock_unlock(&lk->writelock);
 }
 

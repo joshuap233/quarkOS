@@ -11,14 +11,6 @@
 
 #define MAX_ORDER 10
 
-struct buddyAllocator{
-    list_head_t root[MAX_ORDER + 1];
-    ptr_t addr;
-    ptr_t size;
-    ptr_t freeSize;
-    struct page *pages;
-    u32_t pageCnt;        // 管理器管理的页面数量
-};
 
 struct page *__alloc_page(u32_t size);
 

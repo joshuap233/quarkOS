@@ -3,7 +3,6 @@
 //
 
 #include <types.h>
-#include <drivers/pit.h>
 #include <isr.h>
 #include <lib/qlib.h>
 #include <lib/list.h>
@@ -12,20 +11,25 @@
 #include <task/timer.h>
 #include <drivers/lapic.h>
 
-
 #define timer_entry(ptr) list_entry(ptr, timer_t, head)
 #define P_HEAD timer_pool.header
+
+#define TIMER_COUNT 20
+typedef struct timer {
+    list_head_t head;         //timer 列表
+    list_head_t *thread;      //睡眠线程
+    volatile uint64_t time;   //睡眠到 time 唤醒线程
+} timer_t;
 
 static timer_t _timer[TIMER_COUNT];
 
 INT clock_isr(interrupt_frame_t *frame);
 
-
-//用于管理计时器
+//用于管理计时器, 多 CPU 只会有一个时钟中断处理函数运行, 结构无需加锁
 static struct timer_pool {
     timer_t *timer[TIMER_COUNT];
     list_head_t header; //头结点,始终为空
-    size_t top; //指向栈顶空元素
+    size_t top;         //指向栈顶空元素
     size_t size;
 } timer_pool;
 
@@ -67,6 +71,7 @@ bool ms_sleep(mseconds_t msc) {
 
 
 // PIC 0 号中断,PIT 时钟中断
+// 中断被绑定到固定的 CPU 执行
 INT clock_isr(UNUSED interrupt_frame_t *frame) {
     G_TIME_SINCE_BOOT += 10;
 

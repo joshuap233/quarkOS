@@ -19,16 +19,13 @@ static void add_slab(list_head_t *slab, uint16_t chunkSize);
 
 static void __slab_free(void *addr, list_head_t *head);
 
-static void slab_cache_init(struct slabCache *cache);
-
 static void recycle(list_head_t *head);
-
 
 static struct allocator {
     list_head_t slab[LIST_SIZE]; // 部分分配的 slab
     list_head_t full_slab;       // 已经完全分配的 slab 列表
-
     list_head_t cache;
+    struct spinlock lock;
 } allocator;
 
 
@@ -38,32 +35,37 @@ void slab_init() {
     }
     list_header_init(&allocator.cache);
     list_header_init(&allocator.full_slab);
+    spinlock_init(&allocator.lock);
+
 #ifdef TEST
     test_slab_alloc();
 #endif //TEST
 }
 
-static void slab_cache_init(struct slabCache *cache) {
-    list_header_init(&cache->head);
-    list_header_init(&cache->cache_list);
-    list_header_init(&cache->full_list);
-    cache->size = 0;
-}
 
 // 可以指定固定大小的 slab 分配器
 void cache_alloc_create(struct slabCache *cache, size_t size) {
-    slab_cache_init(cache);
+    list_header_init(&cache->head);
+    list_header_init(&cache->cache_list);
+    list_header_init(&cache->full_list);
+    spinlock_init(&cache->lock);
+
     cache->size = size;
     list_add_next(&cache->head, &allocator.cache);
 }
 
 void *cache_alloc(struct slabCache *cache) {
-    return __slab_alloc(&cache->cache_list, &cache->full_list, cache->size);
+    spinlock_lock(&cache->lock);
+    void *ret= __slab_alloc(&cache->cache_list, &cache->full_list, cache->size);
+    spinlock_unlock(&cache->lock);
+    return ret;
 }
 
 
 void cache_free(struct slabCache *cache, void *addr) {
+    spinlock_lock(&cache->lock);
     __slab_free(addr, &cache->cache_list);
+    spinlock_unlock(&cache->lock);
 }
 
 // 内置的 slab 分配器(kmalloc)
@@ -75,7 +77,10 @@ void *slab_alloc(u16_t size) {
 
     size = fixSize(size);
     u16_t idx = SLAB_INDEX(size);
-    return __slab_alloc(&allocator.slab[idx], &allocator.full_slab, size);
+    spinlock_lock(&allocator.lock);
+    void *ret= __slab_alloc(&allocator.slab[idx], &allocator.full_slab, size);
+    spinlock_unlock(&allocator.lock);
+    return ret;
 }
 
 void slab_free(void *addr) {
@@ -84,7 +89,9 @@ void slab_free(void *addr) {
 
     slabInfo_t *info = &page->slab;
     uint16_t idx = SLAB_INDEX(info->size);
+    spinlock_lock(&allocator.lock);
     __slab_free(addr, &allocator.slab[idx]);
+    spinlock_unlock(&allocator.lock);
 }
 
 // slab 操作
@@ -119,6 +126,8 @@ static void *__slab_alloc(list_head_t *head, list_head_t *full, uint16_t size) {
         add_slab(head, size);
     }
     struct page *page = PAGE_ENTRY(head->next);
+
+    wlock_lock(&page->rwlock);
     slabInfo_t *slabInfo = &page->slab;
     assertk(!list_empty(head) && slabInfo->chunk);
 
@@ -129,6 +138,8 @@ static void *__slab_alloc(list_head_t *head, list_head_t *full, uint16_t size) {
         list_del(&page->head);
         list_add_next(&page->head, full);
     }
+    wlock_unlock(&page->rwlock);
+
     return chunk;
 }
 
@@ -169,6 +180,7 @@ u16_t slab_chunk_size(void *addr) {
 static void recycle(list_head_t *head) {
     list_head_t *hdr;
     struct page *page;
+    wlock_lock(&page->rwlock);
     list_for_each(hdr, head) {
         page = PAGE_ENTRY(hdr);
         slabInfo_t *info = &page->slab;
@@ -177,19 +189,25 @@ static void recycle(list_head_t *head) {
             __free_page(page);
             kvm_unmap(page);
         }
-    };
+    }
+    wlock_unlock(&page->rwlock);
 }
 
 // kvm_unmapPage 开启分页后才能使用,
 // 因此 slab_recycle 需要在分页开启后测试
 void slab_recycle() {
+    spinlock_lock(&allocator.lock);
     for (int i = 0; i < LIST_SIZE; ++i) {
         recycle(&allocator.slab[i]);
     }
+    spinlock_unlock(&allocator.lock);
 
     list_head_t *hdr;
     list_for_each(hdr, &allocator.cache) {
+        struct slabCache *cache = container_of(hdr,struct slabCache,head);
+        spinlock_lock(&cache->lock);
         recycle(hdr);
+        spinlock_unlock(&cache->lock);
     }
 }
 

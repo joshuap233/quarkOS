@@ -8,12 +8,6 @@
 #include <types.h>
 #include <lib/list.h>
 
-#define TIMER_COUNT 20
-typedef struct timer {
-    list_head_t head;         //timer 列表
-    list_head_t *thread;      //睡眠线程
-    volatile uint64_t time;   //睡眠到 time 唤醒线程
-} timer_t;
 
 
 bool ms_sleep(mseconds_t msc);
