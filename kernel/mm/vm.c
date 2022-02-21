@@ -101,10 +101,10 @@ void kvm_maps(ptr_t va, ptr_t pa, size_t size, u32_t flags) {
     }
 }
 
-// 返回实际映射的虚拟地址
 void kvm_map(struct page *page, u32_t flags) {
     ptr_t pa = page_addr(page);
-    ptr_t va = p2v(pa);
+    ptr_t va = pa +KERNEL_START;
+    assertk(pa<PHYS_TOP);
 
     page->data = (void *) va;
     ptr_t size = page->size;
@@ -123,6 +123,17 @@ struct page *va_get_page(ptr_t addr) {
 struct page *kvm_vm2page(ptr_t va) {
     pte_t *pte = getPageTableEntry(va);
     return get_page(PAGE_ADDR(*pte));
+}
+
+ptr_t v2p(ptr_t va) {
+    pte_t *pte = getPageTableEntry(va);
+    return PAGE_ADDR(*pte);
+}
+
+ptr_t p2v(ptr_t pa) {
+    struct page *page = get_page(pa);
+    assertk(page);
+    return (ptr_t) page->data;
 }
 
 // 释放临时映射

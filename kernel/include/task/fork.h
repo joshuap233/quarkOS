@@ -34,6 +34,6 @@ _Noreturn INLINE void idle() {
         halt();
     }
 }
-
+extern list_head_t *init_task;
 
 #endif //QUARKOS_TASK_FORK_H

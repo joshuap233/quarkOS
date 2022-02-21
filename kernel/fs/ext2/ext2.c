@@ -5,7 +5,6 @@
 // 使用页缓存磁盘原始数据, inoCache,dirCache 缓存 vfs
 
 /*
- * 备忘:
  * inode 号从 1 开始,块号从 0 开始
  * DEBUG:  e2fsck -f disk.img
  * TODO: 权限管理
@@ -80,7 +79,9 @@ static directory_t *ext2_find(directory_t *parent, const char *name) {
     // 查找则可以不用从页缓存找 inode,因此可以将 inode 回收
     dir = find_entry_disk(parent->inode, name);
     if (dir) {
+        wlock_lock(&dir->rwLock);
         list_add_prev(&dir->brother, &parent->child);
+        wlock_unlock(&dir->rwLock);
     };
     return dir;
 }
@@ -100,8 +101,9 @@ static u32_t ext2_read(inode_t *file, uint32_t offset, uint32_t size, char *buf)
     if (!bid) return 0;
 
     page = ext2_block_read(bid, file->sb);
-
+    rlock_lock(&page->rwlock);
     memcpy(buf, page->data + blkOffset, size);
+    rlock_unlock(&page->rwlock);
     return size;
 }
 
@@ -115,7 +117,11 @@ struct page *ext2_read_page(inode_t *file, size_t offset) {
 }
 
 static u32_t ext2_write(inode_t *file, uint32_t offset, uint32_t size, char *buf) {
-    if (!(file->type & EXT2_IFREG)) goto filetype_error;
+    if (!(file->type & EXT2_IFREG)){
+        error("filetype_error");
+        return 0; // 返回错误码
+
+    };
 
     u32_t blockSize = file->sb->blockSize;
     u32_t blkOffset = offset % blockSize;
@@ -135,15 +141,17 @@ static u32_t ext2_write(inode_t *file, uint32_t offset, uint32_t size, char *buf
         page = ext2_block_get(bid, file->sb);
     }
 
+    wlock_lock(&file->rwlock);
     file->size = offset + size;
+    wlock_unlock(&file->rwlock);
+
+    wlock_lock(&page->rwlock);
     memcpy(page->data + blkOffset, buf, size);
+    wlock_unlock(&page->rwlock);
+
     mark_page_dirty(page);
     mark_inode_dirty(file, I_DATA);
     return size;
-
-    filetype_error:
-    error("filetype_error");
-    return 0; // 返回错误码
 }
 
 static int32_t ext2_mkdir(inode_t *parent, const char *name) {
@@ -198,7 +206,10 @@ static int32_t ext2_rmdir(inode_t *inode) {
     remove_from_parent(parent, inode->dir);
     inode_delete(inode);
 
+    wlock_lock(&parent->rwlock);
     parent->linkCnt--;
+    wlock_unlock(&parent->rwlock);
+
     mark_inode_dirty(parent, I_DATA);
     return 0;
 }
@@ -206,9 +217,15 @@ static int32_t ext2_rmdir(inode_t *inode) {
 static int32_t ext2_link(inode_t *src, inode_t *parent, const char *name) {
     if (!(src->type & EXT2_IFREG))
         return -1;
+    wlock_lock(&src->rwlock);
     src->linkCnt++;
+    wlock_unlock(&src->rwlock);
+
     directory_t *dir = directory_alloc(name, src->dir->ino, parent->dir, src);
+
+    wlock_lock(&src->dir->rwLock);
     list_add_next(&dir->link, &src->dir->link);
+    wlock_unlock(&src->dir->rwLock);
 
     append_link_to_parent(parent, dir, src->type);
     mark_inode_dirty(src, I_DATA);

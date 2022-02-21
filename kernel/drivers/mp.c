@@ -107,8 +107,6 @@ void cpu_init(){
     struct cpu*cpu = getCpu();
     assertk(cpu->lock == NULL);
     assertk(cpu->apic_id>=0);
-    assertk(cpu->idle!=NULL);
-
 }
 
 struct cpu *getCpu() {

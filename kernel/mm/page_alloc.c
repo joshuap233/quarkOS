@@ -170,11 +170,12 @@ struct page *__alloc_page(u32_t size) {
     }
     assertk(page != NULL);
     allocator.size -= size;
+    list_del(&page->head);
     spinlock_unlock(&allocator.lock);
 
-    list_del(&page->head);
     page->size = size;
     page->ref_cnt = 1;
+    rwlock_init(&page->rwlock);
     return page;
 }
 

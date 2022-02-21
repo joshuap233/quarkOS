@@ -22,13 +22,15 @@ void kvm_unmap2(ptr_t addr);
 
 void kvm_map(struct page *page, uint32_t flags);
 
-INLINE ptr_t v2p(ptr_t va){
-    return va - KERNEL_START;
-}
-
-INLINE ptr_t p2v(ptr_t pa){
-    return pa + KERNEL_START;
-}
+//INLINE ptr_t v2p(ptr_t va){
+//    return va - KERNEL_START;
+//}
+//
+//INLINE ptr_t p2v(ptr_t pa){
+//    return pa + KERNEL_START;
+//}
+ptr_t v2p(ptr_t va);
+ptr_t p2v(ptr_t pa);
 
 void kvm_copy(pde_t *pgdir);
 

@@ -213,7 +213,7 @@ INT disk_isr(UNUSED interrupt_frame_t *frame) {
 }
 
 static void page_flush(struct page *buf) {
-    rlock_rLock(&buf->rwlock);
+    rlock_lock(&buf->rwlock);
     assertk(buf->flag & PG_DIRTY);
     rlock_unlock(&buf->rwlock);
 

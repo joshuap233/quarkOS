@@ -16,8 +16,10 @@ static void clear_inode_bitmap(inode_t *inode);
 static struct slabCache inoCache;
 
 LIST_HEAD(inode_lru);
+static struct spinlock lru_lock;
 
 void ext2_inode_init() {
+    spinlock_init(&lru_lock);
     cache_alloc_create(&inoCache, sizeof(ext2_inode_info_t));
 }
 
@@ -35,7 +37,9 @@ static ext2_inode_t *get_raw_inode(struct page **buf, super_block_t *_sb, u32_t 
 static ext2_inode_info_t *inode_get() {
     ext2_inode_info_t *info = cache_alloc(&inoCache);
     if (!info) return NULL;
+    spinlock_lock(&lru_lock);
     list_add_prev(&info->inode.lru, &inode_lru);
+    spinlock_unlock(&lru_lock);
     return info;
 }
 
@@ -221,8 +225,10 @@ void inode_delete(inode_t *inode) {
     u32_t groupNo;
     struct page *buf;
     u32_t time = cur_timestamp();
-    u32_t isDir = ext2_is_dir(inode);
     ext2_gd_t *desc;
+
+    wlock_lock(&inode->rwlock);
+    u32_t isDir = ext2_is_dir(inode);
 
     // 清空数据块
     free_blocks(inode);

@@ -180,17 +180,18 @@ u16_t slab_chunk_size(void *addr) {
 static void recycle(list_head_t *head) {
     list_head_t *hdr;
     struct page *page;
-    wlock_lock(&page->rwlock);
+
     list_for_each(hdr, head) {
         page = PAGE_ENTRY(hdr);
+        wlock_lock(&page->rwlock);
         slabInfo_t *info = &page->slab;
         if (info->n_allocated == 0) {
             list_del(&page->head);
             __free_page(page);
             kvm_unmap(page);
         }
+        wlock_unlock(&page->rwlock);
     }
-    wlock_unlock(&page->rwlock);
 }
 
 // kvm_unmapPage 开启分页后才能使用,

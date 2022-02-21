@@ -60,4 +60,6 @@ void vm_map_init(struct mm_struct *mm);
 
 void mm_struct_init(struct mm_struct *mm, struct mm_args *args);
 
+ptr_t up2v(ptr_t pa);
+
 #endif //QUARKOS_MM_VMALLOC_H

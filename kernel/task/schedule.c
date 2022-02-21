@@ -83,8 +83,9 @@ static list_head_t *chose_next_task() {
     for (int i = TASK_MAX_PRIORITY; i >= 0; i--) {
         queue_t *queue = &scheduler.queue[i];
         if (!queue_empty(queue)) {
+            list_head_t *ret = queue_get(queue);
             spinlock_unlock(&scheduler.lock);
-            return queue_get(queue);
+            return ret;
         }
     }
     spinlock_unlock(&scheduler.lock);
@@ -131,7 +132,6 @@ static void reset_priority() {
 void sched_task_add(list_head_t *task) {
     assertk(task);
     tcb_t *new = tcb_entry(task);
-    u32_t priority  = ;
 
     spinlock_lock(&scheduler.lock);
     queue_put(task, &scheduler.queue[new->priority]);

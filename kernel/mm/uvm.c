@@ -255,6 +255,12 @@ static void vm_area_copy(
     }
 }
 
+ptr_t up2v(ptr_t pa) {
+    struct page *page = get_page(pa);
+    assertk(page);
+    return (ptr_t) page->data;
+}
+
 // 复制用户空间栈
 static void vm_area_copy_stack(
         struct vm_area *src, pde_t *sPgdir, pde_t *dPgdir) {
@@ -265,7 +271,6 @@ static void vm_area_copy_stack(
     void *stack;
 
     // 复制栈顶部 4K 数据,其余区域设置为只读
-    // TODO: 不复制整个 4K 栈
     pde = vm_page_iter(kStart, sPgdir, false);
     new = vm_page_iter(kStart, dPgdir, true);
     assertk(*pde && !(*new));

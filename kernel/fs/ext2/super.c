@@ -69,7 +69,7 @@ ext2_sb_info_t *superBlock_init() {
 }
 
 
-u32_t get_free_inode_cnt(u32_t groupCnt, super_block_t *sb) {
+static u32_t get_free_inode_cnt(u32_t groupCnt, super_block_t *sb) {
     u64_t cnt = 0;
     ext2_gd_t *gd;
     for (u64_t i = 0; i < groupCnt; ++i) {
@@ -79,7 +79,7 @@ u32_t get_free_inode_cnt(u32_t groupCnt, super_block_t *sb) {
     return cnt;
 }
 
-u32_t get_free_block_cnt(u32_t groupCnt, super_block_t *sb) {
+static u32_t get_free_block_cnt(u32_t groupCnt, super_block_t *sb) {
     u64_t cnt = 0;
     ext2_gd_t *gd;
     for (u64_t i = 0; i < groupCnt; ++i) {
@@ -98,14 +98,16 @@ void ext2_write_super_block(super_block_t *_sb) {
     assertk(blk->magic == EXT2_SIGNATURE);
 
     u32_t time = cur_timestamp();
+    wlock_lock(&sbBuf->rwlock);
     blk->freeBlockCnt = freeBlockCnt;
     blk->freeInodeCnt = freeInodeCnt;
     blk->writtenTime = time;
+    wlock_unlock(&sbBuf->rwlock);
+
     mark_page_dirty(sbBuf);
 }
 
 void super_block_backup(ext2_sb_info_t *sb) {
-    // TODO: 关机时备份,定时备份
     //备份超级块与块描述符
     u32_t bno;
     ext2_sb_t *blk;

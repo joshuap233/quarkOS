@@ -12,7 +12,6 @@
 #include <task/schedule.h>
 #include <task/fork.h>
 #include <task/timer.h>
-#include <cpu.h>
 
 //用于管理空闲 tid
 static struct task_map{
@@ -21,12 +20,13 @@ static struct task_map{
 }taskMap;
 
 
-
 static spinlock_t list_lock;              // finish_list 与 block_list以及其他睡眠队列共用一把锁
 static LIST_HEAD(finish_list);            // 已执行完成等待销毁的线程
 
 static LIST_HEAD(block_list);             // 全局阻塞列表
 static list_head_t *cleaner_task = NULL;  // 清理线程,用于清理其他线程
+
+list_head_t *init_task;
 
 static void cleaner_task_init();
 
@@ -55,7 +55,9 @@ void task_init1(){
     CUR_TCB->open = NULL;
     task_set_name(CUR_TCB->pid, "idle");
     spinlock_init(&CUR_TCB->lock);
-    getCpu()->idle = &CUR_TCB->run_list;
+}
+static void *idle_worker() {
+    idle();
 }
 
 void task_init() {
@@ -63,8 +65,18 @@ void task_init() {
     spinlock_init(&list_lock);
 
     task_init1();
+    task_set_name(CUR_TCB->pid, "init");
     thread_timer_init();
     cleaner_task_init();
+    init_task = &CUR_TCB->run_list;
+
+    // 当前线程不作为 idle
+    kthread_t tid;
+    struct cpu *cpu = getCpu();
+    kthread_create(&tid, idle_worker, NULL);
+    cpu->idle = task_get_run_list(tid);
+    task_set_name(tid, "idle");
+    task_set_time_slice(tid, 0);
 }
 
 void user_task_init() {
@@ -248,7 +260,7 @@ void task_set_time_slice(pid_t pid, u16_t time_slice) {
     assertk(pid < TASK_NUM);
     spinlock_lock(&taskMap.lock);
     tcb = taskMap.map[pid];
-    spinlock_lock(&taskMap.lock);
+    spinlock_unlock(&taskMap.lock);
     assertk(tcb->pid == pid);
 
 #ifdef DEBUG
@@ -327,13 +339,15 @@ void task_wakeup(list_head_t *_task) {
 void task_exit() {
     assertk(&CUR_TCB->run_list != getCpu()->idle);
 
-    spinlock_lock(&list_lock);
-    list_add_next(&CUR_HEAD, &finish_list);
-    spinlock_unlock(&list_lock);
+    if (&CUR_HEAD != init_task) {
+        spinlock_lock(&list_lock);
+        list_add_next(&CUR_HEAD, &finish_list);
+        spinlock_unlock(&list_lock);
+        tcb_t *ct = tcb_entry(cleaner_task);
+        if (ct->state != TASK_RUNNING)
+            task_wakeup(cleaner_task);
+    }
 
-    tcb_t *ct = tcb_entry(cleaner_task);
-    if (ct->state != TASK_RUNNING)
-        task_wakeup(cleaner_task);
     CUR_TCB->state = TASK_ZOMBIE;
     schedule();
     idle();

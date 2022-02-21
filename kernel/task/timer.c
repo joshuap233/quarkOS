@@ -52,7 +52,9 @@ void thread_timer_init() {
         timer_pool.timer[i] = &_timer[i];
     }
 
-    reg_isr1(IRQ0+IRQ_TIMER, clock_isr,getCpu()->apic_id);
+    for (int i = 0; i < cpuCfg.nCpu; ++i) {
+        reg_isr1(IRQ0+IRQ_TIMER, clock_isr,cpus[i].apic_id);
+    }
 }
 
 bool ms_sleep_until(uint64_t msc) {
@@ -71,22 +73,22 @@ bool ms_sleep(mseconds_t msc) {
 
 
 // PIC 0 号中断,PIT 时钟中断
-// 中断被绑定到固定的 CPU 执行
 INT clock_isr(UNUSED interrupt_frame_t *frame) {
-    G_TIME_SINCE_BOOT += 10;
-
-    list_head_t *hdr = (&P_HEAD)->next;
-    while (hdr != &P_HEAD) {
-        timer_t *tmp = timer_entry(hdr);
-        hdr = hdr->next;
-        if (tmp->time <= G_TIME_SINCE_BOOT) {
-            task_wakeup(tmp->thread);
-            list_del(&tmp->head);
-            free_timer(tmp);
+    if (getCpu()->apic_id == cpus[0].apic_id){
+        G_TIME_SINCE_BOOT += 10;
+        list_head_t *hdr = (&P_HEAD)->next;
+        while (hdr != &P_HEAD) {
+            timer_t *tmp = timer_entry(hdr);
+            hdr = hdr->next;
+            if (tmp->time <= G_TIME_SINCE_BOOT) {
+                task_wakeup(tmp->thread);
+                list_del(&tmp->head);
+                free_timer(tmp);
+            }
         }
     }
-    lapicEoi();
 
+    lapicEoi();
     tcb_t *task = CUR_TCB;
     if (task->timer_slice == 0) {
         schedule();

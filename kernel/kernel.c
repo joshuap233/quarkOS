@@ -88,8 +88,7 @@ void kernel_main() {
     // 初始化用户任务后,当前的栈将被第一个用户任务用作内核栈,
     // 栈内容将被中断数据覆盖,user_task_init 后的函数可用
     user_task_init();
-    task_set_time_slice(CUR_TCB->pid,0);
-    idle();
+    task_sleep(NULL,NULL);
 }
 
 INLINE void switch_stack(){
@@ -112,6 +111,7 @@ void ap_main() {
     task_init1();
     getCpu()->start = true;
     task_set_time_slice(CUR_TCB->pid,0);
+    getCpu()->idle = &CUR_TCB->run_list;
     enable_interrupt();
     idle();
 }
