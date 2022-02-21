@@ -23,13 +23,45 @@ void hello() {
     printf("\n");
 }
 
+void parse_line(){
+
+}
+#define COMPARE(cmd) memcmp(buf,cmd,sizeof(cmd)-1)
+
+_Noreturn void shell() {
+    printf("> ");
+    u16_t i = 0;
+    while (1) {
+        i++;
+        gets(buf, 1);
+        if (buf[i] == ' '){
+            if (COMPARE("clear")){
+
+            } else if (COMPARE("ls")){
+
+            } else if (COMPARE("cat")){
+
+            }else if(COMPARE("echo")){
+
+            }else if (COMPARE("ln")){
+
+            } else if(COMPARE("rm")){
+
+            }else if (COMPARE("wc")){
+
+            }else if (COMPARE("kill")){
+
+            }else if(COMPARE("mkdir")){
+
+            }
+        }
+    }
+}
 
 int main() {
     cls();
     hello();
-    while (1) {
-        gets(buf, 10);
-    }
+    shell();
     return 0;
 }
 

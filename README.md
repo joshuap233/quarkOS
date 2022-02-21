@@ -25,7 +25,12 @@ warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 由于没有实现安装器，第一次运行时会将生成的 disk.img 挂载到 /tmp/disk，
 并将用户空间代码复制到 disk.img 的 /bin 目录， 因此需要 root 权限 (见 generate-disk.sh)。
 
+如果你不想使用 root 权限调用脚本, 可以安装 udevil, 然后修改 generate-disk.sh
 
+```shell
+udevil mount -t ext2 disk.img /media/username/disk
+# 将会挂载到 /media/username/disk 目录下
+```
 
 
 ## 调试

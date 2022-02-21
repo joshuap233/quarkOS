@@ -20,5 +20,8 @@ int cls();
 
 void printf(char *__restrict str, ...);
 
+bool memcmp(const void *s1, const void *s2, size_t len);
+
+bool strcmp(const char *s1, const char *s2);
 
 #endif //QUARKOS_USERSPACE_LIB_H

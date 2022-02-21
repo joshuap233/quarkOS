@@ -6,7 +6,12 @@
 #include <stdarg.h> // 可变参数
 #include "lib.h"
 
-#define assert(condition)
+#define assert(condition) do{\
+    if (!(condition)) {     \
+        printf("\nassert error: %s: %s: %u\n",__FILE__,__FUNCTION__,__LINE__); \
+        exit(1);                        \
+    }\
+}while(0)
 
 #define U64LEN 20           // uint64 十进制数长度
 
@@ -143,4 +148,21 @@ __attribute__ ((format (printf, 1, 2))) void printf(char *__restrict str, ...) {
         }
     }
     va_end(ap);
+}
+
+bool memcmp(const void *s1, const void *s2, size_t len) {
+    assert(s1 && s2);
+
+    const char *_s1 = s1, *_s2 = s2;
+    for (size_t i = 0; i < len; ++i) {
+        if (_s1[i] != _s2[i])
+            return false;
+    }
+    return true;
+}
+
+bool strcmp(const char *s1, const char *s2) {
+    assert(s1 && s2);
+    size_t len = strlen(s1);
+    return memcmp(s1, s2, len + 1);
 }
