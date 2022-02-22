@@ -55,56 +55,57 @@ void load_elf_exec(const char *path) {
 
     page = vfs_ops.read_page(file, 0);
     hdr = page->data;
-    if (elf_check_header(hdr)) {
-        // 暂时只处理可执行文件
-        assertk(hdr->e_type == ET_EXEC);
-        assertk(hdr->e_shstrndx != SHN_UNDEF);
-        // 取消用户空间虚拟内存映射
-        vm_struct_unmaps(mm);
-        bzero(pgdir, PAGE_SIZE / 4 * 3);
-        bzero(mm, sizeof(mm_struct_t));
-        mm->pgdir = pgdir;
+    if (!elf_check_header(hdr)) {
+        assertk(false);
+    }
 
-        // 程序头表
-        page1 = vfs_ops.read_page(file, hdr->e_phoff);
-        pgh = page1->data + hdr->e_phoff % PAGE_SIZE;
+    // 暂时只处理可执行文件
+    assertk(hdr->e_type == ET_EXEC);
+    assertk(hdr->e_shstrndx != SHN_UNDEF);
 
-        for (int i = 0; i < hdr->e_phnum; ++i) {
-            if (pgh->p_type != PT_NULL) {
-                assertk(pgh->p_type == PT_LOAD);
+    // 取消用户空间虚拟内存映射
+    vm_struct_unmaps(mm);
+    bzero(pgdir, PAGE_SIZE / 4 * 3);
+    bzero(mm, sizeof(mm_struct_t));
+    mm->pgdir = pgdir;
 
-                ptr_t va = pgh->p_vaddr;
-                size_t size = PAGE_FLOOR(pgh->p_memsz);
-                ptr_t pa = alloc_page(size);
-                flag = get_flags(pgh) | VM_PRES;
-                vm_maps(va, pa, flag, size);
+    // 程序头表
+    page1 = vfs_ops.read_page(file, hdr->e_phoff);
+    pgh = page1->data + hdr->e_phoff % PAGE_SIZE;
+    //program head 中的段会合并, text 与 rodata 会合并
+    for (int i = 0; i < hdr->e_phnum; ++i) {
+        if (pgh->p_type != PT_NULL) {
+            assertk(pgh->p_type == PT_LOAD);
 
-                if (pgh->p_filesz != pgh->p_memsz) {
-                    assertk(mm->bss.size == 0);
-                    assertk(pgh->p_filesz == 0);
+            ptr_t va = pgh->p_vaddr;
+            size_t size = PAGE_FLOOR(pgh->p_memsz);
+            ptr_t pa = alloc_page(size);
+            flag = get_flags(pgh) | VM_PRES;
+            vm_maps(va, pa, flag, size);
 
-                    area = &mm->bss;
-                    bzero((void *) va, size);
+            if (pgh->p_filesz == 0) {
+                area = &mm->bss;
+                bzero((void *) va, size);
+            } else {
+                if (pgh->p_flags & PF_X) {
+                    area = &mm->text;
+                } else if (pgh->p_flags & PF_W) {
+                    area = &mm->data;
                 } else {
-                    if (pgh->p_flags & PF_X) {
-                        area = &mm->text;
-                    } else if (pgh->p_flags & PF_W) {
-                        area = &mm->data;
-                    } else {
-                        area = &mm->rodata;
-                    }
-                    assertk(area->size == 0);
-                    vfs_ops.lseek(file, pgh->p_offset, SEEK_SET);
-                    vfs_ops.read(file, (void *) va, pgh->p_memsz);
+                    area = &mm->rodata;
                 }
-
-                area->flag = flag;
-                area->va = va;
-                area->size = size;
-                mm->size += area->size;
+                assertk(area->size == 0);
+                vfs_ops.lseek(file, pgh->p_offset, SEEK_SET);
+                vfs_ops.read(file, (void *) va, pgh->p_filesz);
+                bzero((void*)pgh->p_vaddr+pgh->p_filesz,pgh->p_memsz-pgh->p_filesz);
             }
-            pgh++;
+
+            area->flag = flag;
+            area->va = va;
+            area->size = size;
+            mm->size += area->size;
         }
+        pgh++;
     }
 
     vm_brk_init(mm);

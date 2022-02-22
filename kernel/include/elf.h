@@ -153,7 +153,7 @@ typedef struct elf32_phdr{
     Elf32_Off p_offset;   // 节的第一个字节到文件头的偏移
     Elf32_Addr p_vaddr;
     Elf32_Addr p_paddr;
-    Elf32_Word p_filesz;  // 文件中段的大小
+    Elf32_Word p_filesz;  // 该段在文件中占用的大小
     Elf32_Word p_memsz;   // 内存中段大小, bss 段中,p_filesz 的值与 p_memsz 不同
     Elf32_Word p_flags;
     Elf32_Word p_align;

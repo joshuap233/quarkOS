@@ -62,4 +62,6 @@ void mm_struct_init(struct mm_struct *mm, struct mm_args *args);
 
 ptr_t up2v(ptr_t pa);
 
+u32_t sbrk(u32_t size);
+
 #endif //QUARKOS_MM_VMALLOC_H

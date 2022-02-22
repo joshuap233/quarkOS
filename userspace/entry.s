@@ -3,6 +3,7 @@
 
     .global _start
     .type _start, @function
+    .text
 _start:
     call main
     push %eax

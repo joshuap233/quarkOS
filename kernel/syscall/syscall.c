@@ -116,6 +116,11 @@ int sys_getcwd(u32_t *args) {
     return 0;
 }
 
+int sys_sbrk(u32_t *args){
+    u32_t size = args[0];
+    return sbrk(size);
+}
+
 static int (*syscall[])(u32_t *args) = {
         [SYS_EXEC] = sys_exec,
         [SYS_GETCHAR] = sys_getchar,
@@ -132,7 +137,8 @@ static int (*syscall[])(u32_t *args) = {
         [SYS_SLEEP] = sys_sleep,
         [SYS_EXIT] = sys_exit,
         [SYS_CLS] = sys_cls,
-        [SYS_GETCWD] = sys_getcwd
+        [SYS_GETCWD] = sys_getcwd,
+        [SYS_SBRK] = sys_sbrk
 };
 
 
@@ -141,7 +147,7 @@ int syscall_isr(struct sys_reg reg) {
     CUR_TCB->sysContext = (void *) reg.esp;
     u32_t no = reg.eax;
     u32_t args[6];
-    if (no <= SYS_GETCWD) {
+    if (no <= SYS_SBRK) {
         args[0] = reg.ebx;
         args[1] = reg.ecx;
         args[2] = reg.edx;

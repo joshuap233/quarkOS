@@ -2,7 +2,6 @@
 // Created by pjs on 2021/5/30.
 //
 // 管理用户空间虚拟内存
-// TODO: 管理 brk
 #include <mm/uvm.h>
 #include <mm/vm.h>
 #include <mm/kmalloc.h>
@@ -24,11 +23,15 @@
  *
  *  brk      ↑
  *  --------
+ *  PAGE_SIZE
+ *  --------
  *  data/bss
  *  --------
  *  rodata
  *  --------
  *  text
+ *  --------
+ *  PAGE_SIZE
  *  -------- 0
  */
 
@@ -83,8 +86,12 @@ void mm_struct_init(struct mm_struct *mm, struct mm_args *args) {
 }
 
 void vm_brk_init(struct mm_struct *mm) {
-    assertk(mm->bss.va + mm->bss.size < KERNEL_START - 2 * PAGE_SIZE);
-    mm->brk.va = mm->bss.va + PAGE_SIZE;
+    u32_t brk = MAX(mm->bss.va,mm->text.va);
+    brk = MAX(brk,mm->data.va);
+    brk = MAX(brk,mm->rodata.va);
+    brk = PAGE_CEIL(brk) + PAGE_SIZE;
+    assertk(brk < KERNEL_START - 2 * PAGE_SIZE);
+    mm->brk.va = brk;
     mm->brk.size = 0;
     mm->brk.flag = VM_PRES | VM_URW;
 }
@@ -255,12 +262,6 @@ static void vm_area_copy(
     }
 }
 
-ptr_t up2v(ptr_t pa) {
-    struct page *page = get_page(pa);
-    assertk(page);
-    return (ptr_t) page->data;
-}
-
 // 复制用户空间栈
 static void vm_area_copy_stack(
         struct vm_area *src, pde_t *sPgdir, pde_t *dPgdir) {
@@ -308,3 +309,15 @@ struct mm_struct *vm_struct_copy(struct mm_struct *src) {
     return new;
 }
 
+u32_t sbrk(u32_t size){
+    struct mm_struct *cur = CUR_TCB->mm;
+    assertk(cur);
+    size = PAGE_CEIL(size);
+    struct page *page = __alloc_page(size);
+    vm_maps(cur->brk.va,page_addr(page),
+            VM_PRES|VM_URW,size);
+    page->data = (void*)cur->brk.va;
+    cur->brk.va += size;
+    cur->brk.size += size;
+    return cur->brk.va - size;
+}

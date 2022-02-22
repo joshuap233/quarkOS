@@ -16,6 +16,7 @@ void stack_trace() {
     asm volatile("movl %%ebp,%0":"=r"(stk));
     while (stk->ebp) {
         char *name = cur_func_name((ptr_t) stk->eip);
+        if (!name) break;
         printfk("ip: [%x], func: [%s]\n", stk->eip, name == NULL ? "NULL" : name);
         stk = stk->ebp;
     }

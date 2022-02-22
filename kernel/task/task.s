@@ -4,7 +4,7 @@
     .type   goto_usermode, @function
     .text
 goto_usermode:
-    # cli
+    cli
 
     movl 4(%esp),%ecx
     xor  %ebp, %ebp
@@ -18,9 +18,12 @@ goto_usermode:
     # 构建中断返回栈
     pushl  $0x23      # ss
     pushl  %ecx       # esp
+
+    sti
     pushfl            # eflags
     pushl  $0x1b      # cs
     pushl  $user_init # eip
+
     iret
 
 

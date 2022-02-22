@@ -6,12 +6,6 @@
 #include <stdarg.h> // 可变参数
 #include "lib.h"
 
-#define assert(condition) do{\
-    if (!(condition)) {     \
-        printf("\nassert error: %s: %s: %u\n",__FILE__,__FUNCTION__,__LINE__); \
-        exit(1);                        \
-    }\
-}while(0)
 
 #define U64LEN 20           // uint64 十进制数长度
 

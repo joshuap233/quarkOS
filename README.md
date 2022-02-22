@@ -47,18 +47,18 @@ echo "add-auto-load-safe-path xxx/.gdbinit"  >> ~/.gdbinit
 2. `./debug.sh`
 3. 启动 gdb，连接 1234 端口。
 4. 添加用户空间代码时，需要将生成的文件添加到 .gdbinit 用于调试。
-5. 
+
 
 ## 设计
 
 ![1.png](doc/image/1.png)
 
-- 内存管理模块： 底层实现  buddy/slab 分配器，基于 slab 实现了 slabcache。用户空间实现 vmalloc 虚拟内存分配器，内核空间实现 kvm 虚拟内存分配器
+- 内存管理模块： 底层实现  buddy/slab 分配器，基于 slab 实现了 slabcache。用户空间实现 uvm 虚拟内存分配器，内核空间实现 vm 虚拟内存分配器
 - 进程调度模块： 调度器基于多级反馈队列 调度实现。实现了轻量型进程与内核线程，仿照 Linux 实现了 kernel_clone,  封装 kernel_clone 为 kthread_create 来创建内核线程， 封装 kernel_clone 为 fork 创建用户进程，利用写时复制技术优化进程创建。
 - 文件模块： 底层实现了页缓存，用于缓存原始数据块与文件数据块，上层实现 ext2 文件系统。顶层使用 vfs 封装，统一接口，并且实现 vfs 层缓存， 实现了 LRU 缓存算法与定时缓存回写(页缓存)。
 - 系统调用： 利用传统中断调用与返回实现系统调用，而非 syscall 指令
-- 锁机制： 利用 xchg 指令实现了自旋锁，睡眠锁（互斥锁）
-- 用户空间： 
+- 锁机制： 利用 xchg 指令实现了自旋锁，睡眠锁，读写锁
+- 用户空间： 一个简单的 shell
 - 硬件驱动：参考硬件手册实现了 cmos，ide，dma，pci，pic，acpi，lapic 等驱动
 
 

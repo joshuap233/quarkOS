@@ -21,8 +21,8 @@
 #define SYS_WRITE    11
 #define SYS_SLEEP    12
 #define SYS_EXIT     13
-
 #define SYS_CLS      14
 #define SYS_GETCWD   15
+#define SYS_SBRK     16
 
 #endif //QUARKOS_SYSCALL_H
