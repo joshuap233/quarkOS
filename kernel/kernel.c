@@ -94,7 +94,7 @@ void kernel_main() {
 INLINE void switch_stack(){
     register u32_t esp asm("esp");
     void *stack = kmalloc(STACK_SIZE);
-    memcpy(stack, (void*)PAGE_ADDR((ptr_t)esp),STACK_SIZE);
+    memcpy(stack, (void*)PAGE_CEIL((ptr_t)esp),STACK_SIZE);
     // 切换栈
     asm volatile ("mov %0, %%esp": :"r" (stack+((ptr_t)esp & PAGE_MASK)));
 }

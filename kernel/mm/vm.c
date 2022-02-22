@@ -29,7 +29,7 @@ void load_cr3(){
 void kvm_init() {
     // block 分配器预留物理内存
     pmm_init_mm();
-    g_mem_start = PAGE_ALIGN(block_start());
+    g_mem_start = PAGE_FLOOR(block_start());
 
     ptr_t startKernel = (ptr_t) _startKernel;
     ptr_t dataStart = (ptr_t) _dataStart;
@@ -122,12 +122,12 @@ struct page *va_get_page(ptr_t addr) {
 
 struct page *kvm_vm2page(ptr_t va) {
     pte_t *pte = getPageTableEntry(va);
-    return get_page(PAGE_ADDR(*pte));
+    return get_page(PAGE_CEIL(*pte));
 }
 
 ptr_t v2p(ptr_t va) {
     pte_t *pte = getPageTableEntry(va);
-    return PAGE_ADDR(*pte);
+    return PAGE_CEIL(*pte);
 }
 
 ptr_t p2v(ptr_t pa) {

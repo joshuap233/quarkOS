@@ -98,7 +98,7 @@ static void sort_block_info() {
 }
 
 INLINE ptr_t block_align_size(ptr_t addr, ptr_t size) {
-    return PAGE_ADDR(size - (PAGE_ALIGN(addr) - addr));
+    return PAGE_CEIL(size - (PAGE_FLOOR(addr) - addr));
 }
 
 

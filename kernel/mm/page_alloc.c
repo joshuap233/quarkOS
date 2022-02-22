@@ -30,8 +30,8 @@ struct page *page_setup(struct page *pages, ptr_t addr, ptr_t size) {
     u32_t reSize = allocator.pageCnt - (pages - allocator.pages);
     assertk(reSize >= (size >> 12));
 
-    size = PAGE_ADDR(size - (PAGE_ALIGN(addr) - addr));
-    addr = PAGE_ALIGN(addr);
+    size = PAGE_CEIL(size - (PAGE_FLOOR(addr) - addr));
+    addr = PAGE_FLOOR(addr);
 
     struct page *page = pages;
     u32_t cnt;
@@ -72,7 +72,7 @@ void pmm_init() {
     struct page *page;
 
     allocator.size = 0;
-    allocator.addr = PAGE_ALIGN(block_start());
+    allocator.addr = PAGE_FLOOR(block_start());
 
     // 初始化页面
     page = allocator.pages;

@@ -71,7 +71,7 @@ void acpi_init() {
     struct rsdpDescriptor *rsdp = get_rsdp();
     assertk(rsdp);
 
-    kvm_maps(PAGE_ADDR(rsdp->rsdtAddress+KERNEL_START),
+    kvm_maps(PAGE_CEIL(rsdp->rsdtAddress+KERNEL_START),
             rsdp->rsdtAddress,
             PAGE_SIZE,VM_KR|VM_PRES);
 
@@ -89,6 +89,6 @@ void acpi_init() {
         entry++;
     }
 
-//    kvm_unmap3((void*)PAGE_ADDR(rsdp->rsdtAddress+KERNEL_START),PAGE_SIZE);
+//    kvm_unmap3((void*)PAGE_CEIL(rsdp->rsdtAddress+KERNEL_START),PAGE_SIZE);
 }
 

@@ -74,7 +74,7 @@ void load_elf_exec(const char *path) {
                 assertk(pgh->p_type == PT_LOAD);
 
                 ptr_t va = pgh->p_vaddr;
-                size_t size = PAGE_ALIGN(pgh->p_memsz);
+                size_t size = PAGE_FLOOR(pgh->p_memsz);
                 ptr_t pa = alloc_page(size);
                 flag = get_flags(pgh) | VM_PRES;
                 vm_maps(va, pa, flag, size);

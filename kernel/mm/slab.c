@@ -84,7 +84,7 @@ void *slab_alloc(u16_t size) {
 }
 
 void slab_free(void *addr) {
-    struct page *page = va_get_page(PAGE_ADDR((ptr_t) addr));
+    struct page *page = va_get_page(PAGE_CEIL((ptr_t) addr));
     assertk(page && is_slab(page));
 
     slabInfo_t *info = &page->slab;
@@ -96,7 +96,7 @@ void slab_free(void *addr) {
 
 // slab 操作
 static void __slab_free(void *addr, list_head_t *head) {
-    ptr_t block = PAGE_ADDR((ptr_t) addr);
+    ptr_t block = PAGE_CEIL((ptr_t) addr);
     struct page *page = va_get_page(block);
 
     assertk(page && is_slab(page));
@@ -169,7 +169,7 @@ static void add_slab(list_head_t *slab, uint16_t chunkSize) {
 
 
 u16_t slab_chunk_size(void *addr) {
-    struct page *page = va_get_page(PAGE_ADDR((ptr_t) addr));
+    struct page *page = va_get_page(PAGE_CEIL((ptr_t) addr));
     assertk(page && is_slab(page));
     slabInfo_t *info = &page->slab;
     assertk(info->size <= SLAB_MAX);

@@ -355,7 +355,7 @@ void task_exit() {
 
 int task_cow(ptr_t addr) {
     // 复制错误页面
-    addr = PAGE_ADDR(addr);
+    addr = PAGE_CEIL(addr);
     struct task_struct *task = CUR_TCB;
     if (!task->mm) return -1;
     return vm_remap_page(addr, task->mm->pgdir);

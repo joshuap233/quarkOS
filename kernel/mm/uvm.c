@@ -45,10 +45,10 @@ void mm_struct_init(struct mm_struct *mm, struct mm_args *args) {
     assertk(args->size1 > 0);
 
     // 初始化六个区域
-    size_t size1 = PAGE_ALIGN(args->size1);
-    size_t size2 = PAGE_ALIGN(args->size2);
-    size_t size3 = PAGE_ALIGN(args->size3);
-    size_t size4 = PAGE_ALIGN(args->size4);
+    size_t size1 = PAGE_FLOOR(args->size1);
+    size_t size2 = PAGE_FLOOR(args->size2);
+    size_t size3 = PAGE_FLOOR(args->size3);
+    size_t size4 = PAGE_FLOOR(args->size4);
 
     mm->size = size1 + size2 + size3 + size4;
 
@@ -116,7 +116,7 @@ static pte_t *vm_page_iter(ptr_t va, pde_t *pgdir, bool new) {
         pte = kcalloc(PAGE_SIZE);
         *pde = v2p((ptr_t) pte) | VM_PRES | VM_URW;
     } else {
-        struct page *page = get_page(PAGE_ADDR(*pde));
+        struct page *page = get_page(PAGE_CEIL(*pde));
         assertk(page);
         pte = page->data;
     }
@@ -130,7 +130,7 @@ int vm_remap_page(ptr_t va, pte_t *pgdir) {
 
     if (!(*pte & VM_PRES)) return -1;
 
-    old = get_page(PAGE_ADDR(*pte));
+    old = get_page(PAGE_CEIL(*pte));
     assertk(old);
 
     // 分配新页,临时映射到内核用于复制页内容
@@ -168,7 +168,7 @@ void vm_maps(ptr_t va, ptr_t pa, u32_t flag, ptr_t _size) {
     pde_t *pgdir = CUR_TCB->mm->pgdir;
     assertk((pa & PAGE_MASK) == 0);
     int64_t size = _size;
-    va = PAGE_ADDR(va);
+    va = PAGE_CEIL(va);
     while (size > 0) {
         pte_t *pte = vm_page_iter(va, pgdir, true);
         if (!(*pte & VM_PRES)) {
@@ -189,7 +189,7 @@ void vm_unmap(struct vm_area *area, pte_t *pgdir) {
     while (size > 0) {
         pte_t *pte = vm_page_iter(addr, pgdir, false);
         assertk(*pte & VM_PRES);
-        errno = free_page(PAGE_ADDR(*pte));
+        errno = free_page(PAGE_CEIL(*pte));
         if (errno) return;
 
         *pte = VM_NPRES;
@@ -200,7 +200,7 @@ void vm_unmap(struct vm_area *area, pte_t *pgdir) {
 
 ptr_t vm_vm2pm(void *addr, pte_t *pgdir) {
     pte_t *pte = vm_page_iter((ptr_t) addr, pgdir, false);
-    return PAGE_ADDR(*pte);
+    return PAGE_CEIL(*pte);
 }
 
 void vm_struct_unmaps(struct mm_struct *mm) {
@@ -216,7 +216,7 @@ void vm_struct_unmaps(struct mm_struct *mm) {
     for (u32_t i = 0; i < N_PDE / 4 * 3; ++i) {
         pte_t pde = mm->pgdir[i];
         if (pde & VM_PRES) {
-            struct page *page = get_page(PAGE_ADDR(pde));
+            struct page *page = get_page(PAGE_CEIL(pde));
             assertk(page);
             kvm_unmap(page);
             __free_page(page);
@@ -247,7 +247,7 @@ static void vm_area_copy(
         }
         *new = *pte;
 
-        page = get_page(PAGE_ADDR(*pte));
+        page = get_page(PAGE_CEIL(*pte));
         if (page) page->ref_cnt++;
 
         addr += PAGE_SIZE;
@@ -278,7 +278,7 @@ static void vm_area_copy_stack(
     // 临时映射到内核用于复制
     stack = kmalloc(PAGE_SIZE);
     *new = v2p((ptr_t) stack) | VM_PRES | VM_URW;
-    memcpy(stack, (void *) p2v(PAGE_ADDR(*pde)), PAGE_SIZE);
+    memcpy(stack, (void *) p2v(PAGE_CEIL(*pde)), PAGE_SIZE);
 
     // 取消临时映射
     kvm_unmap2((ptr_t) stack);
