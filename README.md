@@ -51,7 +51,7 @@ echo "add-auto-load-safe-path xxx/.gdbinit"  >> ~/.gdbinit
 
 ## 设计
 
-![1.png](doc/image/1.png)
+![1.svg](doc/image/1.svg)
 
 - 内存管理模块： 底层实现  buddy/slab 分配器，基于 slab 实现了 slabcache。用户空间实现 uvm 虚拟内存分配器，内核空间实现 vm 虚拟内存分配器
 - 进程调度模块： 调度器基于多级反馈队列 调度实现。实现了轻量型进程与内核线程，仿照 Linux 实现了 kernel_clone,  封装 kernel_clone 为 kthread_create 来创建内核线程， 封装 kernel_clone 为 fork 创建用户进程，利用写时复制技术优化进程创建。
