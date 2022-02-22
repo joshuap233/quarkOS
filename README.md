@@ -1,6 +1,6 @@
 # quarkOS
 
-一个玩具操作系统
+一个基于x86的多核操作系统
 
 
 [参考资料](./doc)
@@ -31,6 +31,8 @@ warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 udevil mount -t ext2 disk.img /media/username/disk
 # 将会挂载到 /media/username/disk 目录下
 ```
+
+![2.png](doc/image/2.png)
 
 
 ## 调试
@@ -68,6 +70,9 @@ echo "add-auto-load-safe-path xxx/.gdbinit"  >> ~/.gdbinit
 - 启动会运行测试代码，打印测试信息，需要在 src/include/types.h 中去除 TEST 宏，重新构建。
 
 ## TODO:
+- 更完善的 shell
+
+- 重构文件系统
 
 - 统一的错误码
 
