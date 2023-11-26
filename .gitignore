@@ -3,7 +3,6 @@
 cmake-build-debug
 build/
 test/build/
-note/
 isodir/boot/quarkOS.bin
 disk.img
 test.c

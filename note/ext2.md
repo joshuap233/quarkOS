@@ -1,0 +1,1 @@
+https://www.nongnu.org/ext2-doc/ext2.html#i-size
